@@ -1,6 +1,5 @@
 import {loadModelData,prepareProcessedGeometryData,computeAllSplitsAsync,computeProcessedGeometryPlan,processedGeometryPlanConfig} from './vendor/geometry-engine.mjs';
 import {DEMO_SOURCE_SHA256,convertGeometryPlan,validateGeometryOptions} from './geometryProcessingModel.mjs';
-import {applyPlanningPathSettings} from './planningPathSettings.mjs';
 import {roundWeldLeg} from './planningRequirements.mjs';
 import {withPlanningEdgeThresholds} from './planningEdgeThreshold.mjs';
 export async function processDemoGeometry(options,onProgress=()=>{}){
@@ -31,7 +30,7 @@ export async function processDemoGeometry(options,onProgress=()=>{}){
   const splits=await computeAllSplitsAsync([splitInput,data.mesh,data.partsData,data.edgesData,data.contactPairs,config.offset,config.extendThreshold,config.offsetThreshold],{budgetMs:50,onProgress:p=>onProgress({stage:`打断焊道 ${p.completed}/${p.total}`,percent:10+Math.round(p.completed/Math.max(1,p.total)*65)})});
   if(!splits)throw Error('焊道打断未完成');onProgress({stage:'筛选短段并按规则合并',percent:80});
   const runtimeConfig=config.mergeGapCheck?config:{...config,mergeParams:{...config.mergeParams,最大合并距离:Infinity}};
-  const plan=computeProcessedGeometryPlan(data,splits,runtimeConfig),welds=applyPlanningPathSettings(convertGeometryPlan(data,plan,options),options);
+  const plan=computeProcessedGeometryPlan(data,splits,runtimeConfig),welds=convertGeometryPlan(data,plan,options);
   const merged=welds.filter(w=>w.sourceEvidence.unitKeys.length>1).length,rejected=new Set(welds.map(w=>w.sourceEvidence.rejectedMergeKey).filter(Boolean)).size;
   onProgress({stage:'处理完成',percent:100});
   return {welds,sourceSha256:DEMO_SOURCE_SHA256,config,summary:{...plan.summary,sourceRuleMergedGroupCount:plan.summary.mergedGroupCount,mergedGroupCount:merged,automaticMergeGroupCount:merged,rejectedMergeGroupCount:rejected,processedWeldCount:welds.length,cornerCount:welds.reduce((sum,w)=>sum+w.cornerAngles.length,0),cadCandidateCount:loaded.analysis.summary.candidateWeldCount,referenceOnlyCount:loaded.analysis.summary.candidateWeldCount-data.weldsData.welds.length,unknownJointCount:welds.filter(w=>w.joint==='待确认').length,unknownPositionCount:welds.filter(w=>w.position==='待确认').length,unconfirmedGrooveCount:welds.filter(w=>w.groove.type==='待确认'||w.groove.depth===null).length},extraction:{partCount:loaded.analysis.summary.partCount,method:loaded.analysis.method,sourceSha256:DEMO_SOURCE_SHA256,rawDataPath:'/models/111-rules/welds.json',analysisPath:'/models/111-rules/analysis.json'}};

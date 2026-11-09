@@ -371,3 +371,5 @@ Show one shared corner welding-parameter row per pass and corner type. For older
 Show creation prompts inside the selected 焊缝属性 panel, beside 焊接模板 and 工艺参数. A weld outside strategy scope only gets a template creation prompt. If strategy planning is supported and no recipe matches, both cards get creation prompts. Omit the expandable mismatch details under the cards and the old top-level match report.
 
 While editing weld attributes, show the matching template or process name in its card as soon as the draft matches. Apply saves the attributes and automatically applies the match using the existing template-first planning order. Cancel restores the previous attributes and match.
+
+Remove intermittent welding and automatic fixed-length splitting from planning settings and new planning. Ignore their legacy settings on extraction and their old intervals on replanning. Keep stored weld geometry and saved previews until replanning, plus gap/edge thresholds, manual splitting, and merge length limits.

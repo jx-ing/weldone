@@ -50,9 +50,11 @@ export function geometryOptionsForPlanning(defaults,settings={}){
  if(Number.isFinite(merge.passHoleSize)){options.mergePassHoleSize=merge.passHoleSize;if(merge.passHoleInclusive===false)options.mergePassHoleInclusive=false;options.mergeParams.最长通过距离=merge.passHoleSize;options.mergeParams.最小通过高度=merge.passHoleSize;}
  if(settings.wrapParameters){options.wrapParameters=structuredClone(settings.wrapParameters);options.wrapDistanceRatio=settings.wrapParameters.lDistanceRatio==='1/2'?.5:2/3;}
  if(settings.planningRevision===3)options.planningRevision=3;
- if(settings.splitParameters)options.splitParameters=structuredClone(settings.splitParameters);
+ if(settings.splitParameters){
+  const {enabled,length,...thresholds}=structuredClone(settings.splitParameters);
+  options.splitParameters=thresholds;
+ }
  if(Number.isFinite(settings.splitParameters?.gapThreshold)){options.offsetThreshold=settings.splitParameters.gapThreshold;options.offset=Math.max(options.offset,settings.splitParameters.gapThreshold);}
- if(settings.intermittentParameters)options.intermittentParameters={...structuredClone(settings.intermittentParameters),position:'PB'};
  if(settings.interferenceEndParameters)options.interferenceEndParameters=structuredClone(settings.interferenceEndParameters);
  if(settings.samplingAvoidance)options.samplingAvoidance=structuredClone(settings.samplingAvoidance);
  if(settings.trackingParameters)options.trackingParameters=structuredClone(settings.trackingParameters);if(settings.actionParameters)options.actionParameters=structuredClone(settings.actionParameters);if(settings.visionParameters)options.visionParameters=structuredClone(settings.visionParameters);
@@ -85,15 +87,8 @@ export function planningSettingsErrors(settings={}){
   if(!pose||typeof pose!=='object'||Array.isArray(pose)){errors.push(`${label}设置无效`);continue;}
   for(const [axis,axisLabel] of INTERFERENCE_POSE_AXES){const value=pose[axis];if(filled(value)&&(!Number.isFinite(value)||value < -360||value>360))errors.push(`${label}${axisLabel}应为-360–360°`);}
  }
- const split=settings.splitParameters||{},intermittent=settings.intermittentParameters||{};
+ const split=settings.splitParameters||{};
  if(filled(split.edgeThreshold)&&(!Number.isInteger(split.edgeThreshold)||split.edgeThreshold<=0))errors.push('边缘打断阈值须为大于0的整数');
  if(filled(split.gapThreshold)&&(!Number.isFinite(split.gapThreshold)||split.gapThreshold<0))errors.push('间隙打断阈值应为非负数');
- if(split.enabled&&(!Number.isFinite(split.length)||split.length<.1))errors.push('焊缝分段长度应至少为0.1 mm');
- if(intermittent.enabled){
-  if(filled(intermittent.position)&&intermittent.position!=='PB')errors.push('间断焊焊接位置仅支持平角焊');
-  if(!['chain','staggered'].includes(intermittent.layout))errors.push('请选择间断焊布置');
-  if(!['uniform','endWeld'].includes(intermittent.mode))errors.push('请选择间断焊模式');
-  for(const [key,label] of [['weldLength','焊接长度'],['gapLength','间断长度']])if(!Number.isFinite(intermittent[key])||intermittent[key]<(intermittent.distributionVersion>=2?0:.1))errors.push(`${label}应至少为0.1 mm`);
- }
  return errors;
 }

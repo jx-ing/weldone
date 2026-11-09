@@ -5,7 +5,6 @@ import {geometryRulesFromWeld,shortSegmentRange} from '../src/templateGeometryRu
 import {ensureProcessLayers,newProcessEntry,addProcessPass,updateProcessPass,validateProcessEntry} from '../src/processParameterModel.mjs';
 import {sharedCornerPoint,sharedCornerPointChanges} from '../src/processFeaturePoints.mjs';
 import {analyzeWeldMatch,planWorkspace,canPreviewWeld} from '../src/weldMatching.mjs';
-import {retainIntermittentWeld} from '../src/planningPathSettings.mjs';
 import {settingsDefaults} from '../src/planningSettingsModel.mjs';
 import {excludeVerifiedCollision,strategyGeometryRows} from '../src/strategyGeometry.mjs';
 import {planeSplitStations,multiSplitPreview,splitWeldPreview} from '../src/manualSplitModel.mjs';
@@ -53,10 +52,15 @@ test('启用设备匹配优先于其他库，单道优先，策略点按阶段�
  assert.equal(analyzeWeldMatch({...source(),gapJoinError:'路径连接无效'},[],[],config).creation,undefined);
 });
 
-test('间断焊保留单条焊缝，只有已验证的避障失败区间会被拆除',()=>{
- const w=retainIntermittentWeld(source(),{enabled:true,weldLength:20,gapLength:10,mode:'uniform'});
- assert.equal(w.id,'W001');
- assert.deepEqual(w.intermittentRanges,[[0,20],[30,50],[60,80]]);
+test('重新规划旧草稿使用整段焊缝，忽略旧间断区间',()=>{
+ for(const intermittentRanges of [[],[[0,20],[30,50],[60,80]]]){
+  const [result]=planWorkspace([{...source(),intermittentRanges}],[],[recipe()],config);
+  assert.equal(result.planned,true);
+  assert.deepEqual(result.strategyPlan.passes[0].points.map(point=>[point.kind,point.distance]),[['start',0],['weld',0],['end',100]]);
+ }
+});
+
+test('只有已验证的避障失败区间会被拆除',()=>{
  const settings=settingsDefaults({samplingAvoidance:{enabled:true,autoDeleteUnavoidable:true}});
  const failed={...source(),collisionResult:{verified:false,unavoidableRanges:[[40,60]]}};
  let n=1;

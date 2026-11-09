@@ -35,7 +35,6 @@ export function belongsToDevice(process, profile) {
 }
 
 export function strategyScopeIssue(weld, settings) {
-  if (Array.isArray(weld.intermittentRanges)&&!weld.intermittentRanges.length) return '间断焊设置下没有有效焊接区间';
   if (weld.templateRequired) return '合并段的工艺条件不同，仅支持焊接模板规划';
   const segments = weld.segments?.length ? weld.segments : [weld];
   if (!['角焊缝', '搭接焊缝'].includes(weldForm(weld)) ||

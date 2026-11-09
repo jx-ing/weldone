@@ -203,16 +203,6 @@ export function generateStrategyPlan(weld, process, rawSettings) {
         points.sort((a,b)=>a.distance-b.distance);
       }
     }
-    if (Array.isArray(weld.intermittentRanges) && weld.intermittentRanges.length) {
-      const ranges = weld.direction === '反向' ? weld.intermittentRanges.map(([a,b])=>[total-b,total-a]).reverse() : weld.intermittentRanges;
-      const full = points.splice(0);
-      for (const [from,to] of ranges) {
-        point(from,'start',startStandard,pass.start);
-        point(from,'weld',startStandard,pass.weld);
-        points.push(...full.filter(item=>item.distance>from+EPS&&item.distance<to-EPS));
-        point(to,'end',endStandard,pass.end);
-      }
-    }
     if(pass.crater?.enabled&&points.length){
       const at=points.at(-1).distance;
       const fill=Math.max(0,Math.min(total,at-(pass.crater.distance??0)));

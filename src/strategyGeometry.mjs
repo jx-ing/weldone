@@ -63,7 +63,7 @@ export function strategyGeometryRows(rows,rawSettings){
  const buckets=new Map();
  for(const row of expanded){
   const {weld,decision}=row;
-  if(!decision.ready||decision.route!=='automatic'||weld.closure==='closed'||weld.intermittentRanges||!weld.segments?.every(segment=>segment.pathPoints?.length>=2))continue;
+  if(!decision.ready||decision.route!=='automatic'||weld.closure==='closed'||!weld.segments?.every(segment=>segment.pathPoints?.length>=2))continue;
   for(const side of ['start','end']){
    const facts=weld.endpointFacts?.[side],end=boundary(weld,side);
    if(endpointStrategy(facts,settings,end.segment.position,side,weld.machineCount===2)!=='U')continue;
