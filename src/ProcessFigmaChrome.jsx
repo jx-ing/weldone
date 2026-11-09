@@ -1,9 +1,0 @@
-import React,{useEffect,useRef} from 'react';
-
-export function ProcessAsset({name,className=''}) { return <span className={'process-asset '+className}><img src={'/assets/process-library/'+name+'.svg'} alt=""/></span>; }
-
-export default function ProcessFigmaChrome({detail=false,onNavigate,onHelp,onMenu}) {
-  const header=useRef();useEffect(()=>{const root=header.current.closest('.app');const size=()=>{const scale=Math.max(.64,Math.min(1,window.innerWidth/1920));root.style.setProperty('--ps',scale+'px');root.style.setProperty('--process-zoom',scale);};size();window.addEventListener('resize',size);return()=>{window.removeEventListener('resize',size);root.style.removeProperty('--ps');root.style.removeProperty('--process-zoom');};},[]);
-  const menu=['工艺规划','焊接模板库','工艺参数库'].map(name=>[name,name]);
-  return <><header ref={header} className="process-titlebar"><div className="process-brand"><span className="process-logo"/><span>Robim</span></div><div className="process-window-tools"><button aria-label="帮助" onClick={onHelp}><ProcessAsset name="help"/></button><span className="process-avatar">张</span><span className="process-account"><ProcessAsset name="account-down"/></span><span className="process-window-icon"><ProcessAsset name="window-minimize"/></span><span className="process-window-icon"><ProcessAsset name="window-maximize"/></span><span className="process-window-icon"><ProcessAsset name="window-close"/></span></div></header><nav className={'process-navigation'+(detail?' detail-navigation':'')} aria-label="主导航"><button className="process-navigation-menu" aria-label="收起结构树" onClick={onMenu}><ProcessAsset name="nav-menu"/></button>{!detail&&<span className="process-navigation-caption">Navigation Or</span>}{menu.map(([label,target],i)=><button key={i} className={label==='工艺参数库'?'selected':''} title={target} onClick={()=>onNavigate?.(target)}>{label}</button>)}</nav></>;
-}
