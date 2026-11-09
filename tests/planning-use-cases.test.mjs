@@ -1,20 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {settingsDefaults,serializeSettings,visibleSettingsTabs,updateProjectPlanning,useCaseSettingsErrors,wrapChoice,resolveEndpointPose} from '../src/planningSettingsModel.mjs';
+import {settingsDefaults,serializeSettings,SETTINGS_TABS,updateProjectPlanning,useCaseSettingsErrors,wrapChoice,resolveEndpointPose} from '../src/planningSettingsModel.mjs';
 import {planningSettingsErrors,geometryOptionsForPlanning,samplingAvoidanceValues} from '../src/planningConfiguration.mjs';
 import {DEFAULT_GEOMETRY_OPTIONS,mergeFeatureWithinSize} from '../src/geometryProcessingModel.mjs';
 
-test('操作模式有三类设置，调试模式有七类；保存操作参数不会覆盖隐藏参数',()=>{
- assert.deepEqual(visibleSettingsTabs('operation').map(v=>v[1]),['包角设置','焊缝合并设置','焊缝打断设置']);
- assert.deepEqual(visibleSettingsTabs('debug').map(v=>v[1]),["全局焊接设置","包角设置","端点变姿态设置","视觉设置","采样避障设置","焊缝合并设置","焊缝打断设置"]);
+test('七类工艺规划设置统一可保存，旧项目配置兼容',()=>{
+ assert.deepEqual(SETTINGS_TABS.map(v=>v[1]),["全局焊接设置","包角设置","端点变姿态设置","视觉设置","采样避障设置","焊缝合并设置","焊缝打断设置"]);
  const baseline={intermittentParameters:{enabled:true},splitParameters:{enabled:true,length:100,gapThreshold:25},visionParameters:{twoFaceSpeed:123},samplingAvoidance:{enabled:false,step:7},custom:'保留'};
  const draft=settingsDefaults(baseline);draft.visionParameters.twoFaceSpeed=999;draft.wrapParameters.flatEnabled=false;
- const saved=serializeSettings(draft,baseline,'operation');
- for(const value of [saved,serializeSettings(draft,baseline,'debug')]){
-  assert.equal('intermittentParameters' in value,false);
-  assert.deepEqual(value.splitParameters,{gapThreshold:25,edgeThreshold:null,rulesVersion:2});
- }
- assert.deepEqual(saved.visionParameters,baseline.visionParameters);assert.deepEqual(saved.samplingAvoidance,baseline.samplingAvoidance);assert.equal(saved.custom,'保留');assert.equal(saved.wrapParameters.flatEnabled,false);assert.deepEqual(baseline.visionParameters,{twoFaceSpeed:123});
+ const saved=serializeSettings(draft);
+ assert.equal('intermittentParameters' in saved,false);
+ assert.deepEqual(saved.splitParameters,{gapThreshold:25,edgeThreshold:null,rulesVersion:2});
+ assert.equal(saved.visionParameters.twoFaceSpeed,999);
+ assert.equal(saved.samplingAvoidance.step,7);
+ assert.equal(saved.custom,'保留');
+ assert.equal(saved.wrapParameters.flatEnabled,false);
+ assert.deepEqual(baseline.visionParameters,{twoFaceSpeed:123});
 });
 test('用例默认值和空值回退，设备默认已配置，明确无配置时关闭跟踪',()=>{
  const d=serializeSettings(settingsDefaults());

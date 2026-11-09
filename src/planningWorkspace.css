@@ -59,4 +59,4 @@
 
 .planning-interference-pose{border:0;padding:0;margin:20px 0 28px;min-width:0}.planning-interference-pose legend{font-size:13px;margin-bottom:12px;color:#555}.planning-interference-pose>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.planning-interference-pose label{display:flex;flex-direction:column;gap:8px;font-size:12px;color:#888;min-width:0}.planning-interference-pose input{height:32px;padding:4px 8px;font-size:13px}
 
-.planning-sampling-fields{border:0;padding:0;margin:0;min-width:0}.planning-settings-nav{overflow:auto}.planning-tracking-settings input[role=switch]:disabled{opacity:.4;cursor:not-allowed}.permission-password{display:flex;flex-direction:column;gap:10px;padding:0 24px 20px;font-size:13px}.permission-password input{height:34px}
+.planning-sampling-fields{border:0;padding:0;margin:0;min-width:0}.planning-settings-nav{overflow:auto}.planning-tracking-settings input[role=switch]:disabled{opacity:.4;cursor:not-allowed}

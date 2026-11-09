@@ -4,7 +4,7 @@ import {templateMatchParameters} from './templateMatchingParameters.mjs';
 import {processPositionLabel} from './processLibraryView.mjs';
 import {ENDPOINT_TYPES,ENDPOINT_DIMENSIONS,geometryRuleErrors,shortSegmentRange,SHORT_SEGMENT_MM} from './templateGeometryRules.mjs';
 import GrooveFields from './GrooveFields';
-import './permissionManagement.css';
+import './templateMatchInformation.css';
 
 function Field({label,children}){return <label className="matching-field"><span>{label}</span>{children}</label>;}
 function NumberField({label,value,onChange,unit,min=0,max,step='any',optional=false}){return <span className="matching-number"><input type="number" aria-label={label} min={min} max={max} step={step} required={!optional} placeholder={optional?'不限':undefined} value={value??''} onChange={event=>onChange(event.target.value===''?optional?null:'':Number(event.target.value))}/>{unit&&<small>{unit}</small>}</span>;}

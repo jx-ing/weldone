@@ -1,12 +1,9 @@
-export const DEBUG_PASSWORD='000000';
-export const OPERATION_GROUPS=['wrapParameters','mergeParameters','splitParameters'];
-export const SETTINGS_TABS=[['action','全局焊接设置','actionParameters'],['wrap','包角设置','wrapParameters'],['interference','端点变姿态设置','interferenceEndParameters'],['vision','视觉设置','visionParameters'],['sampling','采样避障设置','samplingAvoidance'],['merge','焊缝合并设置','mergeParameters'],['split','焊缝打断设置','splitParameters']];
+export const SETTINGS_TABS=[['action','全局焊接设置'],['wrap','包角设置'],['interference','端点变姿态设置'],['vision','视觉设置'],['sampling','采样避障设置'],['merge','焊缝合并设置'],['split','焊缝打断设置']];
 export const POSE_AXES=[['advance','前进角'],['work','工作角'],['rotation','旋转角']];
 const empty=value=>value===undefined||value===null||value==='';
 export const asNumber=value=>empty(value)?null:Number(value);
 export const defaultNumber=(value,fallback)=>empty(value)?fallback:Number(value);
 const pose=value=>Object.fromEntries(POSE_AXES.map(([key])=>[key,value?.[key]??null]));
-export function visibleSettingsTabs(mode){return mode==='debug'?SETTINGS_TABS:SETTINGS_TABS.filter(([, ,key])=>OPERATION_GROUPS.includes(key));}
 export function settingsDefaults(raw={},capabilities={}){
  const {intermittentParameters,...settings}=structuredClone(raw);
  const {enabled,length,...split}=settings.splitParameters||{};
@@ -20,7 +17,7 @@ export function settingsDefaults(raw={},capabilities={}){
   trackingParameters:{...tracking,laserEnabled:capabilities.laserTracking===false?false:tracking.laserEnabled??true,arcEnabled:capabilities.arcTracking===false?false:tracking.arcEnabled??true,minLineLength:tracking.minLineLength??160,minArcDiameter:tracking.minArcDiameter??160,minEdgeWidth:tracking.minEdgeWidth??10},
   samplingAvoidance:{...sampling,enabled:sampling.enabled??true,step:sampling.step??null,autoDeleteUnavoidable:sampling.autoDeleteUnavoidable??false,...Object.fromEntries([['advance',-45,45],['work',-40,50],['rotation',-80,80]].map(([key,min,max])=>[key,{enabled:true,min,max,...sampling[key]}]))}};
 }
-export function serializeSettings(draft,baseline={},mode='debug',capabilities={}){
+export function serializeSettings(draft,capabilities={}){
  const next=settingsDefaults(draft,capabilities),n=asNumber;
  next.planningRevision=3;
  const action=next.actionParameters;
@@ -40,10 +37,7 @@ export function serializeSettings(draft,baseline={},mode='debug',capabilities={}
  for(const key of ['twoFaceSpeed','threeFaceSpeed'])next.visionParameters[key]=n(next.visionParameters[key]);
  for(const key of ['minLineLength','minArcDiameter','minEdgeWidth'])next.trackingParameters[key]=n(next.trackingParameters[key]);
  next.samplingAvoidance.step=n(next.samplingAvoidance.step);for(const [key] of POSE_AXES)for(const bound of ['min','max'])next.samplingAvoidance[key][bound]=n(next.samplingAvoidance[key][bound]);
- if(mode==='debug')return next;
- const saved=structuredClone(baseline);
- delete saved.intermittentParameters;
- return {...saved,planningRevision:3,...Object.fromEntries(OPERATION_GROUPS.map(key=>[key,next[key]]))};
+ return next;
 }
 export function updateProjectPlanning(data,values){
  const from=data.project||'本地项目',to=values.project??from,profiles=structuredClone(data.projectPlanning||{});

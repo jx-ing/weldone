@@ -10,7 +10,7 @@ test('边缘阈值允许空值或正整数，拒绝0、负数、小数和无穷�
  for(const value of [0,-1,1.5,Infinity,NaN,'12'])assert.ok(planningSettingsErrors({splitParameters:{edgeThreshold:value}}).some(error=>error.includes('边缘打断阈值')));
  for(const value of [null,undefined,'',1,35])assert.deepEqual(planningSettingsErrors({splitParameters:{edgeThreshold:value}}),[]);
  const draft=settingsDefaults();assert.equal(draft.splitParameters.edgeThreshold,null);draft.splitParameters.edgeThreshold='12';
- const saved=serializeSettings(draft,{},'operation');assert.equal(saved.splitParameters.edgeThreshold,12);
+ const saved=serializeSettings(draft);assert.equal(saved.splitParameters.edgeThreshold,12);
  const options=geometryOptionsForPlanning(DEFAULT_GEOMETRY_OPTIONS,saved);assert.equal(options.splitParameters.edgeThreshold,12);assert.equal(options.offsetThreshold,DEFAULT_GEOMETRY_OPTIONS.offsetThreshold);assert.equal(options.extendThreshold,DEFAULT_GEOMETRY_OPTIONS.extendThreshold);
  draft.splitParameters.edgeThreshold='';assert.equal(serializeSettings(draft).splitParameters.edgeThreshold,null);
 });
