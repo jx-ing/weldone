@@ -29,7 +29,7 @@ function MatchCard({label,value,onChoose,onCreate,needsCreation}){
 }
 
 export default function WeldAttributes(props){
- const {weld:w,templates,processLibrary,onPatch,onSave,deviceProfiles=[]}=props,id=useId(),panel=useRef();
+ const {weld:w,templates,processLibrary,decision,onPatch,onSave,onCancel,deviceProfiles=[]}=props,id=useId(),panel=useRef();
  const [tab,setTab]=useState('information'),[segmentIndex,setSegmentIndex]=useState(0);
  useEffect(()=>{props.onPlanningViewChange?.(tab==='welding');return()=>props.onPlanningViewChange?.(false);},[tab,props.onPlanningViewChange]);
  useEffect(()=>{setSegmentIndex(0);},[w.id]);
@@ -40,9 +40,13 @@ export default function WeldAttributes(props){
  const wrapValues=[['none','不包角'],['half','半包角'],['full','全包角']],scan=w.scanSettings||{};
  const precisionMethod=scan.precisionMethod??(scan.mode==='laser'?'laserSweep':'');
  const updateScan=values=>onPatch('scanSettings',{...scan,...values});
- const pending=w.enabled&&props.decision?.route==='blocked'?props.decision:null;
+ const pending=w.enabled&&decision?.route==='blocked'?decision:null;
  const needsProcess=pending?.creation==='template-or-process';
  const needsTemplate=needsProcess||pending?.creation==='template';
+ const appliedTemplate=!onCancel&&!needsTemplate&&(template?.name||w.template);
+ const appliedProcess=!onCancel&&!needsProcess&&(process?.name||w.processName||template?.baseProcess?.name);
+ const templateName=appliedTemplate||decision?.whole?.name;
+ const processName=appliedProcess||decision?.process?.name;
  const workFaces=workFacesForType(props.workpieceType),workFaceValid=workFaces.includes(w.workFace),workFacePending=!!w.workFace&&!workFaceValid;
  function tabKey(event){const at=tabs.findIndex(([key])=>key===tab),next=event.key==='ArrowRight'?(at+1)%tabs.length:event.key==='ArrowLeft'?(at+tabs.length-1)%tabs.length:event.key==='Home'?0:event.key==='End'?tabs.length-1:-1;if(next<0)return;event.preventDefault();setTab(tabs[next][0]);event.currentTarget.parentElement.querySelectorAll('[role=tab]')[next].focus();}
  return <section ref={panel} className="weld-attributes-panel" aria-label="焊缝属性">
@@ -50,9 +54,9 @@ export default function WeldAttributes(props){
   <div className="wa-summary">
    <div className="wa-group"><input aria-label="焊缝名称" required maxLength={80} value={w.name} title={w.name} onChange={event=>onPatch('name',event.target.value)}/><div className="wa-segments" role="group" aria-label="选择焊缝段">{w.segments.map((s,i)=><button type="button" key={i} title={segmentName(w,i)} aria-pressed={i===index} className={i===index?'active':''} onClick={()=>setSegmentIndex(i)}>{segmentName(w,i)}</button>)}</div></div>
    <div className="wa-template-cards" key={w.id}>
-    <MatchCard label="焊接模板" value={template?.name||w.template} onChoose={props.onChooseTemplate}
+    <MatchCard label="焊接模板" value={templateName} onChoose={props.onChooseTemplate}
      onCreate={props.onCreateWhole} needsCreation={needsTemplate}/>
-    <MatchCard label="工艺参数" value={process?.name||w.processName||template?.baseProcess?.name} onChoose={props.onChooseProcess}
+    <MatchCard label="工艺参数" value={processName} onChoose={props.onChooseProcess}
      onCreate={props.onCreateProcess} needsCreation={needsProcess}/>
    </div>
    {pending&&<div className="wa-pending-actions">

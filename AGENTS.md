@@ -369,3 +369,5 @@ Omit the 焊接顺序设置 page from the planning settings dialog in both permi
 Show one shared corner welding-parameter row per pass and corner type. For older point-specific records, read the former corner point when configured, then fall back to the first configured point. Keep the before/after distances, speed, offsets and weave controls. Add vertical-only pass-hole fill speed in integer cm/min and ignition dwell in seconds with up to two decimals. Blank values inherit welding speed and normal ignition time. Apply ignition dwell once at the start of the fill.
 
 Show creation prompts inside the selected 焊缝属性 panel, beside 焊接模板 and 工艺参数. A weld outside strategy scope only gets a template creation prompt. If strategy planning is supported and no recipe matches, both cards get creation prompts. Omit the expandable mismatch details under the cards and the old top-level match report.
+
+While editing weld attributes, show the matching template or process name in its card as soon as the draft matches. Apply saves the attributes and automatically applies the match using the existing template-first planning order. Cancel restores the previous attributes and match.
