@@ -12,7 +12,7 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Platform identity
 
-The local platform at http://localhost:5236/ is called “原版工艺规划平台”. Use this name to distinguish it from the other process planning platform. Keep changes for this platform in weldone-platform.
+The local platform at http://localhost:5236/ is called “原版工艺规划平台” and uses the browser tab title “weldone”. Keep changes for this platform in weldone-platform.
 
 Template control points must be draggable along or perpendicular to the weld direction. Keep numerical position offsets and the preview synchronized. Use local point coordinates X along the weld, Y perpendicular within the plane, and Z height, with XY and XZ views. Fixed template reuse retains point placement only, including perpendicular and height placement, without pose, tracking or process parameters.
 

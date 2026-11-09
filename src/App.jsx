@@ -82,7 +82,15 @@ export function App() {
     const planningPointGroups=useMemo(()=>weldPlanningPointGroups(selected,selectedDecision,data.templates,data.processLibrary,data.planningSettings),[selected,selectedDecision,data.templates,data.processLibrary,data.planningSettings]);
     const planningPoints=useMemo(()=>planningPointGroups.flatMap(group=>group.points),[planningPointGroups]);
     const canPreview=canPreviewWeld(selected,data.templates,data.processLibrary);
-    useEffect(()=>{setSplitError('');setFaceStations([]);setSplitAt(pickedSplit.current?.id===selected?.id?pickedSplit.current.at:selected?.enabled&&!selected?.splitInto&&!selected?.mergedInto?String(Math.round(selected.length*50)/100):'');pickedSplit.current=null;},[data.selected,modelEditMode]);
+    useEffect(()=>{
+      setSplitError('');
+      setFaceStations([]);
+      const picked=pickedSplit.current;
+      const canSplit=selected?.enabled&&!selected.splitInto&&!selected.mergedInto;
+      const defaultDistance=canSplit?String(Math.round(selected.length*50)/100):'';
+      setSplitAt(picked&&picked.id===selected?.id?picked.at:defaultDistance);
+      pickedSplit.current=null;
+    },[data.selected,modelEditMode]);
     function editModelMode(mode){setModelEditMode(mode);setSplitByFace(false);setFaceStations([]);setSplitError('');setView(v=>({...v,welds:true}));}
     function selectModelWeld(id,point){const weld=dataRef.current.welds.find(w=>w.id===id);if(!weld)return;
       if(modelEditMode==='merge'){if(!weld.enabled||weld.mergedInto||weld.splitInto)return;setMergeIds(ids=>ids.includes(id)?ids.filter(v=>v!==id):[...ids,id]);}
@@ -118,7 +126,7 @@ export function App() {
       try{if(repairConfirmedNonWeldStorage(localStorage))setSaved(previous=>previous==='有未保存修改'?previous:'已保存至本机');}
       catch{notify('非焊缝已从当前列表移除，本机草稿保存失败，请导出草稿备份');}
     },[]);
-    useEffect(() => { document.title = `${page} · 原版工艺规划平台`; setRunning(false); }, [page]);
+    useEffect(() => { setRunning(false); }, [page]);
     useEffect(() => { setRunning(false); setProgress(0); }, [data.model, data.selected]);
     useEffect(() => { if (!running)
         return; const t = setInterval(() => setProgress(p => Math.min(100, p + speed * .4)), 50); return () => clearInterval(t); }, [running, speed]);
