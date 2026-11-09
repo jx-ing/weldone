@@ -1,0 +1,25 @@
+import React,{useState} from 'react';
+import {Plus,Trash2} from 'lucide-react';
+import TemplateModelEditor from './TemplateModelEditor';
+import PathPreview from './TemplatePathPreview';
+import {hasTemplateModelPath} from './templateModelEditing.mjs';
+import {point,TRACKING,OVERRIDES} from './templateModel.mjs';
+import {isAnchor} from './templatePointAnchors.mjs';
+
+export default function TemplatePointTableEditor({template,onChange}){
+ const [selected,setSelected]=useState(template.points[0]?.id||''),active=template.points.find(p=>p.id===selected)||template.points[0],anchors=template.points.filter(isAnchor);
+ const patch=(id,values)=>onChange({...template,points:template.points.map(p=>p.id===id?{...p,...values}:p)});
+ function add(){let number=1;while(template.points.some(p=>p.name===`控制点${number}`))number++;const next=point('control',1,0,`控制点${number}`);onChange({...template,points:[...template.points,next]});setSelected(next.id);}
+ function numeric(p,key,label,group='offset',unit='mm'){
+  const missing=p.kind==='control'&&!anchors.some(a=>a.id===p.referenceId);
+  return <td key={key}><span className="tpl-table-number"><input aria-label={`${p.name} ${label}`} type="number" step="any" min={group==='angles'?-360:undefined} max={group==='angles'?360:undefined} disabled={group==='offset'&&missing} value={p[group]?.[key]??0} onFocus={()=>setSelected(p.id)} onChange={event=>patch(p.id,{[group]:{...p[group],[key]:event.target.value===''?'':+event.target.value}})}/><small>{unit}</small></span></td>;
+ }
+ return <>
+  <section className="tpl-detail-card tpl-point-model" aria-label="三维工艺点预览"><header><h3>工艺点示意图</h3><span>{active?.name||'未选择点位'}</span></header>{hasTemplateModelPath(template)?<TemplateModelEditor template={template} onChange={onChange} pointMode selectedPointId={active?.id} onSelectPoint={setSelected}/>:<PathPreview template={template} selectedId={active?.id} onSelect={setSelected} onPointChange={(id,next)=>patch(id,next)}/>}</section>
+  <section className="tpl-detail-card" aria-label="工艺点位置与姿态"><header><h3>工艺控制点</h3><button type="button" className="tpl-detail-edit" disabled={!anchors.length} onClick={add}><Plus size={14}/>新增点位</button></header><div className="tpl-detail-table-scroll"><table className="tpl-detail-table tpl-points-table"><thead><tr><th>点位</th><th>点位名称</th><th>参考点</th><th>X 偏移 (mm)</th><th>Y 偏移 (mm)</th><th>Z 偏移 (mm)</th><th>前进角 (°)</th><th>旋转角 (°)</th><th>工作角 (°)</th><th>跟踪方式</th><th>操作</th></tr></thead><tbody>{template.points.map((p,index)=><tr key={p.id} className={p.id===active?.id?'is-selected':''} aria-selected={p.id===active?.id}>
+   <td><button type="button" className="tpl-point-row-select" aria-label={`选择点位 ${p.name}`} onClick={()=>setSelected(p.id)}>{String(index+1).padStart(2,'0')}</button></td><td><input aria-label={`${p.name} 点位名称`} maxLength={40} readOnly={isAnchor(p)} value={p.name} onFocus={()=>setSelected(p.id)} onChange={event=>patch(p.id,{name:event.target.value})}/></td><td>{isAnchor(p)?<span>{p.name}</span>:<select aria-label={`${p.name} 基准点`} value={p.referenceId||''} onChange={event=>{const ref=anchors.find(a=>a.id===event.target.value);patch(p.id,{referenceId:event.target.value,segment:ref?.segment||1,percent:ref?.percent||0});}}><option value="">请选择基准点</option>{anchors.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select>}</td>
+   {['x','y','z'].map((key,i)=>numeric(p,key,['X 偏移','Y 偏移','Z 偏移'][i]))}{['advance','rotation','work'].map((key,i)=>numeric(p,key,['前进角','旋转角','工作角'][i],'angles','°'))}<td><select aria-label={`${p.name} 跟踪方式`} value={p.tracking} onChange={event=>patch(p.id,{tracking:event.target.value})}>{TRACKING.map(value=><option key={value}>{value}</option>)}</select></td><td><button type="button" className="icon" aria-label={`删除点位 ${p.name}`} disabled={p.kind!=='control'||!!p.autoRole} onClick={()=>{onChange({...template,points:template.points.filter(old=>old.id!==p.id)});if(p.id===selected)setSelected(template.points.find(old=>old.id!==p.id)?.id||'');}}><Trash2 size={14}/></button></td>
+  </tr>)}</tbody></table></div>{template.points.some(p=>p.kind==='control'&&!anchors.some(a=>a.id===p.referenceId))&&<p className="tpl-reference-warning">请为新增控制点选择基准点后设置偏移。</p>}</section>
+  <section className="tpl-detail-card" aria-label="点位工艺参数"><header><h3>点位工艺参数</h3><span>留空表示未设置</span></header><div className="tpl-detail-table-scroll"><table className="tpl-detail-table tpl-point-process-table"><thead><tr><th>点位</th>{Object.entries(OVERRIDES).map(([key,[label,unit]])=><th key={key}>{label} ({unit})</th>)}</tr></thead><tbody>{template.points.map(p=><tr key={p.id} className={p.id===active?.id?'is-selected':''}><td>{p.name}</td>{Object.entries(OVERRIDES).map(([key,[label,unit,min]])=><td key={key}><input aria-label={`${p.name} ${label}覆盖值`} type="number" min={min} step="any" placeholder="未设置" value={p.overrides?.[key]??''} onFocus={()=>setSelected(p.id)} onChange={event=>{const overrides={...p.overrides};if(event.target.value==='')delete overrides[key];else overrides[key]=+event.target.value;patch(p.id,{overrides});}}/></td>)}</tr>)}</tbody></table></div></section>
+ </>;
+}

@@ -1,0 +1,662 @@
+{
+ "pairs": [
+  {
+   "partIds": [
+    "P001",
+    "P002"
+   ],
+   "assemblyIds": [
+    "5/29180/1683/1153",
+    "5/29180/1683/1658"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P001",
+    "P010"
+   ],
+   "assemblyIds": [
+    "5/29180/1683/1153",
+    "5/29180/16672/11353"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P001",
+    "P032"
+   ],
+   "assemblyIds": [
+    "5/29180/1683/1153",
+    "5/29180/28492"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P003",
+    "P004"
+   ],
+   "assemblyIds": [
+    "5/29180/3550/3020",
+    "5/29180/3550/3525"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P003",
+    "P009"
+   ],
+   "assemblyIds": [
+    "5/29180/3550/3020",
+    "5/29180/16672/8346"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P003",
+    "P032"
+   ],
+   "assemblyIds": [
+    "5/29180/3550/3020",
+    "5/29180/28492"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P005",
+    "P006"
+   ],
+   "assemblyIds": [
+    "5/29180/5093/4563",
+    "5/29180/5093/5068"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P005",
+    "P011"
+   ],
+   "assemblyIds": [
+    "5/29180/5093/4563",
+    "5/29180/16672/15238"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P005",
+    "P033"
+   ],
+   "assemblyIds": [
+    "5/29180/5093/4563",
+    "5/29180/29155"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 1,
+   "candidateCount": 1,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P007",
+    "P009"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/5327",
+    "5/29180/16672/8346"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P007",
+    "P028"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/5327",
+    "5/29180/26916"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 8,
+   "candidateCount": 8,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P007",
+    "P029"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/5327",
+    "5/29180/27269"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 8,
+   "candidateCount": 8,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P008",
+    "P010"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/5524",
+    "5/29180/16672/11353"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P008",
+    "P030"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/5524",
+    "5/29180/27622"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 8,
+   "candidateCount": 8,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P008",
+    "P031"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/5524",
+    "5/29180/27975"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 8,
+   "candidateCount": 8,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P009",
+    "P010"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/8346",
+    "5/29180/16672/11353"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P009",
+    "P012"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/8346",
+    "5/29180/16672/16666"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P009",
+    "P015"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/8346",
+    "5/29180/18269"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P009",
+    "P016"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/8346",
+    "5/29180/18774"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P009",
+    "P022"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/8346",
+    "5/29180/22916"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P009",
+    "P026"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/8346",
+    "5/29180/25655"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P009",
+    "P028"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/8346",
+    "5/29180/26916"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 8,
+   "candidateCount": 8,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P009",
+    "P029"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/8346",
+    "5/29180/27269"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 8,
+   "candidateCount": 8,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P009",
+    "P032"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/8346",
+    "5/29180/28492"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 7,
+   "candidateCount": 7,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P010",
+    "P011"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/11353",
+    "5/29180/16672/15238"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P010",
+    "P017"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/11353",
+    "5/29180/19675"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P010",
+    "P018"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/11353",
+    "5/29180/20260"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P010",
+    "P019"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/11353",
+    "5/29180/20845"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P010",
+    "P030"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/11353",
+    "5/29180/27622"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 8,
+   "candidateCount": 8,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P010",
+    "P031"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/11353",
+    "5/29180/27975"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 8,
+   "candidateCount": 8,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P010",
+    "P032"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/11353",
+    "5/29180/28492"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P011",
+    "P020"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/15238",
+    "5/29180/21430"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P011",
+    "P021"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/15238",
+    "5/29180/22411"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P011",
+    "P023"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/15238",
+    "5/29180/23737"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P011",
+    "P024"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/15238",
+    "5/29180/24242"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P011",
+    "P025"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/15238",
+    "5/29180/24747"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P011",
+    "P027"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/15238",
+    "5/29180/26563"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P011",
+    "P033"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/15238",
+    "5/29180/29155"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 7,
+   "candidateCount": 7,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P012",
+    "P013"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/16666",
+    "5/29180/17257"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P012",
+    "P014"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/16666",
+    "5/29180/17684"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P012",
+    "P016"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/16666",
+    "5/29180/18774"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P012",
+    "P032"
+   ],
+   "assemblyIds": [
+    "5/29180/16672/16666",
+    "5/29180/28492"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P026",
+    "P032"
+   ],
+   "assemblyIds": [
+    "5/29180/25655",
+    "5/29180/28492"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P027",
+    "P033"
+   ],
+   "assemblyIds": [
+    "5/29180/26563",
+    "5/29180/29155"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 1,
+   "candidateCount": 1,
+   "rejectedSupportCount": 0
+  },
+  {
+   "partIds": [
+    "P028",
+    "P029"
+   ],
+   "assemblyIds": [
+    "5/29180/26916",
+    "5/29180/27269"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 8,
+   "candidateCount": 6,
+   "rejectedSupportCount": 2
+  },
+  {
+   "partIds": [
+    "P030",
+    "P031"
+   ],
+   "assemblyIds": [
+    "5/29180/27622",
+    "5/29180/27975"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 8,
+   "candidateCount": 6,
+   "rejectedSupportCount": 2
+  },
+  {
+   "partIds": [
+    "P032",
+    "P033"
+   ],
+   "assemblyIds": [
+    "5/29180/28492",
+    "5/29180/29155"
+   ],
+   "contactDistanceMm": 0.0,
+   "sectionEdgeCount": 4,
+   "candidateCount": 4,
+   "rejectedSupportCount": 0
+  }
+ ]
+}

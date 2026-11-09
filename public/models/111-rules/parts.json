@@ -1,0 +1,2224 @@
+{
+ "units": "mm",
+ "bbox": {
+  "min": [
+   -1417.846443,
+   -4610.725177,
+   -154.0
+  ],
+  "max": [
+   1052.262221,
+   5449.274824,
+   850.0
+  ]
+ },
+ "parts": [
+  {
+   "id": "P001",
+   "index": 0,
+   "name": "7341-BZ3A-A1",
+   "volume": 4169021.468066,
+   "thickness": 12.0,
+   "thicknessMeasured": 12.0,
+   "faceCount": 14,
+   "bbox": {
+    "min": [
+     -747.73778,
+     1027.274823,
+     -0.0
+    ],
+    "max": [
+     688.262221,
+     1039.274824,
+     650.0
+    ]
+   },
+   "mainNormal": [
+    -0.0,
+    -1.0,
+    -0.0
+   ],
+   "vertexOffset": 0,
+   "vertexCount": 630,
+   "sourceName": "7341-BZ3A-A1",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-BZ3A",
+    "7341-BZ3A-A1"
+   ],
+   "assemblyId": "5/29180/1683/1153",
+   "assemblyName": "7341-BZ3A-A1",
+   "smallAssemblyId": "5/29180/1683/1153",
+   "smallAssemblyName": "7341-BZ3A-A1",
+   "occurrenceId": 1153,
+   "definitionId": 1144,
+   "labelEntry": "0:1:1:3:1",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P002",
+   "index": 1,
+   "name": "7341-BZ3A-X4",
+   "volume": 1291551.243238,
+   "thickness": 12.0,
+   "thicknessMeasured": 12.0,
+   "faceCount": 8,
+   "bbox": {
+    "min": [
+     -326.161818,
+     907.274823,
+     49.996394
+    ],
+    "max": [
+     653.262267,
+     1027.274824,
+     467.243609
+    ]
+   },
+   "mainNormal": [
+    -0.384615385,
+    0.0,
+    0.923076923
+   ],
+   "vertexOffset": 630,
+   "vertexCount": 60,
+   "sourceName": "7341-BZ3A-X4",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-BZ3A",
+    "7341-BZ3A-X4"
+   ],
+   "assemblyId": "5/29180/1683/1658",
+   "assemblyName": "7341-BZ3A-X4",
+   "smallAssemblyId": "5/29180/1683/1658",
+   "smallAssemblyName": "7341-BZ3A-X4",
+   "occurrenceId": 1658,
+   "definitionId": 1649,
+   "labelEntry": "0:1:1:3:2",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P003",
+   "index": 2,
+   "name": "7341-BZ3B-A1",
+   "volume": 4164003.125408,
+   "thickness": 12.0,
+   "thicknessMeasured": 12.0,
+   "faceCount": 18,
+   "bbox": {
+    "min": [
+     -747.73778,
+     -2372.725177,
+     -0.0
+    ],
+    "max": [
+     688.262221,
+     -2360.725176,
+     650.0
+    ]
+   },
+   "mainNormal": [
+    -0.0,
+    -1.0,
+    -0.0
+   ],
+   "vertexOffset": 690,
+   "vertexCount": 882,
+   "sourceName": "7341-BZ3B-A1",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-BZ3B",
+    "7341-BZ3B-A1"
+   ],
+   "assemblyId": "5/29180/3550/3020",
+   "assemblyName": "7341-BZ3B-A1",
+   "smallAssemblyId": "5/29180/3550/3020",
+   "smallAssemblyName": "7341-BZ3B-A1",
+   "occurrenceId": 3020,
+   "definitionId": 3011,
+   "labelEntry": "0:1:1:7:1",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P004",
+   "index": 3,
+   "name": "7341-BZ3B-X4",
+   "volume": 1291551.319001,
+   "thickness": 12.0,
+   "thicknessMeasured": 12.0,
+   "faceCount": 8,
+   "bbox": {
+    "min": [
+     -326.161818,
+     -2492.725177,
+     49.996394
+    ],
+    "max": [
+     653.262316,
+     -2372.725176,
+     467.24363
+    ]
+   },
+   "mainNormal": [
+    -0.384615385,
+    0.0,
+    0.923076923
+   ],
+   "vertexOffset": 1572,
+   "vertexCount": 60,
+   "sourceName": "7341-BZ3B-X4",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-BZ3B",
+    "7341-BZ3B-X4"
+   ],
+   "assemblyId": "5/29180/3550/3525",
+   "assemblyName": "7341-BZ3B-X4",
+   "smallAssemblyId": "5/29180/3550/3525",
+   "smallAssemblyName": "7341-BZ3B-X4",
+   "occurrenceId": 3525,
+   "definitionId": 3516,
+   "labelEntry": "0:1:1:7:2",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P005",
+   "index": 4,
+   "name": "7341-BZ12A-A1",
+   "volume": 6879013.740681,
+   "thickness": 12.0,
+   "thicknessMeasured": 12.0,
+   "faceCount": 14,
+   "bbox": {
+    "min": [
+     -961.600161,
+     3577.274823,
+     -0.0
+    ],
+    "max": [
+     688.262221,
+     3589.274824,
+     850.0
+    ]
+   },
+   "mainNormal": [
+    -0.0,
+    -1.0,
+    -0.0
+   ],
+   "vertexOffset": 1632,
+   "vertexCount": 654,
+   "sourceName": "7341-BZ12A-A1",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-BZ12A",
+    "7341-BZ12A-A1"
+   ],
+   "assemblyId": "5/29180/5093/4563",
+   "assemblyName": "7341-BZ12A-A1",
+   "smallAssemblyId": "5/29180/5093/4563",
+   "smallAssemblyName": "7341-BZ12A-A1",
+   "occurrenceId": 4563,
+   "definitionId": 4554,
+   "labelEntry": "0:1:1:11:1",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P006",
+   "index": 5,
+   "name": "7341-BZ12A-X5",
+   "volume": 2191546.332613,
+   "thickness": 12.0,
+   "thicknessMeasured": 12.0,
+   "faceCount": 8,
+   "bbox": {
+    "min": [
+     -645.814655,
+     3427.274824,
+     50.003648
+    ],
+    "max": [
+     653.262204,
+     3577.274824,
+     664.745555
+    ]
+   },
+   "mainNormal": [
+    -0.422885465,
+    -0.0,
+    0.90618314
+   ],
+   "vertexOffset": 2286,
+   "vertexCount": 60,
+   "sourceName": "7341-BZ12A-X5",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-BZ12A",
+    "7341-BZ12A-X5"
+   ],
+   "assemblyId": "5/29180/5093/5068",
+   "assemblyName": "7341-BZ12A-X5",
+   "smallAssemblyId": "5/29180/5093/5068",
+   "smallAssemblyName": "7341-BZ12A-X5",
+   "occurrenceId": 5068,
+   "definitionId": 5059,
+   "labelEntry": "0:1:1:11:2",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P007",
+   "index": 6,
+   "name": "7341-FR131A",
+   "volume": 1161556.759775,
+   "thickness": 15.0,
+   "thicknessMeasured": 15.0,
+   "faceCount": 4,
+   "bbox": {
+    "min": [
+     295.262221,
+     -2967.725176,
+     -14.0
+    ],
+    "max": [
+     609.262221,
+     -2653.725176,
+     1.0
+    ]
+   },
+   "mainNormal": [
+    -0.0,
+    -0.0,
+    -1.0
+   ],
+   "vertexOffset": 2346,
+   "vertexCount": 852,
+   "sourceName": "7341-FR131A",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A",
+    "7341-FR131A"
+   ],
+   "assemblyId": "5/29180/16672/5327",
+   "assemblyName": "7341-FR131A",
+   "smallAssemblyId": "5/29180/16672/5327",
+   "smallAssemblyName": "7341-FR131A",
+   "occurrenceId": 5327,
+   "definitionId": 5318,
+   "labelEntry": "0:1:1:15:1",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P008",
+   "index": 7,
+   "name": "7341-FR131A<1>",
+   "volume": 929245.40782,
+   "thickness": 12.0,
+   "thicknessMeasured": 12.0,
+   "faceCount": 4,
+   "bbox": {
+    "min": [
+     295.262221,
+     1282.274824,
+     -11.0
+    ],
+    "max": [
+     609.262221,
+     1596.274824,
+     1.0
+    ]
+   },
+   "mainNormal": [
+    -0.0,
+    0.0,
+    -1.0
+   ],
+   "vertexOffset": 3198,
+   "vertexCount": 852,
+   "sourceName": "7341-FR131A<1>",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A",
+    "7341-FR131A<1>"
+   ],
+   "assemblyId": "5/29180/16672/5524",
+   "assemblyName": "7341-FR131A<1>",
+   "smallAssemblyId": "5/29180/16672/5524",
+   "smallAssemblyName": "7341-FR131A<1>",
+   "occurrenceId": 5524,
+   "definitionId": 5515,
+   "labelEntry": "0:1:1:15:2",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P009",
+   "index": 8,
+   "name": "7341-FR131A<2>",
+   "volume": 63083717.401757,
+   "thickness": 13.0,
+   "thicknessMeasured": 13.0,
+   "faceCount": 35,
+   "bbox": {
+    "min": [
+     -899.170409,
+     -3635.725177,
+     -13.0
+    ],
+    "max": [
+     1052.262221,
+     -820.725176,
+     0.0
+    ]
+   },
+   "mainNormal": [
+    -0.0,
+    -0.0,
+    -1.0
+   ],
+   "vertexOffset": 4050,
+   "vertexCount": 2664,
+   "sourceName": "7341-FR131A<2>",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A",
+    "7341-FR131A<2>"
+   ],
+   "assemblyId": "5/29180/16672/8346",
+   "assemblyName": "7341-FR131A<2>",
+   "smallAssemblyId": "5/29180/16672/8346",
+   "smallAssemblyName": "7341-FR131A<2>",
+   "occurrenceId": 8346,
+   "definitionId": 8337,
+   "labelEntry": "0:1:1:15:3",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P010",
+   "index": 9,
+   "name": "7341-FR131A<3>",
+   "volume": 49598659.511563,
+   "thickness": 10.0,
+   "thicknessMeasured": 10.0,
+   "faceCount": 38,
+   "bbox": {
+    "min": [
+     -747.73778,
+     -820.725177,
+     -10.0
+    ],
+    "max": [
+     1052.262221,
+     2109.274824,
+     0.0
+    ]
+   },
+   "mainNormal": [
+    -0.0,
+    -0.0,
+    -1.0
+   ],
+   "vertexOffset": 6714,
+   "vertexCount": 2094,
+   "sourceName": "7341-FR131A<3>",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A",
+    "7341-FR131A<3>"
+   ],
+   "assemblyId": "5/29180/16672/11353",
+   "assemblyName": "7341-FR131A<3>",
+   "smallAssemblyId": "5/29180/16672/11353",
+   "smallAssemblyName": "7341-FR131A<3>",
+   "occurrenceId": 11353,
+   "definitionId": 11344,
+   "labelEntry": "0:1:1:15:4",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P011",
+   "index": 10,
+   "name": "7341-FR131A<4>",
+   "volume": 81502183.265652,
+   "thickness": 14.0,
+   "thicknessMeasured": 14.0,
+   "faceCount": 50,
+   "bbox": {
+    "min": [
+     -1336.912589,
+     2109.274823,
+     -14.0
+    ],
+    "max": [
+     1052.262221,
+     5449.274824,
+     0.0
+    ]
+   },
+   "mainNormal": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "vertexOffset": 8808,
+   "vertexCount": 3870,
+   "sourceName": "7341-FR131A<4>",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A",
+    "7341-FR131A<4>"
+   ],
+   "assemblyId": "5/29180/16672/15238",
+   "assemblyName": "7341-FR131A<4>",
+   "smallAssemblyId": "5/29180/16672/15238",
+   "smallAssemblyName": "7341-FR131A<4>",
+   "occurrenceId": 15238,
+   "definitionId": 15229,
+   "labelEntry": "0:1:1:15:5",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P012",
+   "index": 11,
+   "name": "7341-FR131A<5>",
+   "volume": 22593051.842646,
+   "thickness": 11.0,
+   "thicknessMeasured": 11.0,
+   "faceCount": 19,
+   "bbox": {
+    "min": [
+     -1389.943435,
+     -4610.725177,
+     -11.0
+    ],
+    "max": [
+     1052.262221,
+     -3635.725176,
+     0.0
+    ]
+   },
+   "mainNormal": [
+    -0.0,
+    -0.0,
+    -1.0
+   ],
+   "vertexOffset": 12678,
+   "vertexCount": 1056,
+   "sourceName": "7341-FR131A<5>",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A",
+    "7341-FR131A<5>"
+   ],
+   "assemblyId": "5/29180/16672/16666",
+   "assemblyName": "7341-FR131A<5>",
+   "smallAssemblyId": "5/29180/16672/16666",
+   "smallAssemblyName": "7341-FR131A<5>",
+   "occurrenceId": 16666,
+   "definitionId": 16657,
+   "labelEntry": "0:1:1:15:6",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P013",
+   "index": 12,
+   "name": "7341-FR131A-S1",
+   "volume": 2344422.280945,
+   "thickness": 12.0,
+   "thicknessMeasured": 12.0,
+   "faceCount": 9,
+   "bbox": {
+    "min": [
+     -1028.673841,
+     -4072.725176,
+     -0.0
+    ],
+    "max": [
+     688.262221,
+     -4060.725176,
+     120.0
+    ]
+   },
+   "mainNormal": [
+    0.0,
+    -1.0,
+    0.0
+   ],
+   "vertexOffset": 13734,
+   "vertexCount": 168,
+   "sourceName": "7341-FR131A-S1",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S1"
+   ],
+   "assemblyId": "5/29180/17257",
+   "assemblyName": "7341-FR131A-S1",
+   "smallAssemblyId": "5/29180/17257",
+   "smallAssemblyName": "7341-FR131A-S1",
+   "occurrenceId": 17257,
+   "definitionId": 17248,
+   "labelEntry": "0:1:1:2:5",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P014",
+   "index": 13,
+   "name": "7341-FR131A-S2",
+   "volume": 529372.388064,
+   "thickness": 12.0,
+   "thicknessMeasured": 12.0,
+   "faceCount": 7,
+   "bbox": {
+    "min": [
+     -396.240616,
+     -4563.077015,
+     0.0
+    ],
+    "max": [
+     -159.101748,
+     -4107.725245,
+     100.0
+    ]
+   },
+   "mainNormal": [
+    0.893280266,
+    -0.449500129,
+    0.0
+   ],
+   "vertexOffset": 13902,
+   "vertexCount": 48,
+   "sourceName": "7341-FR131A-S2",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S2"
+   ],
+   "assemblyId": "5/29180/17684",
+   "assemblyName": "7341-FR131A-S2",
+   "smallAssemblyId": "5/29180/17684",
+   "smallAssemblyName": "7341-FR131A-S2",
+   "occurrenceId": 17684,
+   "definitionId": 17675,
+   "labelEntry": "0:1:1:2:6",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P015",
+   "index": 14,
+   "name": "7341-FR131A-S3",
+   "volume": 1957626.244689,
+   "thickness": 12.0,
+   "thicknessMeasured": 12.0,
+   "faceCount": 9,
+   "bbox": {
+    "min": [
+     -760.065482,
+     -3222.725176,
+     -0.0
+    ],
+    "max": [
+     688.262221,
+     -3210.725176,
+     120.0
+    ]
+   },
+   "mainNormal": [
+    0.0,
+    -1.0,
+    0.0
+   ],
+   "vertexOffset": 13950,
+   "vertexCount": 168,
+   "sourceName": "7341-FR131A-S3",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S3"
+   ],
+   "assemblyId": "5/29180/18269",
+   "assemblyName": "7341-FR131A-S3",
+   "smallAssemblyId": "5/29180/18269",
+   "smallAssemblyName": "7341-FR131A-S3",
+   "occurrenceId": 18269,
+   "definitionId": 18260,
+   "labelEntry": "0:1:1:2:7",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P016",
+   "index": 15,
+   "name": "7341-FR131A-S4",
+   "volume": 795735.795306,
+   "thickness": 12.0,
+   "thicknessMeasured": 12.0,
+   "faceCount": 8,
+   "bbox": {
+    "min": [
+     -136.782544,
+     -4025.725249,
+     0.0
+    ],
+    "max": [
+     64.457439,
+     -3257.725348,
+     100.0
+    ]
+   },
+   "mainNormal": [
+    -0.970643728,
+    0.240521835,
+    0.0
+   ],
+   "vertexOffset": 14118,
+   "vertexCount": 60,
+   "sourceName": "7341-FR131A-S4",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S4"
+   ],
+   "assemblyId": "5/29180/18774",
+   "assemblyName": "7341-FR131A-S4",
+   "smallAssemblyId": "5/29180/18774",
+   "smallAssemblyName": "7341-FR131A-S4",
+   "occurrenceId": 18774,
+   "definitionId": 18765,
+   "labelEntry": "0:1:1:2:8",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P017",
+   "index": 16,
+   "name": "7341-FR131A-S5",
+   "volume": 1884456.016795,
+   "thickness": 12.0,
+   "thicknessMeasured": 12.0,
+   "faceCount": 13,
+   "bbox": {
+    "min": [
+     -712.737779,
+     -672.725176,
+     -0.0
+    ],
+    "max": [
+     688.262221,
+     -660.725176,
+     120.0
+    ]
+   },
+   "mainNormal": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "vertexOffset": 14178,
+   "vertexCount": 408,
+   "sourceName": "7341-FR131A-S5",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S5"
+   ],
+   "assemblyId": "5/29180/19675",
+   "assemblyName": "7341-FR131A-S5",
+   "smallAssemblyId": "5/29180/19675",
+   "smallAssemblyName": "7341-FR131A-S5",
+   "occurrenceId": 19675,
+   "definitionId": 19666,
+   "labelEntry": "0:1:1:2:9",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P018",
+   "index": 17,
+   "name": "7341-FR131A-S6",
+   "volume": 1889474.352849,
+   "thickness": 12.0,
+   "thicknessMeasured": 12.0,
+   "faceCount": 9,
+   "bbox": {
+    "min": [
+     -712.737779,
+     177.274824,
+     -0.0
+    ],
+    "max": [
+     688.262221,
+     189.274824,
+     120.0
+    ]
+   },
+   "mainNormal": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "vertexOffset": 14586,
+   "vertexCount": 168,
+   "sourceName": "7341-FR131A-S6",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S6"
+   ],
+   "assemblyId": "5/29180/20260",
+   "assemblyName": "7341-FR131A-S6",
+   "smallAssemblyId": "5/29180/20260",
+   "smallAssemblyName": "7341-FR131A-S6",
+   "occurrenceId": 20260,
+   "definitionId": 20251,
+   "labelEntry": "0:1:1:2:10",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P019",
+   "index": 18,
+   "name": "7341-FR131A-S7",
+   "volume": 1889474.352849,
+   "thickness": 12.0,
+   "thicknessMeasured": 12.0,
+   "faceCount": 9,
+   "bbox": {
+    "min": [
+     -712.737779,
+     1877.274824,
+     -0.0
+    ],
+    "max": [
+     688.262221,
+     1889.274824,
+     120.0
+    ]
+   },
+   "mainNormal": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "vertexOffset": 14754,
+   "vertexCount": 168,
+   "sourceName": "7341-FR131A-S7",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S7"
+   ],
+   "assemblyId": "5/29180/20845",
+   "assemblyName": "7341-FR131A-S7",
+   "smallAssemblyId": "5/29180/20845",
+   "smallAssemblyName": "7341-FR131A-S7",
+   "occurrenceId": 20845,
+   "definitionId": 20836,
+   "labelEntry": "0:1:1:2:11",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P020",
+   "index": 19,
+   "name": "7341-FR131A-S8",
+   "volume": 1940650.617796,
+   "thickness": 12.0,
+   "thicknessMeasured": 12.0,
+   "faceCount": 9,
+   "bbox": {
+    "min": [
+     -748.276852,
+     2727.274824,
+     -0.0
+    ],
+    "max": [
+     688.262221,
+     2739.274824,
+     120.0
+    ]
+   },
+   "mainNormal": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "vertexOffset": 14922,
+   "vertexCount": 168,
+   "sourceName": "7341-FR131A-S8",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S8"
+   ],
+   "assemblyId": "5/29180/21430",
+   "assemblyName": "7341-FR131A-S8",
+   "smallAssemblyId": "5/29180/21430",
+   "smallAssemblyName": "7341-FR131A-S8",
+   "occurrenceId": 21430,
+   "definitionId": 21421,
+   "labelEntry": "0:1:1:2:12",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P021",
+   "index": 20,
+   "name": "7341-FR131A-S9",
+   "volume": 1793140.580036,
+   "thickness": 16.0,
+   "thicknessMeasured": 16.0,
+   "faceCount": 14,
+   "bbox": {
+    "min": [
+     -72.975719,
+     5173.274824,
+     -0.0
+    ],
+    "max": [
+     688.262221,
+     5189.274824,
+     150.0
+    ]
+   },
+   "mainNormal": [
+    0.0,
+    -1.0,
+    0.0
+   ],
+   "vertexOffset": 15090,
+   "vertexCount": 516,
+   "sourceName": "7341-FR131A-S9",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S9"
+   ],
+   "assemblyId": "5/29180/22411",
+   "assemblyName": "7341-FR131A-S9",
+   "smallAssemblyId": "5/29180/22411",
+   "smallAssemblyName": "7341-FR131A-S9",
+   "occurrenceId": 22411,
+   "definitionId": 22402,
+   "labelEntry": "0:1:1:2:13",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P022",
+   "index": 21,
+   "name": "7341-FR131A-S10",
+   "volume": 771701.477916,
+   "thickness": 12.0,
+   "thicknessMeasured": 12.0,
+   "faceCount": 8,
+   "bbox": {
+    "min": [
+     66.03662,
+     -3175.725021,
+     0.0
+    ],
+    "max": [
+     112.15991,
+     -2407.725332,
+     100.0
+    ]
+   },
+   "mainNormal": [
+    0.999012332,
+    -0.044433768,
+    0.0
+   ],
+   "vertexOffset": 15606,
+   "vertexCount": 60,
+   "sourceName": "7341-FR131A-S10",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S10"
+   ],
+   "assemblyId": "5/29180/22916",
+   "assemblyName": "7341-FR131A-S10",
+   "smallAssemblyId": "5/29180/22916",
+   "smallAssemblyName": "7341-FR131A-S10",
+   "occurrenceId": 22916,
+   "definitionId": 22907,
+   "labelEntry": "0:1:1:2:14",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P023",
+   "index": 22,
+   "name": "7341-FR131A-S11",
+   "volume": 764912.805856,
+   "thickness": 11.0,
+   "thicknessMeasured": 11.0,
+   "faceCount": 12,
+   "bbox": {
+    "min": [
+     -744.408029,
+     4474.274513,
+     0.0
+    ],
+    "max": [
+     -393.314151,
+     5138.275134,
+     120.0
+    ]
+   },
+   "mainNormal": [
+    0.887945386,
+    0.4599489,
+    -0.0
+   ],
+   "vertexOffset": 15666,
+   "vertexCount": 300,
+   "sourceName": "7341-FR131A-S11",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S11"
+   ],
+   "assemblyId": "5/29180/23737",
+   "assemblyName": "7341-FR131A-S11",
+   "smallAssemblyId": "5/29180/23737",
+   "smallAssemblyName": "7341-FR131A-S11",
+   "occurrenceId": 23737,
+   "definitionId": 23728,
+   "labelEntry": "0:1:1:2:15",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P024",
+   "index": 23,
+   "name": "7341-FR131A-S12",
+   "volume": 850568.798247,
+   "thickness": 11.0,
+   "thicknessMeasured": 11.0,
+   "faceCount": 8,
+   "bbox": {
+    "min": [
+     -365.571497,
+     3624.274731,
+     0.0
+    ],
+    "max": [
+     -95.670163,
+     4388.274916,
+     120.0
+    ]
+   },
+   "mainNormal": [
+    0.946416183,
+    0.322949544,
+    -0.0
+   ],
+   "vertexOffset": 15966,
+   "vertexCount": 60,
+   "sourceName": "7341-FR131A-S12",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S12"
+   ],
+   "assemblyId": "5/29180/24242",
+   "assemblyName": "7341-FR131A-S12",
+   "smallAssemblyId": "5/29180/24242",
+   "smallAssemblyName": "7341-FR131A-S12",
+   "occurrenceId": 24242,
+   "definitionId": 24233,
+   "labelEntry": "0:1:1:2:16",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P025",
+   "index": 24,
+   "name": "7341-FR131A-S13",
+   "volume": 817388.878729,
+   "thickness": 11.0,
+   "thicknessMeasured": 11.0,
+   "faceCount": 8,
+   "bbox": {
+    "min": [
+     -84.879376,
+     2774.274782,
+     0.0
+    ],
+    "max": [
+     63.858194,
+     3542.274865,
+     120.0
+    ]
+   },
+   "mainNormal": [
+    -0.984178303,
+    -0.177180888,
+    -0.0
+   ],
+   "vertexOffset": 16026,
+   "vertexCount": 60,
+   "sourceName": "7341-FR131A-S13",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S13"
+   ],
+   "assemblyId": "5/29180/24747",
+   "assemblyName": "7341-FR131A-S13",
+   "smallAssemblyId": "5/29180/24747",
+   "smallAssemblyName": "7341-FR131A-S13",
+   "occurrenceId": 24747,
+   "definitionId": 24738,
+   "labelEntry": "0:1:1:2:17",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P026",
+   "index": 25,
+   "name": "7341-FR131A-S14",
+   "volume": 3808484.257268,
+   "thickness": 16.0,
+   "thicknessMeasured": 16.0,
+   "faceCount": 13,
+   "bbox": {
+    "min": [
+     -747.73778,
+     -1526.725177,
+     -0.0
+    ],
+    "max": [
+     688.262221,
+     -1510.725176,
+     400.0
+    ]
+   },
+   "mainNormal": [
+    -0.0,
+    -1.0,
+    -0.0
+   ],
+   "vertexOffset": 16086,
+   "vertexCount": 558,
+   "sourceName": "7341-FR131A-S14",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S14"
+   ],
+   "assemblyId": "5/29180/25655",
+   "assemblyName": "7341-FR131A-S14",
+   "smallAssemblyId": "5/29180/25655",
+   "smallAssemblyName": "7341-FR131A-S14",
+   "occurrenceId": 25655,
+   "definitionId": 25646,
+   "labelEntry": "0:1:1:2:18",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P027",
+   "index": 26,
+   "name": "7341-FR131A-S15",
+   "volume": 5166198.871036,
+   "thickness": 16.0,
+   "thicknessMeasured": 16.0,
+   "faceCount": 13,
+   "bbox": {
+    "min": [
+     -1304.358935,
+     4423.274823,
+     -0.0
+    ],
+    "max": [
+     688.262221,
+     4439.274824,
+     400.0
+    ]
+   },
+   "mainNormal": [
+    -0.0,
+    -1.0,
+    -0.0
+   ],
+   "vertexOffset": 16644,
+   "vertexCount": 558,
+   "sourceName": "7341-FR131A-S15",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S15"
+   ],
+   "assemblyId": "5/29180/26563",
+   "assemblyName": "7341-FR131A-S15",
+   "smallAssemblyId": "5/29180/26563",
+   "smallAssemblyName": "7341-FR131A-S15",
+   "occurrenceId": 26563,
+   "definitionId": 26554,
+   "labelEntry": "0:1:1:2:19",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P028",
+   "index": 27,
+   "name": "7341-FR131A-W1",
+   "volume": 1042616.06191,
+   "thickness": 150.0,
+   "thicknessMeasured": 150.0,
+   "faceCount": 6,
+   "bbox": {
+    "min": [
+     452.262221,
+     -2965.725176,
+     -81.5
+    ],
+    "max": [
+     607.262221,
+     -2655.725176,
+     68.5
+    ]
+   },
+   "mainNormal": [
+    1.0,
+    -0.0,
+    0.0
+   ],
+   "vertexOffset": 17202,
+   "vertexCount": 852,
+   "sourceName": "7341-FR131A-W1",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-W1"
+   ],
+   "assemblyId": "5/29180/26916",
+   "assemblyName": "7341-FR131A-W1",
+   "smallAssemblyId": "5/29180/26916",
+   "smallAssemblyName": "7341-FR131A-W1",
+   "occurrenceId": 26916,
+   "definitionId": 26907,
+   "labelEntry": "0:1:1:2:20",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P029",
+   "index": 28,
+   "name": "7341-FR131A-W2",
+   "volume": 1042616.06191,
+   "thickness": 150.0,
+   "thicknessMeasured": 150.0,
+   "faceCount": 6,
+   "bbox": {
+    "min": [
+     297.262221,
+     -2965.725176,
+     -81.5
+    ],
+    "max": [
+     452.262221,
+     -2655.725176,
+     68.5
+    ]
+   },
+   "mainNormal": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "vertexOffset": 18054,
+   "vertexCount": 852,
+   "sourceName": "7341-FR131A-W2",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-W2"
+   ],
+   "assemblyId": "5/29180/27269",
+   "assemblyName": "7341-FR131A-W2",
+   "smallAssemblyId": "5/29180/27269",
+   "smallAssemblyName": "7341-FR131A-W2",
+   "occurrenceId": 27269,
+   "definitionId": 27260,
+   "labelEntry": "0:1:1:2:21",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P030",
+   "index": 29,
+   "name": "7341-FR131A-W3",
+   "volume": 1042616.06191,
+   "thickness": 150.0,
+   "thicknessMeasured": 150.0,
+   "faceCount": 6,
+   "bbox": {
+    "min": [
+     297.262221,
+     1284.274824,
+     -80.0
+    ],
+    "max": [
+     452.262221,
+     1594.274824,
+     70.0
+    ]
+   },
+   "mainNormal": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "vertexOffset": 18906,
+   "vertexCount": 852,
+   "sourceName": "7341-FR131A-W3",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-W3"
+   ],
+   "assemblyId": "5/29180/27622",
+   "assemblyName": "7341-FR131A-W3",
+   "smallAssemblyId": "5/29180/27622",
+   "smallAssemblyName": "7341-FR131A-W3",
+   "occurrenceId": 27622,
+   "definitionId": 27613,
+   "labelEntry": "0:1:1:2:22",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P031",
+   "index": 30,
+   "name": "7341-FR131A-W4",
+   "volume": 1042616.06191,
+   "thickness": 150.0,
+   "thicknessMeasured": 150.0,
+   "faceCount": 6,
+   "bbox": {
+    "min": [
+     452.262221,
+     1284.274824,
+     -80.0
+    ],
+    "max": [
+     607.262221,
+     1594.274824,
+     70.0
+    ]
+   },
+   "mainNormal": [
+    1.0,
+    -0.0,
+    0.0
+   ],
+   "vertexOffset": 19758,
+   "vertexCount": 852,
+   "sourceName": "7341-FR131A-W4",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-W4"
+   ],
+   "assemblyId": "5/29180/27975",
+   "assemblyName": "7341-FR131A-W4",
+   "smallAssemblyId": "5/29180/27975",
+   "smallAssemblyName": "7341-FR131A-W4",
+   "occurrenceId": 27975,
+   "definitionId": 27966,
+   "labelEntry": "0:1:1:2:23",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P032",
+   "index": 31,
+   "name": "7341-FR131A-W5",
+   "volume": 34281514.445964,
+   "thickness": 20.0,
+   "thicknessMeasured": 20.0,
+   "faceCount": 8,
+   "bbox": {
+    "min": [
+     -1417.846443,
+     -4610.725176,
+     -129.0
+    ],
+    "max": [
+     -747.737779,
+     2109.274824,
+     121.0
+    ]
+   },
+   "mainNormal": [
+    -1.0,
+    -0.0,
+    0.0
+   ],
+   "vertexOffset": 20610,
+   "vertexCount": 852,
+   "sourceName": "7341-FR131A-W5",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-W5"
+   ],
+   "assemblyId": "5/29180/28492",
+   "assemblyName": "7341-FR131A-W5",
+   "smallAssemblyId": "5/29180/28492",
+   "smallAssemblyName": "7341-FR131A-W5",
+   "occurrenceId": 28492,
+   "definitionId": 28483,
+   "labelEntry": "0:1:1:2:24",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  },
+  {
+   "id": "P033",
+   "index": 32,
+   "name": "7341-FR131A-W6",
+   "volume": 19306360.172003,
+   "thickness": 300.0,
+   "thicknessMeasured": 300.0,
+   "faceCount": 10,
+   "bbox": {
+    "min": [
+     -1369.253782,
+     2109.274823,
+     -154.0
+    ],
+    "max": [
+     -747.737779,
+     4502.920789,
+     146.0
+    ]
+   },
+   "mainNormal": [
+    0.969606679,
+    0.244668934,
+    0.0
+   ],
+   "vertexOffset": 21462,
+   "vertexCount": 816,
+   "sourceName": "7341-FR131A-W6",
+   "assemblyPath": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-W6"
+   ],
+   "assemblyId": "5/29180/29155",
+   "assemblyName": "7341-FR131A-W6",
+   "smallAssemblyId": "5/29180/29155",
+   "smallAssemblyName": "7341-FR131A-W6",
+   "occurrenceId": 29155,
+   "definitionId": 29146,
+   "labelEntry": "0:1:1:2:25",
+   "geometryKind": "solid",
+   "solidCount": 1,
+   "sourceSolidCount": 1,
+   "contactFaceIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "contactRecovery": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   }
+  }
+ ],
+ "meshFile": "mesh.bin",
+ "sourceFile": "D:\\大界\\焊接标品\\weldone-platform\\public\\models\\111.step"
+}
