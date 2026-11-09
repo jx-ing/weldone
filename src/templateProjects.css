@@ -1,0 +1,33 @@
+.template-library-view{--ps:clamp(.64px,calc(100vw / 1920),1px)}
+.template-library-view main{padding:calc(16 * var(--ps));gap:calc(12 * var(--ps))}
+.template-library-view .statusbar{display:none}
+.tpl-library.process-library{--ps:clamp(.64px,calc(100vw / 1920),1px);padding:0;overflow:hidden}
+.tpl-project-sidebar{overflow:auto;min-height:0}
+.tpl-project-sidebar .process-sidebar-heading{gap:12px;font-size:calc(14 * var(--ps))}
+.tpl-project-sidebar .process-sidebar-heading img{width:16px;height:16px}
+.tpl-project-select{min-height:34px}
+.tpl-project-select>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tpl-project-select>small{font-size:11px;color:#999;font-variant-numeric:tabular-nums}
+.tpl-project-row.active .tpl-project-select>small{color:#fa8c16}
+.tpl-project-main .process-breadcrumb>strong{overflow:hidden;text-overflow:ellipsis}
+.tpl-project-main .process-filters{flex-wrap:wrap}
+.tpl-project-main .process-filters>label{width:calc(300 * var(--ps))}
+.tpl-project-card-scroll{flex:1;min-height:0;overflow:auto}
+.tpl-project-main .tpl-cards{align-items:start;min-width:864px}
+.tpl-project-main .tpl-empty{min-width:0}
+.tpl-project-main .process-pagination{padding-top:calc(24 * var(--ps))}
+.tpl-project-main .process-pagination button:disabled img{opacity:.35}
+
+.tpl-project-sidebar .process-sidebar-heading>span{flex:1}
+.tpl-project-sidebar .process-sidebar-heading>.icon{padding:3px;display:grid;place-items:center;color:#777}
+.tpl-project-row{position:relative;margin:0 4px;background:#fdfdfd}
+.tpl-project-row.active{background:#fff7e6}
+.tpl-project-select{display:flex;align-items:center;width:100%;height:calc(52 * var(--ps));min-height:34px;gap:calc(18 * var(--ps));padding:0 calc(24 * var(--ps));border:0;background:transparent;text-align:left;font-size:calc(14 * var(--ps));color:#555}
+.tpl-project-row.active .tpl-project-select{color:#fa8c16}
+.tpl-project-actions{position:absolute;right:5px;top:50%;transform:translateY(-50%);display:flex;gap:2px;background:inherit;opacity:0;pointer-events:none}
+.tpl-project-row:hover .tpl-project-actions,.tpl-project-row:focus-within .tpl-project-actions{opacity:1;pointer-events:auto}
+.tpl-project-row:hover .tpl-project-select,.tpl-project-row:focus-within .tpl-project-select{padding-right:50px}
+.tpl-project-row:hover .tpl-project-select small,.tpl-project-row:focus-within .tpl-project-select small{display:none}
+.tpl-project-actions .icon{display:grid;place-items:center;padding:4px;color:#888}
+.tpl-project-actions .icon:hover{color:#fa8c16}
+@media(max-width:700px){.tpl-library.process-library{grid-template-columns:124px minmax(0,1fr)}.tpl-project-main{padding:16px}.tpl-project-select{padding:0 10px;gap:8px}.tpl-project-main .process-breadcrumb{gap:6px}}

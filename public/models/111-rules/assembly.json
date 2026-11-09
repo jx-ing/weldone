@@ -1,0 +1,6639 @@
+{
+ "source": "D:\\大界\\焊接标品\\weldone-platform\\public\\models\\111.step",
+ "bytes": 1560845,
+ "sha256": "c85056ed9022210cd93e48bc4d09b97615c57a70235f4f55d986e6a2bdec4fc8",
+ "entityCount": 29181,
+ "entityTypeCounts": {
+  "APPLICATION_PROTOCOL_DEFINITION": 1,
+  "APPLICATION_CONTEXT": 1,
+  "SHAPE_DEFINITION_REPRESENTATION": 43,
+  "PRODUCT_DEFINITION_SHAPE": 85,
+  "PRODUCT_DEFINITION": 43,
+  "PRODUCT_DEFINITION_FORMATION": 43,
+  "PRODUCT": 43,
+  "PRODUCT_CONTEXT": 43,
+  "PRODUCT_DEFINITION_CONTEXT": 43,
+  "SHAPE_REPRESENTATION": 10,
+  "AXIS2_PLACEMENT_3D": 623,
+  "CARTESIAN_POINT": 5097,
+  "DIRECTION": 4009,
+  "COMPLEX": 2292,
+  "UNCERTAINTY_MEASURE_WITH_UNIT": 43,
+  "PRODUCT_RELATED_PRODUCT_CATEGORY": 43,
+  "ADVANCED_BREP_SHAPE_REPRESENTATION": 33,
+  "MANIFOLD_SOLID_BREP": 33,
+  "CLOSED_SHELL": 33,
+  "ADVANCED_FACE": 411,
+  "FACE_BOUND": 421,
+  "EDGE_LOOP": 421,
+  "ORIENTED_EDGE": 2070,
+  "EDGE_CURVE": 1035,
+  "VERTEX_POINT": 690,
+  "SURFACE_CURVE": 1035,
+  "LINE": 2602,
+  "VECTOR": 2602,
+  "PCURVE": 2070,
+  "PLANE": 306,
+  "DEFINITIONAL_REPRESENTATION": 2070,
+  "CYLINDRICAL_SURFACE": 105,
+  "CIRCLE": 330,
+  "AXIS2_PLACEMENT_2D": 161,
+  "B_SPLINE_CURVE_WITH_KNOTS": 165,
+  "CONTEXT_DEPENDENT_SHAPE_REPRESENTATION": 42,
+  "ITEM_DEFINED_TRANSFORMATION": 42,
+  "NEXT_ASSEMBLY_USAGE_OCCURRENCE": 42
+ },
+ "productCount": 43,
+ "definitionCount": 43,
+ "occurrenceRelationCount": 42,
+ "rootDefinitions": [
+  5
+ ],
+ "depthCounts": {
+  "0": 1,
+  "1": 1,
+  "2": 26,
+  "3": 15
+ },
+ "expandedInstanceCount": 43,
+ "expandedLeafCount": 33,
+ "assemblyInstanceCount": 6,
+ "uniqueLeafDefinitionCount": 37,
+ "reusedDefinitions": {},
+ "products": {
+  "7": {
+   "entity": 7,
+   "id": "Unnamed",
+   "name": "Unnamed",
+   "line": 18
+  },
+  "29": {
+   "entity": 29,
+   "id": "7341-FR131A",
+   "name": "7341-FR131A",
+   "line": 45
+  },
+  "146": {
+   "entity": 146,
+   "id": "7341-BZ3A",
+   "name": "7341-BZ3A",
+   "line": 168
+  },
+  "1146": {
+   "entity": 1146,
+   "id": "7341-BZ3A-A1",
+   "name": "7341-BZ3A-A1",
+   "line": 1352
+  },
+  "1651": {
+   "entity": 1651,
+   "id": "7341-BZ3A-X4",
+   "name": "7341-BZ3A-X4",
+   "line": 1981
+  },
+  "1664": {
+   "entity": 1664,
+   "id": "MBD-BK131B",
+   "name": "MBD-BK131B",
+   "line": 1998
+  },
+  "1689": {
+   "entity": 1689,
+   "id": "7341-BZ3B",
+   "name": "7341-BZ3B",
+   "line": 2034
+  },
+  "3013": {
+   "entity": 3013,
+   "id": "7341-BZ3B-A1",
+   "name": "7341-BZ3B-A1",
+   "line": 3605
+  },
+  "3518": {
+   "entity": 3518,
+   "id": "7341-BZ3B-X4",
+   "name": "7341-BZ3B-X4",
+   "line": 4234
+  },
+  "3531": {
+   "entity": 3531,
+   "id": "MBD-BK131A",
+   "name": "MBD-BK131A",
+   "line": 4251
+  },
+  "3556": {
+   "entity": 3556,
+   "id": "7341-BZ12A",
+   "name": "7341-BZ12A",
+   "line": 4288
+  },
+  "4556": {
+   "entity": 4556,
+   "id": "7341-BZ12A-A1",
+   "name": "7341-BZ12A-A1",
+   "line": 5473
+  },
+  "5061": {
+   "entity": 5061,
+   "id": "7341-BZ12A-X5",
+   "name": "7341-BZ12A-X5",
+   "line": 6100
+  },
+  "5074": {
+   "entity": 5074,
+   "id": "MBD-BZ12A",
+   "name": "MBD-BZ12A",
+   "line": 6117
+  },
+  "5099": {
+   "entity": 5099,
+   "id": "7341-FR131A",
+   "name": "7341-FR131A",
+   "line": 6154
+  },
+  "5320": {
+   "entity": 5320,
+   "id": "7341-FR131A",
+   "name": "7341-FR131A",
+   "line": 6408
+  },
+  "5517": {
+   "entity": 5517,
+   "id": "7341-FR131A<1>",
+   "name": "7341-FR131A<1>",
+   "line": 6637
+  },
+  "8339": {
+   "entity": 8339,
+   "id": "7341-FR131A<2>",
+   "name": "7341-FR131A<2>",
+   "line": 10032
+  },
+  "11346": {
+   "entity": 11346,
+   "id": "7341-FR131A<3>",
+   "name": "7341-FR131A<3>",
+   "line": 13636
+  },
+  "15231": {
+   "entity": 15231,
+   "id": "7341-FR131A<4>",
+   "name": "7341-FR131A<4>",
+   "line": 18204
+  },
+  "16659": {
+   "entity": 16659,
+   "id": "7341-FR131A<5>",
+   "name": "7341-FR131A<5>",
+   "line": 19928
+  },
+  "17250": {
+   "entity": 17250,
+   "id": "7341-FR131A-S1",
+   "name": "7341-FR131A-S1",
+   "line": 20621
+  },
+  "17677": {
+   "entity": 17677,
+   "id": "7341-FR131A-S2",
+   "name": "7341-FR131A-S2",
+   "line": 21150
+  },
+  "18262": {
+   "entity": 18262,
+   "id": "7341-FR131A-S3",
+   "name": "7341-FR131A-S3",
+   "line": 21833
+  },
+  "18767": {
+   "entity": 18767,
+   "id": "7341-FR131A-S4",
+   "name": "7341-FR131A-S4",
+   "line": 22457
+  },
+  "19668": {
+   "entity": 19668,
+   "id": "7341-FR131A-S5",
+   "name": "7341-FR131A-S5",
+   "line": 23502
+  },
+  "20253": {
+   "entity": 20253,
+   "id": "7341-FR131A-S6",
+   "name": "7341-FR131A-S6",
+   "line": 24183
+  },
+  "20838": {
+   "entity": 20838,
+   "id": "7341-FR131A-S7",
+   "name": "7341-FR131A-S7",
+   "line": 24864
+  },
+  "21423": {
+   "entity": 21423,
+   "id": "7341-FR131A-S8",
+   "name": "7341-FR131A-S8",
+   "line": 25552
+  },
+  "22404": {
+   "entity": 22404,
+   "id": "7341-FR131A-S9",
+   "name": "7341-FR131A-S9",
+   "line": 26696
+  },
+  "22909": {
+   "entity": 22909,
+   "id": "7341-FR131A-S10",
+   "name": "7341-FR131A-S10",
+   "line": 27323
+  },
+  "23730": {
+   "entity": 23730,
+   "id": "7341-FR131A-S11",
+   "name": "7341-FR131A-S11",
+   "line": 28337
+  },
+  "24235": {
+   "entity": 24235,
+   "id": "7341-FR131A-S12",
+   "name": "7341-FR131A-S12",
+   "line": 28960
+  },
+  "24740": {
+   "entity": 24740,
+   "id": "7341-FR131A-S13",
+   "name": "7341-FR131A-S13",
+   "line": 29585
+  },
+  "25648": {
+   "entity": 25648,
+   "id": "7341-FR131A-S14",
+   "name": "7341-FR131A-S14",
+   "line": 30657
+  },
+  "26556": {
+   "entity": 26556,
+   "id": "7341-FR131A-S15",
+   "name": "7341-FR131A-S15",
+   "line": 31741
+  },
+  "26909": {
+   "entity": 26909,
+   "id": "7341-FR131A-W1",
+   "name": "7341-FR131A-W1",
+   "line": 32151
+  },
+  "27262": {
+   "entity": 27262,
+   "id": "7341-FR131A-W2",
+   "name": "7341-FR131A-W2",
+   "line": 32561
+  },
+  "27615": {
+   "entity": 27615,
+   "id": "7341-FR131A-W3",
+   "name": "7341-FR131A-W3",
+   "line": 32971
+  },
+  "27968": {
+   "entity": 27968,
+   "id": "7341-FR131A-W4",
+   "name": "7341-FR131A-W4",
+   "line": 33381
+  },
+  "28485": {
+   "entity": 28485,
+   "id": "7341-FR131A-W5",
+   "name": "7341-FR131A-W5",
+   "line": 33999
+  },
+  "29148": {
+   "entity": 29148,
+   "id": "7341-FR131A-W6",
+   "name": "7341-FR131A-W6",
+   "line": 34850
+  },
+  "29161": {
+   "entity": 29161,
+   "id": "MBD-FR131A",
+   "name": "MBD-FR131A",
+   "line": 34867
+  }
+ },
+ "definitions": {
+  "5": {
+   "entity": 5,
+   "productEntity": 7,
+   "name": "Unnamed",
+   "productId": "Unnamed",
+   "line": 16,
+   "children": [
+    {
+     "entity": 29180,
+     "id": "42",
+     "name": "=>[0:1:1:2]",
+     "parentDefinition": 5,
+     "childDefinition": 27,
+     "line": 34898,
+     "modelRank": 29180
+    }
+   ],
+   "representations": [
+    10
+   ]
+  },
+  "27": {
+   "entity": 27,
+   "productEntity": 29,
+   "name": "7341-FR131A",
+   "productId": "7341-FR131A",
+   "line": 43,
+   "children": [
+    {
+     "entity": 1683,
+     "id": "4",
+     "name": "=>[0:1:1:3]",
+     "parentDefinition": 27,
+     "childDefinition": 144,
+     "line": 2028,
+     "modelRank": 1683
+    },
+    {
+     "entity": 3550,
+     "id": "8",
+     "name": "=>[0:1:1:9]",
+     "parentDefinition": 27,
+     "childDefinition": 1687,
+     "line": 4281,
+     "modelRank": 3550
+    },
+    {
+     "entity": 5093,
+     "id": "12",
+     "name": "=>[0:1:1:15]",
+     "parentDefinition": 27,
+     "childDefinition": 3554,
+     "line": 6147,
+     "modelRank": 5093
+    },
+    {
+     "entity": 16672,
+     "id": "19",
+     "name": "=>[0:1:1:21]",
+     "parentDefinition": 27,
+     "childDefinition": 5097,
+     "line": 19948,
+     "modelRank": 16672
+    },
+    {
+     "entity": 17257,
+     "id": "20",
+     "name": "=>[0:1:1:28]",
+     "parentDefinition": 27,
+     "childDefinition": 17248,
+     "line": 20631,
+     "modelRank": 17257
+    },
+    {
+     "entity": 17684,
+     "id": "21",
+     "name": "=>[0:1:1:30]",
+     "parentDefinition": 27,
+     "childDefinition": 17675,
+     "line": 21160,
+     "modelRank": 17684
+    },
+    {
+     "entity": 18269,
+     "id": "22",
+     "name": "=>[0:1:1:32]",
+     "parentDefinition": 27,
+     "childDefinition": 18260,
+     "line": 21843,
+     "modelRank": 18269
+    },
+    {
+     "entity": 18774,
+     "id": "23",
+     "name": "=>[0:1:1:34]",
+     "parentDefinition": 27,
+     "childDefinition": 18765,
+     "line": 22467,
+     "modelRank": 18774
+    },
+    {
+     "entity": 19675,
+     "id": "24",
+     "name": "=>[0:1:1:36]",
+     "parentDefinition": 27,
+     "childDefinition": 19666,
+     "line": 23512,
+     "modelRank": 19675
+    },
+    {
+     "entity": 20260,
+     "id": "25",
+     "name": "=>[0:1:1:38]",
+     "parentDefinition": 27,
+     "childDefinition": 20251,
+     "line": 24193,
+     "modelRank": 20260
+    },
+    {
+     "entity": 20845,
+     "id": "26",
+     "name": "=>[0:1:1:40]",
+     "parentDefinition": 27,
+     "childDefinition": 20836,
+     "line": 24874,
+     "modelRank": 20845
+    },
+    {
+     "entity": 21430,
+     "id": "27",
+     "name": "=>[0:1:1:42]",
+     "parentDefinition": 27,
+     "childDefinition": 21421,
+     "line": 25562,
+     "modelRank": 21430
+    },
+    {
+     "entity": 22411,
+     "id": "28",
+     "name": "=>[0:1:1:44]",
+     "parentDefinition": 27,
+     "childDefinition": 22402,
+     "line": 26706,
+     "modelRank": 22411
+    },
+    {
+     "entity": 22916,
+     "id": "29",
+     "name": "=>[0:1:1:46]",
+     "parentDefinition": 27,
+     "childDefinition": 22907,
+     "line": 27333,
+     "modelRank": 22916
+    },
+    {
+     "entity": 23737,
+     "id": "30",
+     "name": "=>[0:1:1:48]",
+     "parentDefinition": 27,
+     "childDefinition": 23728,
+     "line": 28347,
+     "modelRank": 23737
+    },
+    {
+     "entity": 24242,
+     "id": "31",
+     "name": "=>[0:1:1:50]",
+     "parentDefinition": 27,
+     "childDefinition": 24233,
+     "line": 28970,
+     "modelRank": 24242
+    },
+    {
+     "entity": 24747,
+     "id": "32",
+     "name": "=>[0:1:1:52]",
+     "parentDefinition": 27,
+     "childDefinition": 24738,
+     "line": 29595,
+     "modelRank": 24747
+    },
+    {
+     "entity": 25655,
+     "id": "33",
+     "name": "=>[0:1:1:54]",
+     "parentDefinition": 27,
+     "childDefinition": 25646,
+     "line": 30667,
+     "modelRank": 25655
+    },
+    {
+     "entity": 26563,
+     "id": "34",
+     "name": "=>[0:1:1:56]",
+     "parentDefinition": 27,
+     "childDefinition": 26554,
+     "line": 31751,
+     "modelRank": 26563
+    },
+    {
+     "entity": 26916,
+     "id": "35",
+     "name": "=>[0:1:1:58]",
+     "parentDefinition": 27,
+     "childDefinition": 26907,
+     "line": 32161,
+     "modelRank": 26916
+    },
+    {
+     "entity": 27269,
+     "id": "36",
+     "name": "=>[0:1:1:60]",
+     "parentDefinition": 27,
+     "childDefinition": 27260,
+     "line": 32571,
+     "modelRank": 27269
+    },
+    {
+     "entity": 27622,
+     "id": "37",
+     "name": "=>[0:1:1:62]",
+     "parentDefinition": 27,
+     "childDefinition": 27613,
+     "line": 32981,
+     "modelRank": 27622
+    },
+    {
+     "entity": 27975,
+     "id": "38",
+     "name": "=>[0:1:1:64]",
+     "parentDefinition": 27,
+     "childDefinition": 27966,
+     "line": 33391,
+     "modelRank": 27975
+    },
+    {
+     "entity": 28492,
+     "id": "39",
+     "name": "=>[0:1:1:66]",
+     "parentDefinition": 27,
+     "childDefinition": 28483,
+     "line": 34009,
+     "modelRank": 28492
+    },
+    {
+     "entity": 29155,
+     "id": "40",
+     "name": "=>[0:1:1:68]",
+     "parentDefinition": 27,
+     "childDefinition": 29146,
+     "line": 34860,
+     "modelRank": 29155
+    },
+    {
+     "entity": 29174,
+     "id": "41",
+     "name": "=>[0:1:1:70]",
+     "parentDefinition": 27,
+     "childDefinition": 29159,
+     "line": 34888,
+     "modelRank": 29174
+    }
+   ],
+   "representations": [
+    32
+   ]
+  },
+  "144": {
+   "entity": 144,
+   "productEntity": 146,
+   "name": "7341-BZ3A",
+   "productId": "7341-BZ3A",
+   "line": 166,
+   "children": [
+    {
+     "entity": 1153,
+     "id": "1",
+     "name": "=>[0:1:1:4]",
+     "parentDefinition": 144,
+     "childDefinition": 1144,
+     "line": 1362,
+     "modelRank": 1153
+    },
+    {
+     "entity": 1658,
+     "id": "2",
+     "name": "=>[0:1:1:6]",
+     "parentDefinition": 144,
+     "childDefinition": 1649,
+     "line": 1991,
+     "modelRank": 1658
+    },
+    {
+     "entity": 1677,
+     "id": "3",
+     "name": "=>[0:1:1:8]",
+     "parentDefinition": 144,
+     "childDefinition": 1662,
+     "line": 2018,
+     "modelRank": 1677
+    }
+   ],
+   "representations": [
+    149
+   ]
+  },
+  "1144": {
+   "entity": 1144,
+   "productEntity": 1146,
+   "name": "7341-BZ3A-A1",
+   "productId": "7341-BZ3A-A1",
+   "line": 1350,
+   "children": [],
+   "representations": [
+    167
+   ]
+  },
+  "1649": {
+   "entity": 1649,
+   "productEntity": 1651,
+   "name": "7341-BZ3A-X4",
+   "productId": "7341-BZ3A-X4",
+   "line": 1979,
+   "children": [],
+   "representations": [
+    1155
+   ]
+  },
+  "1662": {
+   "entity": 1662,
+   "productEntity": 1664,
+   "name": "MBD-BK131B",
+   "productId": "MBD-BK131B",
+   "line": 1996,
+   "children": [],
+   "representations": [
+    1667
+   ]
+  },
+  "1687": {
+   "entity": 1687,
+   "productEntity": 1689,
+   "name": "7341-BZ3B",
+   "productId": "7341-BZ3B",
+   "line": 2032,
+   "children": [
+    {
+     "entity": 3020,
+     "id": "5",
+     "name": "=>[0:1:1:10]",
+     "parentDefinition": 1687,
+     "childDefinition": 3011,
+     "line": 3615,
+     "modelRank": 3020
+    },
+    {
+     "entity": 3525,
+     "id": "6",
+     "name": "=>[0:1:1:12]",
+     "parentDefinition": 1687,
+     "childDefinition": 3516,
+     "line": 4244,
+     "modelRank": 3525
+    },
+    {
+     "entity": 3544,
+     "id": "7",
+     "name": "=>[0:1:1:14]",
+     "parentDefinition": 1687,
+     "childDefinition": 3529,
+     "line": 4271,
+     "modelRank": 3544
+    }
+   ],
+   "representations": [
+    1692
+   ]
+  },
+  "3011": {
+   "entity": 3011,
+   "productEntity": 3013,
+   "name": "7341-BZ3B-A1",
+   "productId": "7341-BZ3B-A1",
+   "line": 3603,
+   "children": [],
+   "representations": [
+    1710
+   ]
+  },
+  "3516": {
+   "entity": 3516,
+   "productEntity": 3518,
+   "name": "7341-BZ3B-X4",
+   "productId": "7341-BZ3B-X4",
+   "line": 4232,
+   "children": [],
+   "representations": [
+    3022
+   ]
+  },
+  "3529": {
+   "entity": 3529,
+   "productEntity": 3531,
+   "name": "MBD-BK131A",
+   "productId": "MBD-BK131A",
+   "line": 4249,
+   "children": [],
+   "representations": [
+    3534
+   ]
+  },
+  "3554": {
+   "entity": 3554,
+   "productEntity": 3556,
+   "name": "7341-BZ12A",
+   "productId": "7341-BZ12A",
+   "line": 4286,
+   "children": [
+    {
+     "entity": 4563,
+     "id": "9",
+     "name": "=>[0:1:1:16]",
+     "parentDefinition": 3554,
+     "childDefinition": 4554,
+     "line": 5483,
+     "modelRank": 4563
+    },
+    {
+     "entity": 5068,
+     "id": "10",
+     "name": "=>[0:1:1:18]",
+     "parentDefinition": 3554,
+     "childDefinition": 5059,
+     "line": 6110,
+     "modelRank": 5068
+    },
+    {
+     "entity": 5087,
+     "id": "11",
+     "name": "=>[0:1:1:20]",
+     "parentDefinition": 3554,
+     "childDefinition": 5072,
+     "line": 6137,
+     "modelRank": 5087
+    }
+   ],
+   "representations": [
+    3559
+   ]
+  },
+  "4554": {
+   "entity": 4554,
+   "productEntity": 4556,
+   "name": "7341-BZ12A-A1",
+   "productId": "7341-BZ12A-A1",
+   "line": 5471,
+   "children": [],
+   "representations": [
+    3577
+   ]
+  },
+  "5059": {
+   "entity": 5059,
+   "productEntity": 5061,
+   "name": "7341-BZ12A-X5",
+   "productId": "7341-BZ12A-X5",
+   "line": 6098,
+   "children": [],
+   "representations": [
+    4565
+   ]
+  },
+  "5072": {
+   "entity": 5072,
+   "productEntity": 5074,
+   "name": "MBD-BZ12A",
+   "productId": "MBD-BZ12A",
+   "line": 6115,
+   "children": [],
+   "representations": [
+    5077
+   ]
+  },
+  "5097": {
+   "entity": 5097,
+   "productEntity": 5099,
+   "name": "7341-FR131A",
+   "productId": "7341-FR131A",
+   "line": 6152,
+   "children": [
+    {
+     "entity": 5327,
+     "id": "13",
+     "name": "=>[0:1:1:22]",
+     "parentDefinition": 5097,
+     "childDefinition": 5318,
+     "line": 6418,
+     "modelRank": 5327
+    },
+    {
+     "entity": 5524,
+     "id": "14",
+     "name": "=>[0:1:1:23]",
+     "parentDefinition": 5097,
+     "childDefinition": 5515,
+     "line": 6647,
+     "modelRank": 5524
+    },
+    {
+     "entity": 8346,
+     "id": "15",
+     "name": "=>[0:1:1:24]",
+     "parentDefinition": 5097,
+     "childDefinition": 8337,
+     "line": 10042,
+     "modelRank": 8346
+    },
+    {
+     "entity": 11353,
+     "id": "16",
+     "name": "=>[0:1:1:25]",
+     "parentDefinition": 5097,
+     "childDefinition": 11344,
+     "line": 13646,
+     "modelRank": 11353
+    },
+    {
+     "entity": 15238,
+     "id": "17",
+     "name": "=>[0:1:1:26]",
+     "parentDefinition": 5097,
+     "childDefinition": 15229,
+     "line": 18214,
+     "modelRank": 15238
+    },
+    {
+     "entity": 16666,
+     "id": "18",
+     "name": "=>[0:1:1:27]",
+     "parentDefinition": 5097,
+     "childDefinition": 16657,
+     "line": 19938,
+     "modelRank": 16666
+    }
+   ],
+   "representations": [
+    5102
+   ]
+  },
+  "5318": {
+   "entity": 5318,
+   "productEntity": 5320,
+   "name": "7341-FR131A",
+   "productId": "7341-FR131A",
+   "line": 6406,
+   "children": [],
+   "representations": [
+    5132
+   ]
+  },
+  "5515": {
+   "entity": 5515,
+   "productEntity": 5517,
+   "name": "7341-FR131A<1>",
+   "productId": "7341-FR131A<1>",
+   "line": 6635,
+   "children": [],
+   "representations": [
+    5329
+   ]
+  },
+  "8337": {
+   "entity": 8337,
+   "productEntity": 8339,
+   "name": "7341-FR131A<2>",
+   "productId": "7341-FR131A<2>",
+   "line": 10030,
+   "children": [],
+   "representations": [
+    5526
+   ]
+  },
+  "11344": {
+   "entity": 11344,
+   "productEntity": 11346,
+   "name": "7341-FR131A<3>",
+   "productId": "7341-FR131A<3>",
+   "line": 13634,
+   "children": [],
+   "representations": [
+    8348
+   ]
+  },
+  "15229": {
+   "entity": 15229,
+   "productEntity": 15231,
+   "name": "7341-FR131A<4>",
+   "productId": "7341-FR131A<4>",
+   "line": 18202,
+   "children": [],
+   "representations": [
+    11355
+   ]
+  },
+  "16657": {
+   "entity": 16657,
+   "productEntity": 16659,
+   "name": "7341-FR131A<5>",
+   "productId": "7341-FR131A<5>",
+   "line": 19926,
+   "children": [],
+   "representations": [
+    15240
+   ]
+  },
+  "17248": {
+   "entity": 17248,
+   "productEntity": 17250,
+   "name": "7341-FR131A-S1",
+   "productId": "7341-FR131A-S1",
+   "line": 20619,
+   "children": [],
+   "representations": [
+    16674
+   ]
+  },
+  "17675": {
+   "entity": 17675,
+   "productEntity": 17677,
+   "name": "7341-FR131A-S2",
+   "productId": "7341-FR131A-S2",
+   "line": 21148,
+   "children": [],
+   "representations": [
+    17259
+   ]
+  },
+  "18260": {
+   "entity": 18260,
+   "productEntity": 18262,
+   "name": "7341-FR131A-S3",
+   "productId": "7341-FR131A-S3",
+   "line": 21831,
+   "children": [],
+   "representations": [
+    17686
+   ]
+  },
+  "18765": {
+   "entity": 18765,
+   "productEntity": 18767,
+   "name": "7341-FR131A-S4",
+   "productId": "7341-FR131A-S4",
+   "line": 22455,
+   "children": [],
+   "representations": [
+    18271
+   ]
+  },
+  "19666": {
+   "entity": 19666,
+   "productEntity": 19668,
+   "name": "7341-FR131A-S5",
+   "productId": "7341-FR131A-S5",
+   "line": 23500,
+   "children": [],
+   "representations": [
+    18776
+   ]
+  },
+  "20251": {
+   "entity": 20251,
+   "productEntity": 20253,
+   "name": "7341-FR131A-S6",
+   "productId": "7341-FR131A-S6",
+   "line": 24181,
+   "children": [],
+   "representations": [
+    19677
+   ]
+  },
+  "20836": {
+   "entity": 20836,
+   "productEntity": 20838,
+   "name": "7341-FR131A-S7",
+   "productId": "7341-FR131A-S7",
+   "line": 24862,
+   "children": [],
+   "representations": [
+    20262
+   ]
+  },
+  "21421": {
+   "entity": 21421,
+   "productEntity": 21423,
+   "name": "7341-FR131A-S8",
+   "productId": "7341-FR131A-S8",
+   "line": 25550,
+   "children": [],
+   "representations": [
+    20847
+   ]
+  },
+  "22402": {
+   "entity": 22402,
+   "productEntity": 22404,
+   "name": "7341-FR131A-S9",
+   "productId": "7341-FR131A-S9",
+   "line": 26694,
+   "children": [],
+   "representations": [
+    21432
+   ]
+  },
+  "22907": {
+   "entity": 22907,
+   "productEntity": 22909,
+   "name": "7341-FR131A-S10",
+   "productId": "7341-FR131A-S10",
+   "line": 27321,
+   "children": [],
+   "representations": [
+    22413
+   ]
+  },
+  "23728": {
+   "entity": 23728,
+   "productEntity": 23730,
+   "name": "7341-FR131A-S11",
+   "productId": "7341-FR131A-S11",
+   "line": 28335,
+   "children": [],
+   "representations": [
+    22918
+   ]
+  },
+  "24233": {
+   "entity": 24233,
+   "productEntity": 24235,
+   "name": "7341-FR131A-S12",
+   "productId": "7341-FR131A-S12",
+   "line": 28958,
+   "children": [],
+   "representations": [
+    23739
+   ]
+  },
+  "24738": {
+   "entity": 24738,
+   "productEntity": 24740,
+   "name": "7341-FR131A-S13",
+   "productId": "7341-FR131A-S13",
+   "line": 29583,
+   "children": [],
+   "representations": [
+    24244
+   ]
+  },
+  "25646": {
+   "entity": 25646,
+   "productEntity": 25648,
+   "name": "7341-FR131A-S14",
+   "productId": "7341-FR131A-S14",
+   "line": 30655,
+   "children": [],
+   "representations": [
+    24749
+   ]
+  },
+  "26554": {
+   "entity": 26554,
+   "productEntity": 26556,
+   "name": "7341-FR131A-S15",
+   "productId": "7341-FR131A-S15",
+   "line": 31739,
+   "children": [],
+   "representations": [
+    25657
+   ]
+  },
+  "26907": {
+   "entity": 26907,
+   "productEntity": 26909,
+   "name": "7341-FR131A-W1",
+   "productId": "7341-FR131A-W1",
+   "line": 32149,
+   "children": [],
+   "representations": [
+    26565
+   ]
+  },
+  "27260": {
+   "entity": 27260,
+   "productEntity": 27262,
+   "name": "7341-FR131A-W2",
+   "productId": "7341-FR131A-W2",
+   "line": 32559,
+   "children": [],
+   "representations": [
+    26918
+   ]
+  },
+  "27613": {
+   "entity": 27613,
+   "productEntity": 27615,
+   "name": "7341-FR131A-W3",
+   "productId": "7341-FR131A-W3",
+   "line": 32969,
+   "children": [],
+   "representations": [
+    27271
+   ]
+  },
+  "27966": {
+   "entity": 27966,
+   "productEntity": 27968,
+   "name": "7341-FR131A-W4",
+   "productId": "7341-FR131A-W4",
+   "line": 33379,
+   "children": [],
+   "representations": [
+    27624
+   ]
+  },
+  "28483": {
+   "entity": 28483,
+   "productEntity": 28485,
+   "name": "7341-FR131A-W5",
+   "productId": "7341-FR131A-W5",
+   "line": 33997,
+   "children": [],
+   "representations": [
+    27977
+   ]
+  },
+  "29146": {
+   "entity": 29146,
+   "productEntity": 29148,
+   "name": "7341-FR131A-W6",
+   "productId": "7341-FR131A-W6",
+   "line": 34848,
+   "children": [],
+   "representations": [
+    28494
+   ]
+  },
+  "29159": {
+   "entity": 29159,
+   "productEntity": 29161,
+   "name": "MBD-FR131A",
+   "productId": "MBD-FR131A",
+   "line": 34865,
+   "children": [],
+   "representations": [
+    29164
+   ]
+  }
+ },
+ "relations": [
+  {
+   "entity": 1153,
+   "id": "1",
+   "name": "=>[0:1:1:4]",
+   "parentDefinition": 144,
+   "childDefinition": 1144,
+   "line": 1362,
+   "modelRank": 1153
+  },
+  {
+   "entity": 1658,
+   "id": "2",
+   "name": "=>[0:1:1:6]",
+   "parentDefinition": 144,
+   "childDefinition": 1649,
+   "line": 1991,
+   "modelRank": 1658
+  },
+  {
+   "entity": 1677,
+   "id": "3",
+   "name": "=>[0:1:1:8]",
+   "parentDefinition": 144,
+   "childDefinition": 1662,
+   "line": 2018,
+   "modelRank": 1677
+  },
+  {
+   "entity": 1683,
+   "id": "4",
+   "name": "=>[0:1:1:3]",
+   "parentDefinition": 27,
+   "childDefinition": 144,
+   "line": 2028,
+   "modelRank": 1683
+  },
+  {
+   "entity": 3020,
+   "id": "5",
+   "name": "=>[0:1:1:10]",
+   "parentDefinition": 1687,
+   "childDefinition": 3011,
+   "line": 3615,
+   "modelRank": 3020
+  },
+  {
+   "entity": 3525,
+   "id": "6",
+   "name": "=>[0:1:1:12]",
+   "parentDefinition": 1687,
+   "childDefinition": 3516,
+   "line": 4244,
+   "modelRank": 3525
+  },
+  {
+   "entity": 3544,
+   "id": "7",
+   "name": "=>[0:1:1:14]",
+   "parentDefinition": 1687,
+   "childDefinition": 3529,
+   "line": 4271,
+   "modelRank": 3544
+  },
+  {
+   "entity": 3550,
+   "id": "8",
+   "name": "=>[0:1:1:9]",
+   "parentDefinition": 27,
+   "childDefinition": 1687,
+   "line": 4281,
+   "modelRank": 3550
+  },
+  {
+   "entity": 4563,
+   "id": "9",
+   "name": "=>[0:1:1:16]",
+   "parentDefinition": 3554,
+   "childDefinition": 4554,
+   "line": 5483,
+   "modelRank": 4563
+  },
+  {
+   "entity": 5068,
+   "id": "10",
+   "name": "=>[0:1:1:18]",
+   "parentDefinition": 3554,
+   "childDefinition": 5059,
+   "line": 6110,
+   "modelRank": 5068
+  },
+  {
+   "entity": 5087,
+   "id": "11",
+   "name": "=>[0:1:1:20]",
+   "parentDefinition": 3554,
+   "childDefinition": 5072,
+   "line": 6137,
+   "modelRank": 5087
+  },
+  {
+   "entity": 5093,
+   "id": "12",
+   "name": "=>[0:1:1:15]",
+   "parentDefinition": 27,
+   "childDefinition": 3554,
+   "line": 6147,
+   "modelRank": 5093
+  },
+  {
+   "entity": 5327,
+   "id": "13",
+   "name": "=>[0:1:1:22]",
+   "parentDefinition": 5097,
+   "childDefinition": 5318,
+   "line": 6418,
+   "modelRank": 5327
+  },
+  {
+   "entity": 5524,
+   "id": "14",
+   "name": "=>[0:1:1:23]",
+   "parentDefinition": 5097,
+   "childDefinition": 5515,
+   "line": 6647,
+   "modelRank": 5524
+  },
+  {
+   "entity": 8346,
+   "id": "15",
+   "name": "=>[0:1:1:24]",
+   "parentDefinition": 5097,
+   "childDefinition": 8337,
+   "line": 10042,
+   "modelRank": 8346
+  },
+  {
+   "entity": 11353,
+   "id": "16",
+   "name": "=>[0:1:1:25]",
+   "parentDefinition": 5097,
+   "childDefinition": 11344,
+   "line": 13646,
+   "modelRank": 11353
+  },
+  {
+   "entity": 15238,
+   "id": "17",
+   "name": "=>[0:1:1:26]",
+   "parentDefinition": 5097,
+   "childDefinition": 15229,
+   "line": 18214,
+   "modelRank": 15238
+  },
+  {
+   "entity": 16666,
+   "id": "18",
+   "name": "=>[0:1:1:27]",
+   "parentDefinition": 5097,
+   "childDefinition": 16657,
+   "line": 19938,
+   "modelRank": 16666
+  },
+  {
+   "entity": 16672,
+   "id": "19",
+   "name": "=>[0:1:1:21]",
+   "parentDefinition": 27,
+   "childDefinition": 5097,
+   "line": 19948,
+   "modelRank": 16672
+  },
+  {
+   "entity": 17257,
+   "id": "20",
+   "name": "=>[0:1:1:28]",
+   "parentDefinition": 27,
+   "childDefinition": 17248,
+   "line": 20631,
+   "modelRank": 17257
+  },
+  {
+   "entity": 17684,
+   "id": "21",
+   "name": "=>[0:1:1:30]",
+   "parentDefinition": 27,
+   "childDefinition": 17675,
+   "line": 21160,
+   "modelRank": 17684
+  },
+  {
+   "entity": 18269,
+   "id": "22",
+   "name": "=>[0:1:1:32]",
+   "parentDefinition": 27,
+   "childDefinition": 18260,
+   "line": 21843,
+   "modelRank": 18269
+  },
+  {
+   "entity": 18774,
+   "id": "23",
+   "name": "=>[0:1:1:34]",
+   "parentDefinition": 27,
+   "childDefinition": 18765,
+   "line": 22467,
+   "modelRank": 18774
+  },
+  {
+   "entity": 19675,
+   "id": "24",
+   "name": "=>[0:1:1:36]",
+   "parentDefinition": 27,
+   "childDefinition": 19666,
+   "line": 23512,
+   "modelRank": 19675
+  },
+  {
+   "entity": 20260,
+   "id": "25",
+   "name": "=>[0:1:1:38]",
+   "parentDefinition": 27,
+   "childDefinition": 20251,
+   "line": 24193,
+   "modelRank": 20260
+  },
+  {
+   "entity": 20845,
+   "id": "26",
+   "name": "=>[0:1:1:40]",
+   "parentDefinition": 27,
+   "childDefinition": 20836,
+   "line": 24874,
+   "modelRank": 20845
+  },
+  {
+   "entity": 21430,
+   "id": "27",
+   "name": "=>[0:1:1:42]",
+   "parentDefinition": 27,
+   "childDefinition": 21421,
+   "line": 25562,
+   "modelRank": 21430
+  },
+  {
+   "entity": 22411,
+   "id": "28",
+   "name": "=>[0:1:1:44]",
+   "parentDefinition": 27,
+   "childDefinition": 22402,
+   "line": 26706,
+   "modelRank": 22411
+  },
+  {
+   "entity": 22916,
+   "id": "29",
+   "name": "=>[0:1:1:46]",
+   "parentDefinition": 27,
+   "childDefinition": 22907,
+   "line": 27333,
+   "modelRank": 22916
+  },
+  {
+   "entity": 23737,
+   "id": "30",
+   "name": "=>[0:1:1:48]",
+   "parentDefinition": 27,
+   "childDefinition": 23728,
+   "line": 28347,
+   "modelRank": 23737
+  },
+  {
+   "entity": 24242,
+   "id": "31",
+   "name": "=>[0:1:1:50]",
+   "parentDefinition": 27,
+   "childDefinition": 24233,
+   "line": 28970,
+   "modelRank": 24242
+  },
+  {
+   "entity": 24747,
+   "id": "32",
+   "name": "=>[0:1:1:52]",
+   "parentDefinition": 27,
+   "childDefinition": 24738,
+   "line": 29595,
+   "modelRank": 24747
+  },
+  {
+   "entity": 25655,
+   "id": "33",
+   "name": "=>[0:1:1:54]",
+   "parentDefinition": 27,
+   "childDefinition": 25646,
+   "line": 30667,
+   "modelRank": 25655
+  },
+  {
+   "entity": 26563,
+   "id": "34",
+   "name": "=>[0:1:1:56]",
+   "parentDefinition": 27,
+   "childDefinition": 26554,
+   "line": 31751,
+   "modelRank": 26563
+  },
+  {
+   "entity": 26916,
+   "id": "35",
+   "name": "=>[0:1:1:58]",
+   "parentDefinition": 27,
+   "childDefinition": 26907,
+   "line": 32161,
+   "modelRank": 26916
+  },
+  {
+   "entity": 27269,
+   "id": "36",
+   "name": "=>[0:1:1:60]",
+   "parentDefinition": 27,
+   "childDefinition": 27260,
+   "line": 32571,
+   "modelRank": 27269
+  },
+  {
+   "entity": 27622,
+   "id": "37",
+   "name": "=>[0:1:1:62]",
+   "parentDefinition": 27,
+   "childDefinition": 27613,
+   "line": 32981,
+   "modelRank": 27622
+  },
+  {
+   "entity": 27975,
+   "id": "38",
+   "name": "=>[0:1:1:64]",
+   "parentDefinition": 27,
+   "childDefinition": 27966,
+   "line": 33391,
+   "modelRank": 27975
+  },
+  {
+   "entity": 28492,
+   "id": "39",
+   "name": "=>[0:1:1:66]",
+   "parentDefinition": 27,
+   "childDefinition": 28483,
+   "line": 34009,
+   "modelRank": 28492
+  },
+  {
+   "entity": 29155,
+   "id": "40",
+   "name": "=>[0:1:1:68]",
+   "parentDefinition": 27,
+   "childDefinition": 29146,
+   "line": 34860,
+   "modelRank": 29155
+  },
+  {
+   "entity": 29174,
+   "id": "41",
+   "name": "=>[0:1:1:70]",
+   "parentDefinition": 27,
+   "childDefinition": 29159,
+   "line": 34888,
+   "modelRank": 29174
+  },
+  {
+   "entity": 29180,
+   "id": "42",
+   "name": "=>[0:1:1:2]",
+   "parentDefinition": 5,
+   "childDefinition": 27,
+   "line": 34898,
+   "modelRank": 29180
+  }
+ ],
+ "trees": [
+  {
+   "path": "5",
+   "parentPath": null,
+   "depth": 0,
+   "definitionEntity": 5,
+   "productEntity": 7,
+   "name": "Unnamed",
+   "isAssembly": true,
+   "occurrenceEntity": null,
+   "children": [
+    {
+     "path": "5/29180",
+     "parentPath": "5",
+     "depth": 1,
+     "definitionEntity": 27,
+     "productEntity": 29,
+     "name": "7341-FR131A",
+     "isAssembly": true,
+     "occurrenceEntity": 29180,
+     "children": [
+      {
+       "path": "5/29180/1683",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 144,
+       "productEntity": 146,
+       "name": "7341-BZ3A",
+       "isAssembly": true,
+       "occurrenceEntity": 1683,
+       "children": [
+        {
+         "path": "5/29180/1683/1153",
+         "parentPath": "5/29180/1683",
+         "depth": 3,
+         "definitionEntity": 1144,
+         "productEntity": 1146,
+         "name": "7341-BZ3A-A1",
+         "isAssembly": false,
+         "occurrenceEntity": 1153,
+         "children": [],
+         "expandedLeafCount": 1,
+         "cad": {
+          "labelEntry": "0:1:1:3:1",
+          "definitionLabelEntry": "0:1:1:4",
+          "occurrenceName": "=>[0:1:1:4]",
+          "definitionName": "7341-BZ3A-A1",
+          "localTransform": [
+           [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+           ]
+          ],
+          "worldTransform": [
+           [
+            0.0,
+            0.0,
+            -1.0,
+            3902.262220586
+           ],
+           [
+            0.0,
+            -1.0,
+            0.0,
+            -7410.725176483
+           ],
+           [
+            -1.0,
+            0.0,
+            0.0,
+            108160.0
+           ]
+          ]
+         }
+        },
+        {
+         "path": "5/29180/1683/1658",
+         "parentPath": "5/29180/1683",
+         "depth": 3,
+         "definitionEntity": 1649,
+         "productEntity": 1651,
+         "name": "7341-BZ3A-X4",
+         "isAssembly": false,
+         "occurrenceEntity": 1658,
+         "children": [],
+         "expandedLeafCount": 1,
+         "cad": {
+          "labelEntry": "0:1:1:3:2",
+          "definitionLabelEntry": "0:1:1:5",
+          "occurrenceName": "=>[0:1:1:6]",
+          "definitionName": "7341-BZ3A-X4",
+          "localTransform": [
+           [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+           ]
+          ],
+          "worldTransform": [
+           [
+            0.0,
+            0.0,
+            -1.0,
+            3902.262220586
+           ],
+           [
+            0.0,
+            -1.0,
+            0.0,
+            -7410.725176483
+           ],
+           [
+            -1.0,
+            0.0,
+            0.0,
+            108160.0
+           ]
+          ]
+         }
+        },
+        {
+         "path": "5/29180/1683/1677",
+         "parentPath": "5/29180/1683",
+         "depth": 3,
+         "definitionEntity": 1662,
+         "productEntity": 1664,
+         "name": "MBD-BK131B",
+         "isAssembly": false,
+         "occurrenceEntity": 1677,
+         "children": [],
+         "expandedLeafCount": 1,
+         "cad": {
+          "labelEntry": "0:1:1:3:3",
+          "definitionLabelEntry": "0:1:1:6",
+          "occurrenceName": "=>[0:1:1:8]",
+          "definitionName": "MBD-BK131B",
+          "localTransform": [
+           [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+           ]
+          ],
+          "worldTransform": [
+           [
+            0.0,
+            0.0,
+            -1.0,
+            3902.262220586
+           ],
+           [
+            0.0,
+            -1.0,
+            0.0,
+            -7410.725176483
+           ],
+           [
+            -1.0,
+            0.0,
+            0.0,
+            108160.0
+           ]
+          ],
+          "geometryStatus": "empty-placeholder"
+         }
+        }
+       ],
+       "expandedLeafCount": 3,
+       "cad": {
+        "labelEntry": "0:1:1:2:1",
+        "definitionLabelEntry": "0:1:1:3",
+        "occurrenceName": "=>[0:1:1:3]",
+        "definitionName": "7341-BZ3A",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/3550",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 1687,
+       "productEntity": 1689,
+       "name": "7341-BZ3B",
+       "isAssembly": true,
+       "occurrenceEntity": 3550,
+       "children": [
+        {
+         "path": "5/29180/3550/3020",
+         "parentPath": "5/29180/3550",
+         "depth": 3,
+         "definitionEntity": 3011,
+         "productEntity": 3013,
+         "name": "7341-BZ3B-A1",
+         "isAssembly": false,
+         "occurrenceEntity": 3020,
+         "children": [],
+         "expandedLeafCount": 1,
+         "cad": {
+          "labelEntry": "0:1:1:7:1",
+          "definitionLabelEntry": "0:1:1:8",
+          "occurrenceName": "=>[0:1:1:10]",
+          "definitionName": "7341-BZ3B-A1",
+          "localTransform": [
+           [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+           ]
+          ],
+          "worldTransform": [
+           [
+            0.0,
+            0.0,
+            -1.0,
+            3902.262220586
+           ],
+           [
+            0.0,
+            -1.0,
+            0.0,
+            -7410.725176483
+           ],
+           [
+            -1.0,
+            0.0,
+            0.0,
+            108160.0
+           ]
+          ]
+         }
+        },
+        {
+         "path": "5/29180/3550/3525",
+         "parentPath": "5/29180/3550",
+         "depth": 3,
+         "definitionEntity": 3516,
+         "productEntity": 3518,
+         "name": "7341-BZ3B-X4",
+         "isAssembly": false,
+         "occurrenceEntity": 3525,
+         "children": [],
+         "expandedLeafCount": 1,
+         "cad": {
+          "labelEntry": "0:1:1:7:2",
+          "definitionLabelEntry": "0:1:1:9",
+          "occurrenceName": "=>[0:1:1:12]",
+          "definitionName": "7341-BZ3B-X4",
+          "localTransform": [
+           [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+           ]
+          ],
+          "worldTransform": [
+           [
+            0.0,
+            0.0,
+            -1.0,
+            3902.262220586
+           ],
+           [
+            0.0,
+            -1.0,
+            0.0,
+            -7410.725176483
+           ],
+           [
+            -1.0,
+            0.0,
+            0.0,
+            108160.0
+           ]
+          ]
+         }
+        },
+        {
+         "path": "5/29180/3550/3544",
+         "parentPath": "5/29180/3550",
+         "depth": 3,
+         "definitionEntity": 3529,
+         "productEntity": 3531,
+         "name": "MBD-BK131A",
+         "isAssembly": false,
+         "occurrenceEntity": 3544,
+         "children": [],
+         "expandedLeafCount": 1,
+         "cad": {
+          "labelEntry": "0:1:1:7:3",
+          "definitionLabelEntry": "0:1:1:10",
+          "occurrenceName": "=>[0:1:1:14]",
+          "definitionName": "MBD-BK131A",
+          "localTransform": [
+           [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+           ]
+          ],
+          "worldTransform": [
+           [
+            0.0,
+            0.0,
+            -1.0,
+            3902.262220586
+           ],
+           [
+            0.0,
+            -1.0,
+            0.0,
+            -7410.725176483
+           ],
+           [
+            -1.0,
+            0.0,
+            0.0,
+            108160.0
+           ]
+          ],
+          "geometryStatus": "empty-placeholder"
+         }
+        }
+       ],
+       "expandedLeafCount": 3,
+       "cad": {
+        "labelEntry": "0:1:1:2:2",
+        "definitionLabelEntry": "0:1:1:7",
+        "occurrenceName": "=>[0:1:1:9]",
+        "definitionName": "7341-BZ3B",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/5093",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 3554,
+       "productEntity": 3556,
+       "name": "7341-BZ12A",
+       "isAssembly": true,
+       "occurrenceEntity": 5093,
+       "children": [
+        {
+         "path": "5/29180/5093/4563",
+         "parentPath": "5/29180/5093",
+         "depth": 3,
+         "definitionEntity": 4554,
+         "productEntity": 4556,
+         "name": "7341-BZ12A-A1",
+         "isAssembly": false,
+         "occurrenceEntity": 4563,
+         "children": [],
+         "expandedLeafCount": 1,
+         "cad": {
+          "labelEntry": "0:1:1:11:1",
+          "definitionLabelEntry": "0:1:1:12",
+          "occurrenceName": "=>[0:1:1:16]",
+          "definitionName": "7341-BZ12A-A1",
+          "localTransform": [
+           [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+           ]
+          ],
+          "worldTransform": [
+           [
+            0.0,
+            0.0,
+            -1.0,
+            3902.262220586
+           ],
+           [
+            0.0,
+            -1.0,
+            0.0,
+            -7410.725176483
+           ],
+           [
+            -1.0,
+            0.0,
+            0.0,
+            108160.0
+           ]
+          ]
+         }
+        },
+        {
+         "path": "5/29180/5093/5068",
+         "parentPath": "5/29180/5093",
+         "depth": 3,
+         "definitionEntity": 5059,
+         "productEntity": 5061,
+         "name": "7341-BZ12A-X5",
+         "isAssembly": false,
+         "occurrenceEntity": 5068,
+         "children": [],
+         "expandedLeafCount": 1,
+         "cad": {
+          "labelEntry": "0:1:1:11:2",
+          "definitionLabelEntry": "0:1:1:13",
+          "occurrenceName": "=>[0:1:1:18]",
+          "definitionName": "7341-BZ12A-X5",
+          "localTransform": [
+           [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+           ]
+          ],
+          "worldTransform": [
+           [
+            0.0,
+            0.0,
+            -1.0,
+            3902.262220586
+           ],
+           [
+            0.0,
+            -1.0,
+            0.0,
+            -7410.725176483
+           ],
+           [
+            -1.0,
+            0.0,
+            0.0,
+            108160.0
+           ]
+          ]
+         }
+        },
+        {
+         "path": "5/29180/5093/5087",
+         "parentPath": "5/29180/5093",
+         "depth": 3,
+         "definitionEntity": 5072,
+         "productEntity": 5074,
+         "name": "MBD-BZ12A",
+         "isAssembly": false,
+         "occurrenceEntity": 5087,
+         "children": [],
+         "expandedLeafCount": 1,
+         "cad": {
+          "labelEntry": "0:1:1:11:3",
+          "definitionLabelEntry": "0:1:1:14",
+          "occurrenceName": "=>[0:1:1:20]",
+          "definitionName": "MBD-BZ12A",
+          "localTransform": [
+           [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+           ]
+          ],
+          "worldTransform": [
+           [
+            0.0,
+            0.0,
+            -1.0,
+            3902.262220586
+           ],
+           [
+            0.0,
+            -1.0,
+            0.0,
+            -7410.725176483
+           ],
+           [
+            -1.0,
+            0.0,
+            0.0,
+            108160.0
+           ]
+          ],
+          "geometryStatus": "empty-placeholder"
+         }
+        }
+       ],
+       "expandedLeafCount": 3,
+       "cad": {
+        "labelEntry": "0:1:1:2:3",
+        "definitionLabelEntry": "0:1:1:11",
+        "occurrenceName": "=>[0:1:1:15]",
+        "definitionName": "7341-BZ12A",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/16672",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 5097,
+       "productEntity": 5099,
+       "name": "7341-FR131A",
+       "isAssembly": true,
+       "occurrenceEntity": 16672,
+       "children": [
+        {
+         "path": "5/29180/16672/5327",
+         "parentPath": "5/29180/16672",
+         "depth": 3,
+         "definitionEntity": 5318,
+         "productEntity": 5320,
+         "name": "7341-FR131A",
+         "isAssembly": false,
+         "occurrenceEntity": 5327,
+         "children": [],
+         "expandedLeafCount": 1,
+         "cad": {
+          "labelEntry": "0:1:1:15:1",
+          "definitionLabelEntry": "0:1:1:16",
+          "occurrenceName": "=>[0:1:1:22]",
+          "definitionName": "7341-FR131A",
+          "localTransform": [
+           [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+           ]
+          ],
+          "worldTransform": [
+           [
+            0.0,
+            0.0,
+            -1.0,
+            3902.262220586
+           ],
+           [
+            0.0,
+            -1.0,
+            0.0,
+            -7410.725176483
+           ],
+           [
+            -1.0,
+            0.0,
+            0.0,
+            108160.0
+           ]
+          ]
+         }
+        },
+        {
+         "path": "5/29180/16672/5524",
+         "parentPath": "5/29180/16672",
+         "depth": 3,
+         "definitionEntity": 5515,
+         "productEntity": 5517,
+         "name": "7341-FR131A<1>",
+         "isAssembly": false,
+         "occurrenceEntity": 5524,
+         "children": [],
+         "expandedLeafCount": 1,
+         "cad": {
+          "labelEntry": "0:1:1:15:2",
+          "definitionLabelEntry": "0:1:1:17",
+          "occurrenceName": "=>[0:1:1:23]",
+          "definitionName": "7341-FR131A<1>",
+          "localTransform": [
+           [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+           ]
+          ],
+          "worldTransform": [
+           [
+            0.0,
+            0.0,
+            -1.0,
+            3902.262220586
+           ],
+           [
+            0.0,
+            -1.0,
+            0.0,
+            -7410.725176483
+           ],
+           [
+            -1.0,
+            0.0,
+            0.0,
+            108160.0
+           ]
+          ]
+         }
+        },
+        {
+         "path": "5/29180/16672/8346",
+         "parentPath": "5/29180/16672",
+         "depth": 3,
+         "definitionEntity": 8337,
+         "productEntity": 8339,
+         "name": "7341-FR131A<2>",
+         "isAssembly": false,
+         "occurrenceEntity": 8346,
+         "children": [],
+         "expandedLeafCount": 1,
+         "cad": {
+          "labelEntry": "0:1:1:15:3",
+          "definitionLabelEntry": "0:1:1:18",
+          "occurrenceName": "=>[0:1:1:24]",
+          "definitionName": "7341-FR131A<2>",
+          "localTransform": [
+           [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+           ]
+          ],
+          "worldTransform": [
+           [
+            0.0,
+            0.0,
+            -1.0,
+            3902.262220586
+           ],
+           [
+            0.0,
+            -1.0,
+            0.0,
+            -7410.725176483
+           ],
+           [
+            -1.0,
+            0.0,
+            0.0,
+            108160.0
+           ]
+          ]
+         }
+        },
+        {
+         "path": "5/29180/16672/11353",
+         "parentPath": "5/29180/16672",
+         "depth": 3,
+         "definitionEntity": 11344,
+         "productEntity": 11346,
+         "name": "7341-FR131A<3>",
+         "isAssembly": false,
+         "occurrenceEntity": 11353,
+         "children": [],
+         "expandedLeafCount": 1,
+         "cad": {
+          "labelEntry": "0:1:1:15:4",
+          "definitionLabelEntry": "0:1:1:19",
+          "occurrenceName": "=>[0:1:1:25]",
+          "definitionName": "7341-FR131A<3>",
+          "localTransform": [
+           [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+           ]
+          ],
+          "worldTransform": [
+           [
+            0.0,
+            0.0,
+            -1.0,
+            3902.262220586
+           ],
+           [
+            0.0,
+            -1.0,
+            0.0,
+            -7410.725176483
+           ],
+           [
+            -1.0,
+            0.0,
+            0.0,
+            108160.0
+           ]
+          ]
+         }
+        },
+        {
+         "path": "5/29180/16672/15238",
+         "parentPath": "5/29180/16672",
+         "depth": 3,
+         "definitionEntity": 15229,
+         "productEntity": 15231,
+         "name": "7341-FR131A<4>",
+         "isAssembly": false,
+         "occurrenceEntity": 15238,
+         "children": [],
+         "expandedLeafCount": 1,
+         "cad": {
+          "labelEntry": "0:1:1:15:5",
+          "definitionLabelEntry": "0:1:1:20",
+          "occurrenceName": "=>[0:1:1:26]",
+          "definitionName": "7341-FR131A<4>",
+          "localTransform": [
+           [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+           ]
+          ],
+          "worldTransform": [
+           [
+            0.0,
+            0.0,
+            -1.0,
+            3902.262220586
+           ],
+           [
+            0.0,
+            -1.0,
+            0.0,
+            -7410.725176483
+           ],
+           [
+            -1.0,
+            0.0,
+            0.0,
+            108160.0
+           ]
+          ]
+         }
+        },
+        {
+         "path": "5/29180/16672/16666",
+         "parentPath": "5/29180/16672",
+         "depth": 3,
+         "definitionEntity": 16657,
+         "productEntity": 16659,
+         "name": "7341-FR131A<5>",
+         "isAssembly": false,
+         "occurrenceEntity": 16666,
+         "children": [],
+         "expandedLeafCount": 1,
+         "cad": {
+          "labelEntry": "0:1:1:15:6",
+          "definitionLabelEntry": "0:1:1:21",
+          "occurrenceName": "=>[0:1:1:27]",
+          "definitionName": "7341-FR131A<5>",
+          "localTransform": [
+           [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+           ],
+           [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+           ]
+          ],
+          "worldTransform": [
+           [
+            0.0,
+            0.0,
+            -1.0,
+            3902.262220586
+           ],
+           [
+            0.0,
+            -1.0,
+            0.0,
+            -7410.725176483
+           ],
+           [
+            -1.0,
+            0.0,
+            0.0,
+            108160.0
+           ]
+          ]
+         }
+        }
+       ],
+       "expandedLeafCount": 6,
+       "cad": {
+        "labelEntry": "0:1:1:2:4",
+        "definitionLabelEntry": "0:1:1:15",
+        "occurrenceName": "=>[0:1:1:21]",
+        "definitionName": "7341-FR131A",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/17257",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 17248,
+       "productEntity": 17250,
+       "name": "7341-FR131A-S1",
+       "isAssembly": false,
+       "occurrenceEntity": 17257,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:5",
+        "definitionLabelEntry": "0:1:1:22",
+        "occurrenceName": "=>[0:1:1:28]",
+        "definitionName": "7341-FR131A-S1",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/17684",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 17675,
+       "productEntity": 17677,
+       "name": "7341-FR131A-S2",
+       "isAssembly": false,
+       "occurrenceEntity": 17684,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:6",
+        "definitionLabelEntry": "0:1:1:23",
+        "occurrenceName": "=>[0:1:1:30]",
+        "definitionName": "7341-FR131A-S2",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/18269",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 18260,
+       "productEntity": 18262,
+       "name": "7341-FR131A-S3",
+       "isAssembly": false,
+       "occurrenceEntity": 18269,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:7",
+        "definitionLabelEntry": "0:1:1:24",
+        "occurrenceName": "=>[0:1:1:32]",
+        "definitionName": "7341-FR131A-S3",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/18774",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 18765,
+       "productEntity": 18767,
+       "name": "7341-FR131A-S4",
+       "isAssembly": false,
+       "occurrenceEntity": 18774,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:8",
+        "definitionLabelEntry": "0:1:1:25",
+        "occurrenceName": "=>[0:1:1:34]",
+        "definitionName": "7341-FR131A-S4",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/19675",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 19666,
+       "productEntity": 19668,
+       "name": "7341-FR131A-S5",
+       "isAssembly": false,
+       "occurrenceEntity": 19675,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:9",
+        "definitionLabelEntry": "0:1:1:26",
+        "occurrenceName": "=>[0:1:1:36]",
+        "definitionName": "7341-FR131A-S5",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/20260",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 20251,
+       "productEntity": 20253,
+       "name": "7341-FR131A-S6",
+       "isAssembly": false,
+       "occurrenceEntity": 20260,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:10",
+        "definitionLabelEntry": "0:1:1:27",
+        "occurrenceName": "=>[0:1:1:38]",
+        "definitionName": "7341-FR131A-S6",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/20845",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 20836,
+       "productEntity": 20838,
+       "name": "7341-FR131A-S7",
+       "isAssembly": false,
+       "occurrenceEntity": 20845,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:11",
+        "definitionLabelEntry": "0:1:1:28",
+        "occurrenceName": "=>[0:1:1:40]",
+        "definitionName": "7341-FR131A-S7",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/21430",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 21421,
+       "productEntity": 21423,
+       "name": "7341-FR131A-S8",
+       "isAssembly": false,
+       "occurrenceEntity": 21430,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:12",
+        "definitionLabelEntry": "0:1:1:29",
+        "occurrenceName": "=>[0:1:1:42]",
+        "definitionName": "7341-FR131A-S8",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/22411",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 22402,
+       "productEntity": 22404,
+       "name": "7341-FR131A-S9",
+       "isAssembly": false,
+       "occurrenceEntity": 22411,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:13",
+        "definitionLabelEntry": "0:1:1:30",
+        "occurrenceName": "=>[0:1:1:44]",
+        "definitionName": "7341-FR131A-S9",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/22916",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 22907,
+       "productEntity": 22909,
+       "name": "7341-FR131A-S10",
+       "isAssembly": false,
+       "occurrenceEntity": 22916,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:14",
+        "definitionLabelEntry": "0:1:1:31",
+        "occurrenceName": "=>[0:1:1:46]",
+        "definitionName": "7341-FR131A-S10",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/23737",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 23728,
+       "productEntity": 23730,
+       "name": "7341-FR131A-S11",
+       "isAssembly": false,
+       "occurrenceEntity": 23737,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:15",
+        "definitionLabelEntry": "0:1:1:32",
+        "occurrenceName": "=>[0:1:1:48]",
+        "definitionName": "7341-FR131A-S11",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/24242",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 24233,
+       "productEntity": 24235,
+       "name": "7341-FR131A-S12",
+       "isAssembly": false,
+       "occurrenceEntity": 24242,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:16",
+        "definitionLabelEntry": "0:1:1:33",
+        "occurrenceName": "=>[0:1:1:50]",
+        "definitionName": "7341-FR131A-S12",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/24747",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 24738,
+       "productEntity": 24740,
+       "name": "7341-FR131A-S13",
+       "isAssembly": false,
+       "occurrenceEntity": 24747,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:17",
+        "definitionLabelEntry": "0:1:1:34",
+        "occurrenceName": "=>[0:1:1:52]",
+        "definitionName": "7341-FR131A-S13",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/25655",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 25646,
+       "productEntity": 25648,
+       "name": "7341-FR131A-S14",
+       "isAssembly": false,
+       "occurrenceEntity": 25655,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:18",
+        "definitionLabelEntry": "0:1:1:35",
+        "occurrenceName": "=>[0:1:1:54]",
+        "definitionName": "7341-FR131A-S14",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/26563",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 26554,
+       "productEntity": 26556,
+       "name": "7341-FR131A-S15",
+       "isAssembly": false,
+       "occurrenceEntity": 26563,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:19",
+        "definitionLabelEntry": "0:1:1:36",
+        "occurrenceName": "=>[0:1:1:56]",
+        "definitionName": "7341-FR131A-S15",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/26916",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 26907,
+       "productEntity": 26909,
+       "name": "7341-FR131A-W1",
+       "isAssembly": false,
+       "occurrenceEntity": 26916,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:20",
+        "definitionLabelEntry": "0:1:1:37",
+        "occurrenceName": "=>[0:1:1:58]",
+        "definitionName": "7341-FR131A-W1",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/27269",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 27260,
+       "productEntity": 27262,
+       "name": "7341-FR131A-W2",
+       "isAssembly": false,
+       "occurrenceEntity": 27269,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:21",
+        "definitionLabelEntry": "0:1:1:38",
+        "occurrenceName": "=>[0:1:1:60]",
+        "definitionName": "7341-FR131A-W2",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/27622",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 27613,
+       "productEntity": 27615,
+       "name": "7341-FR131A-W3",
+       "isAssembly": false,
+       "occurrenceEntity": 27622,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:22",
+        "definitionLabelEntry": "0:1:1:39",
+        "occurrenceName": "=>[0:1:1:62]",
+        "definitionName": "7341-FR131A-W3",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/27975",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 27966,
+       "productEntity": 27968,
+       "name": "7341-FR131A-W4",
+       "isAssembly": false,
+       "occurrenceEntity": 27975,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:23",
+        "definitionLabelEntry": "0:1:1:40",
+        "occurrenceName": "=>[0:1:1:64]",
+        "definitionName": "7341-FR131A-W4",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/28492",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 28483,
+       "productEntity": 28485,
+       "name": "7341-FR131A-W5",
+       "isAssembly": false,
+       "occurrenceEntity": 28492,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:24",
+        "definitionLabelEntry": "0:1:1:41",
+        "occurrenceName": "=>[0:1:1:66]",
+        "definitionName": "7341-FR131A-W5",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/29155",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 29146,
+       "productEntity": 29148,
+       "name": "7341-FR131A-W6",
+       "isAssembly": false,
+       "occurrenceEntity": 29155,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:25",
+        "definitionLabelEntry": "0:1:1:42",
+        "occurrenceName": "=>[0:1:1:68]",
+        "definitionName": "7341-FR131A-W6",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ]
+       }
+      },
+      {
+       "path": "5/29180/29174",
+       "parentPath": "5/29180",
+       "depth": 2,
+       "definitionEntity": 29159,
+       "productEntity": 29161,
+       "name": "MBD-FR131A",
+       "isAssembly": false,
+       "occurrenceEntity": 29174,
+       "children": [],
+       "expandedLeafCount": 1,
+       "cad": {
+        "labelEntry": "0:1:1:2:26",
+        "definitionLabelEntry": "0:1:1:43",
+        "occurrenceName": "=>[0:1:1:70]",
+        "definitionName": "MBD-FR131A",
+        "localTransform": [
+         [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+         ],
+         [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+         ]
+        ],
+        "worldTransform": [
+         [
+          0.0,
+          0.0,
+          -1.0,
+          3902.262220586
+         ],
+         [
+          0.0,
+          -1.0,
+          0.0,
+          -7410.725176483
+         ],
+         [
+          -1.0,
+          0.0,
+          0.0,
+          108160.0
+         ]
+        ],
+        "geometryStatus": "empty-placeholder"
+       }
+      }
+     ],
+     "expandedLeafCount": 37,
+     "cad": {
+      "labelEntry": "0:1:1:1:1",
+      "definitionLabelEntry": "0:1:1:2",
+      "occurrenceName": "=>[0:1:1:2]",
+      "definitionName": "7341-FR131A",
+      "localTransform": [
+       [
+        0.0,
+        0.0,
+        -1.0,
+        3902.262220586
+       ],
+       [
+        0.0,
+        -1.0,
+        0.0,
+        -7410.725176483
+       ],
+       [
+        -1.0,
+        0.0,
+        -0.0,
+        108160.0
+       ]
+      ],
+      "worldTransform": [
+       [
+        0.0,
+        0.0,
+        -1.0,
+        3902.262220586
+       ],
+       [
+        0.0,
+        -1.0,
+        0.0,
+        -7410.725176483
+       ],
+       [
+        -1.0,
+        0.0,
+        -0.0,
+        108160.0
+       ]
+      ]
+     }
+    }
+   ],
+   "expandedLeafCount": 37,
+   "cad": {
+    "labelEntry": "0:1:1:1",
+    "definitionLabelEntry": "0:1:1:1",
+    "occurrenceName": "Unnamed",
+    "definitionName": "Unnamed",
+    "localTransform": [
+     [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      1.0,
+      0.0
+     ]
+    ],
+    "worldTransform": [
+     [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      1.0,
+      0.0
+     ]
+    ]
+   }
+  }
+ ],
+ "evidence": {
+  "27": {
+   "line": 43,
+   "raw": "#27 = PRODUCT_DEFINITION('design','',#28,#31);"
+  },
+  "29180": {
+   "line": 34898,
+   "raw": "#29180 = NEXT_ASSEMBLY_USAGE_OCCURRENCE('42','=>[0:1:1:2]','',#5,#27,$);"
+  },
+  "5": {
+   "line": 16,
+   "raw": "#5 = PRODUCT_DEFINITION('design','',#6,#9);"
+  },
+  "7": {
+   "line": 18,
+   "raw": "#7 = PRODUCT('Unnamed','Unnamed','',(#8));"
+  }
+ },
+ "groupingPolicy": {
+  "scope": "small",
+  "rule": "Every independent physical part is eligible; source assembly ownership does not exclude pairs."
+ },
+ "groups": [
+  {
+   "key": "5/29180/1683/1153",
+   "name": "7341-BZ3A-A1",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/1683/1153"
+   ]
+  },
+  {
+   "key": "5/29180/1683/1658",
+   "name": "7341-BZ3A-X4",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/1683/1658"
+   ]
+  },
+  {
+   "key": "5/29180/3550/3020",
+   "name": "7341-BZ3B-A1",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/3550/3020"
+   ]
+  },
+  {
+   "key": "5/29180/3550/3525",
+   "name": "7341-BZ3B-X4",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/3550/3525"
+   ]
+  },
+  {
+   "key": "5/29180/5093/4563",
+   "name": "7341-BZ12A-A1",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/5093/4563"
+   ]
+  },
+  {
+   "key": "5/29180/5093/5068",
+   "name": "7341-BZ12A-X5",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/5093/5068"
+   ]
+  },
+  {
+   "key": "5/29180/16672/5327",
+   "name": "7341-FR131A",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/16672/5327"
+   ]
+  },
+  {
+   "key": "5/29180/16672/5524",
+   "name": "7341-FR131A<1>",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/16672/5524"
+   ]
+  },
+  {
+   "key": "5/29180/16672/8346",
+   "name": "7341-FR131A<2>",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/16672/8346"
+   ]
+  },
+  {
+   "key": "5/29180/16672/11353",
+   "name": "7341-FR131A<3>",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/16672/11353"
+   ]
+  },
+  {
+   "key": "5/29180/16672/15238",
+   "name": "7341-FR131A<4>",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/16672/15238"
+   ]
+  },
+  {
+   "key": "5/29180/16672/16666",
+   "name": "7341-FR131A<5>",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/16672/16666"
+   ]
+  },
+  {
+   "key": "5/29180/17257",
+   "name": "7341-FR131A-S1",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/17257"
+   ]
+  },
+  {
+   "key": "5/29180/17684",
+   "name": "7341-FR131A-S2",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/17684"
+   ]
+  },
+  {
+   "key": "5/29180/18269",
+   "name": "7341-FR131A-S3",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/18269"
+   ]
+  },
+  {
+   "key": "5/29180/18774",
+   "name": "7341-FR131A-S4",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/18774"
+   ]
+  },
+  {
+   "key": "5/29180/19675",
+   "name": "7341-FR131A-S5",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/19675"
+   ]
+  },
+  {
+   "key": "5/29180/20260",
+   "name": "7341-FR131A-S6",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/20260"
+   ]
+  },
+  {
+   "key": "5/29180/20845",
+   "name": "7341-FR131A-S7",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/20845"
+   ]
+  },
+  {
+   "key": "5/29180/21430",
+   "name": "7341-FR131A-S8",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/21430"
+   ]
+  },
+  {
+   "key": "5/29180/22411",
+   "name": "7341-FR131A-S9",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/22411"
+   ]
+  },
+  {
+   "key": "5/29180/22916",
+   "name": "7341-FR131A-S10",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/22916"
+   ]
+  },
+  {
+   "key": "5/29180/23737",
+   "name": "7341-FR131A-S11",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/23737"
+   ]
+  },
+  {
+   "key": "5/29180/24242",
+   "name": "7341-FR131A-S12",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/24242"
+   ]
+  },
+  {
+   "key": "5/29180/24747",
+   "name": "7341-FR131A-S13",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/24747"
+   ]
+  },
+  {
+   "key": "5/29180/25655",
+   "name": "7341-FR131A-S14",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/25655"
+   ]
+  },
+  {
+   "key": "5/29180/26563",
+   "name": "7341-FR131A-S15",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/26563"
+   ]
+  },
+  {
+   "key": "5/29180/26916",
+   "name": "7341-FR131A-W1",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/26916"
+   ]
+  },
+  {
+   "key": "5/29180/27269",
+   "name": "7341-FR131A-W2",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/27269"
+   ]
+  },
+  {
+   "key": "5/29180/27622",
+   "name": "7341-FR131A-W3",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/27622"
+   ]
+  },
+  {
+   "key": "5/29180/27975",
+   "name": "7341-FR131A-W4",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/27975"
+   ]
+  },
+  {
+   "key": "5/29180/28492",
+   "name": "7341-FR131A-W5",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/28492"
+   ]
+  },
+  {
+   "key": "5/29180/29155",
+   "name": "7341-FR131A-W6",
+   "isAssembly": false,
+   "leafCount": 1,
+   "members": [
+    "5/29180/29155"
+   ]
+  }
+ ],
+ "groupCount": 1,
+ "excludedInternalPairCount": 0,
+ "crossOwnerPairCount": 528,
+ "sourceGroups": [
+  {
+   "key": "5/29180",
+   "name": "7341-FR131A",
+   "definitionEntity": 27,
+   "occurrenceEntity": 29180,
+   "isAssembly": true,
+   "directChildCount": 26,
+   "leafCount": 37,
+   "members": [
+    "5/29180/1683/1153",
+    "5/29180/1683/1658",
+    "5/29180/1683/1677",
+    "5/29180/3550/3020",
+    "5/29180/3550/3525",
+    "5/29180/3550/3544",
+    "5/29180/5093/4563",
+    "5/29180/5093/5068",
+    "5/29180/5093/5087",
+    "5/29180/16672/5327",
+    "5/29180/16672/5524",
+    "5/29180/16672/8346",
+    "5/29180/16672/11353",
+    "5/29180/16672/15238",
+    "5/29180/16672/16666",
+    "5/29180/17257",
+    "5/29180/17684",
+    "5/29180/18269",
+    "5/29180/18774",
+    "5/29180/19675",
+    "5/29180/20260",
+    "5/29180/20845",
+    "5/29180/21430",
+    "5/29180/22411",
+    "5/29180/22916",
+    "5/29180/23737",
+    "5/29180/24242",
+    "5/29180/24747",
+    "5/29180/25655",
+    "5/29180/26563",
+    "5/29180/26916",
+    "5/29180/27269",
+    "5/29180/27622",
+    "5/29180/27975",
+    "5/29180/28492",
+    "5/29180/29155",
+    "5/29180/29174"
+   ]
+  }
+ ],
+ "sourceExpandedLeafCount": 37,
+ "ignoredNonGeometricLeaves": [
+  {
+   "key": "5/29180/1683/1677",
+   "name": "MBD-BK131B",
+   "definitionEntity": 1662,
+   "occurrenceEntity": 1677,
+   "labelEntry": "0:1:1:3:3",
+   "displayable": false,
+   "reason": "empty-placeholder",
+   "faceCount": 0,
+   "solidCount": 0
+  },
+  {
+   "key": "5/29180/3550/3544",
+   "name": "MBD-BK131A",
+   "definitionEntity": 3529,
+   "occurrenceEntity": 3544,
+   "labelEntry": "0:1:1:7:3",
+   "displayable": false,
+   "reason": "empty-placeholder",
+   "faceCount": 0,
+   "solidCount": 0
+  },
+  {
+   "key": "5/29180/5093/5087",
+   "name": "MBD-BZ12A",
+   "definitionEntity": 5072,
+   "occurrenceEntity": 5087,
+   "labelEntry": "0:1:1:11:3",
+   "displayable": false,
+   "reason": "empty-placeholder",
+   "faceCount": 0,
+   "solidCount": 0
+  },
+  {
+   "key": "5/29180/29174",
+   "name": "MBD-FR131A",
+   "definitionEntity": 29159,
+   "occurrenceEntity": 29174,
+   "labelEntry": "0:1:1:2:26",
+   "displayable": false,
+   "reason": "empty-placeholder",
+   "faceCount": 0,
+   "solidCount": 0
+  }
+ ],
+ "leaves": [
+  {
+   "key": "5/29180/1683/1153",
+   "name": "7341-BZ3A-A1",
+   "sourceName": "7341-BZ3A-A1",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-BZ3A",
+    "7341-BZ3A-A1"
+   ],
+   "ownerKey": "5/29180/1683/1153",
+   "ownerName": "7341-BZ3A-A1",
+   "componentKey": "5/29180/1683/1153",
+   "definitionEntity": 1144,
+   "occurrenceEntity": 1153,
+   "labelEntry": "0:1:1:3:1",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 14,
+   "worldBounds": [
+    [
+     -747.73778,
+     1027.274823,
+     -0.0
+    ],
+    [
+     688.262221,
+     1039.274824,
+     650.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/1683/1153"
+  },
+  {
+   "key": "5/29180/1683/1658",
+   "name": "7341-BZ3A-X4",
+   "sourceName": "7341-BZ3A-X4",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-BZ3A",
+    "7341-BZ3A-X4"
+   ],
+   "ownerKey": "5/29180/1683/1658",
+   "ownerName": "7341-BZ3A-X4",
+   "componentKey": "5/29180/1683/1658",
+   "definitionEntity": 1649,
+   "occurrenceEntity": 1658,
+   "labelEntry": "0:1:1:3:2",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 8,
+   "worldBounds": [
+    [
+     -326.161818,
+     907.274823,
+     49.996394
+    ],
+    [
+     653.262267,
+     1027.274824,
+     467.243609
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/1683/1658"
+  },
+  {
+   "key": "5/29180/3550/3020",
+   "name": "7341-BZ3B-A1",
+   "sourceName": "7341-BZ3B-A1",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-BZ3B",
+    "7341-BZ3B-A1"
+   ],
+   "ownerKey": "5/29180/3550/3020",
+   "ownerName": "7341-BZ3B-A1",
+   "componentKey": "5/29180/3550/3020",
+   "definitionEntity": 3011,
+   "occurrenceEntity": 3020,
+   "labelEntry": "0:1:1:7:1",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 18,
+   "worldBounds": [
+    [
+     -747.73778,
+     -2372.725177,
+     -0.0
+    ],
+    [
+     688.262221,
+     -2360.725176,
+     650.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/3550/3020"
+  },
+  {
+   "key": "5/29180/3550/3525",
+   "name": "7341-BZ3B-X4",
+   "sourceName": "7341-BZ3B-X4",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-BZ3B",
+    "7341-BZ3B-X4"
+   ],
+   "ownerKey": "5/29180/3550/3525",
+   "ownerName": "7341-BZ3B-X4",
+   "componentKey": "5/29180/3550/3525",
+   "definitionEntity": 3516,
+   "occurrenceEntity": 3525,
+   "labelEntry": "0:1:1:7:2",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 8,
+   "worldBounds": [
+    [
+     -326.161818,
+     -2492.725177,
+     49.996394
+    ],
+    [
+     653.262316,
+     -2372.725176,
+     467.24363
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/3550/3525"
+  },
+  {
+   "key": "5/29180/5093/4563",
+   "name": "7341-BZ12A-A1",
+   "sourceName": "7341-BZ12A-A1",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-BZ12A",
+    "7341-BZ12A-A1"
+   ],
+   "ownerKey": "5/29180/5093/4563",
+   "ownerName": "7341-BZ12A-A1",
+   "componentKey": "5/29180/5093/4563",
+   "definitionEntity": 4554,
+   "occurrenceEntity": 4563,
+   "labelEntry": "0:1:1:11:1",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 14,
+   "worldBounds": [
+    [
+     -961.600161,
+     3577.274823,
+     -0.0
+    ],
+    [
+     688.262221,
+     3589.274824,
+     850.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/5093/4563"
+  },
+  {
+   "key": "5/29180/5093/5068",
+   "name": "7341-BZ12A-X5",
+   "sourceName": "7341-BZ12A-X5",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-BZ12A",
+    "7341-BZ12A-X5"
+   ],
+   "ownerKey": "5/29180/5093/5068",
+   "ownerName": "7341-BZ12A-X5",
+   "componentKey": "5/29180/5093/5068",
+   "definitionEntity": 5059,
+   "occurrenceEntity": 5068,
+   "labelEntry": "0:1:1:11:2",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 8,
+   "worldBounds": [
+    [
+     -645.814655,
+     3427.274824,
+     50.003648
+    ],
+    [
+     653.262204,
+     3577.274824,
+     664.745555
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/5093/5068"
+  },
+  {
+   "key": "5/29180/16672/5327",
+   "name": "7341-FR131A",
+   "sourceName": "7341-FR131A",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A",
+    "7341-FR131A"
+   ],
+   "ownerKey": "5/29180/16672/5327",
+   "ownerName": "7341-FR131A",
+   "componentKey": "5/29180/16672/5327",
+   "definitionEntity": 5318,
+   "occurrenceEntity": 5327,
+   "labelEntry": "0:1:1:15:1",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 4,
+   "worldBounds": [
+    [
+     295.262221,
+     -2967.725176,
+     -14.0
+    ],
+    [
+     609.262221,
+     -2653.725176,
+     1.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/16672/5327"
+  },
+  {
+   "key": "5/29180/16672/5524",
+   "name": "7341-FR131A<1>",
+   "sourceName": "7341-FR131A<1>",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A",
+    "7341-FR131A<1>"
+   ],
+   "ownerKey": "5/29180/16672/5524",
+   "ownerName": "7341-FR131A<1>",
+   "componentKey": "5/29180/16672/5524",
+   "definitionEntity": 5515,
+   "occurrenceEntity": 5524,
+   "labelEntry": "0:1:1:15:2",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 4,
+   "worldBounds": [
+    [
+     295.262221,
+     1282.274824,
+     -11.0
+    ],
+    [
+     609.262221,
+     1596.274824,
+     1.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/16672/5524"
+  },
+  {
+   "key": "5/29180/16672/8346",
+   "name": "7341-FR131A<2>",
+   "sourceName": "7341-FR131A<2>",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A",
+    "7341-FR131A<2>"
+   ],
+   "ownerKey": "5/29180/16672/8346",
+   "ownerName": "7341-FR131A<2>",
+   "componentKey": "5/29180/16672/8346",
+   "definitionEntity": 8337,
+   "occurrenceEntity": 8346,
+   "labelEntry": "0:1:1:15:3",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 35,
+   "worldBounds": [
+    [
+     -899.170409,
+     -3635.725177,
+     -13.0
+    ],
+    [
+     1052.262221,
+     -820.725176,
+     0.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/16672/8346"
+  },
+  {
+   "key": "5/29180/16672/11353",
+   "name": "7341-FR131A<3>",
+   "sourceName": "7341-FR131A<3>",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A",
+    "7341-FR131A<3>"
+   ],
+   "ownerKey": "5/29180/16672/11353",
+   "ownerName": "7341-FR131A<3>",
+   "componentKey": "5/29180/16672/11353",
+   "definitionEntity": 11344,
+   "occurrenceEntity": 11353,
+   "labelEntry": "0:1:1:15:4",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 38,
+   "worldBounds": [
+    [
+     -747.73778,
+     -820.725177,
+     -10.0
+    ],
+    [
+     1052.262221,
+     2109.274824,
+     0.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/16672/11353"
+  },
+  {
+   "key": "5/29180/16672/15238",
+   "name": "7341-FR131A<4>",
+   "sourceName": "7341-FR131A<4>",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A",
+    "7341-FR131A<4>"
+   ],
+   "ownerKey": "5/29180/16672/15238",
+   "ownerName": "7341-FR131A<4>",
+   "componentKey": "5/29180/16672/15238",
+   "definitionEntity": 15229,
+   "occurrenceEntity": 15238,
+   "labelEntry": "0:1:1:15:5",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 50,
+   "worldBounds": [
+    [
+     -1336.912589,
+     2109.274823,
+     -14.0
+    ],
+    [
+     1052.262221,
+     5449.274824,
+     0.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/16672/15238"
+  },
+  {
+   "key": "5/29180/16672/16666",
+   "name": "7341-FR131A<5>",
+   "sourceName": "7341-FR131A<5>",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A",
+    "7341-FR131A<5>"
+   ],
+   "ownerKey": "5/29180/16672/16666",
+   "ownerName": "7341-FR131A<5>",
+   "componentKey": "5/29180/16672/16666",
+   "definitionEntity": 16657,
+   "occurrenceEntity": 16666,
+   "labelEntry": "0:1:1:15:6",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 19,
+   "worldBounds": [
+    [
+     -1389.943435,
+     -4610.725177,
+     -11.0
+    ],
+    [
+     1052.262221,
+     -3635.725176,
+     0.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/16672/16666"
+  },
+  {
+   "key": "5/29180/17257",
+   "name": "7341-FR131A-S1",
+   "sourceName": "7341-FR131A-S1",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S1"
+   ],
+   "ownerKey": "5/29180/17257",
+   "ownerName": "7341-FR131A-S1",
+   "componentKey": "5/29180/17257",
+   "definitionEntity": 17248,
+   "occurrenceEntity": 17257,
+   "labelEntry": "0:1:1:2:5",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 9,
+   "worldBounds": [
+    [
+     -1028.673841,
+     -4072.725176,
+     -0.0
+    ],
+    [
+     688.262221,
+     -4060.725176,
+     120.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/17257"
+  },
+  {
+   "key": "5/29180/17684",
+   "name": "7341-FR131A-S2",
+   "sourceName": "7341-FR131A-S2",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S2"
+   ],
+   "ownerKey": "5/29180/17684",
+   "ownerName": "7341-FR131A-S2",
+   "componentKey": "5/29180/17684",
+   "definitionEntity": 17675,
+   "occurrenceEntity": 17684,
+   "labelEntry": "0:1:1:2:6",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 7,
+   "worldBounds": [
+    [
+     -396.240616,
+     -4563.077015,
+     0.0
+    ],
+    [
+     -159.101748,
+     -4107.725245,
+     100.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/17684"
+  },
+  {
+   "key": "5/29180/18269",
+   "name": "7341-FR131A-S3",
+   "sourceName": "7341-FR131A-S3",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S3"
+   ],
+   "ownerKey": "5/29180/18269",
+   "ownerName": "7341-FR131A-S3",
+   "componentKey": "5/29180/18269",
+   "definitionEntity": 18260,
+   "occurrenceEntity": 18269,
+   "labelEntry": "0:1:1:2:7",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 9,
+   "worldBounds": [
+    [
+     -760.065482,
+     -3222.725176,
+     -0.0
+    ],
+    [
+     688.262221,
+     -3210.725176,
+     120.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/18269"
+  },
+  {
+   "key": "5/29180/18774",
+   "name": "7341-FR131A-S4",
+   "sourceName": "7341-FR131A-S4",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S4"
+   ],
+   "ownerKey": "5/29180/18774",
+   "ownerName": "7341-FR131A-S4",
+   "componentKey": "5/29180/18774",
+   "definitionEntity": 18765,
+   "occurrenceEntity": 18774,
+   "labelEntry": "0:1:1:2:8",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 8,
+   "worldBounds": [
+    [
+     -136.782544,
+     -4025.725249,
+     0.0
+    ],
+    [
+     64.457439,
+     -3257.725348,
+     100.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/18774"
+  },
+  {
+   "key": "5/29180/19675",
+   "name": "7341-FR131A-S5",
+   "sourceName": "7341-FR131A-S5",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S5"
+   ],
+   "ownerKey": "5/29180/19675",
+   "ownerName": "7341-FR131A-S5",
+   "componentKey": "5/29180/19675",
+   "definitionEntity": 19666,
+   "occurrenceEntity": 19675,
+   "labelEntry": "0:1:1:2:9",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 13,
+   "worldBounds": [
+    [
+     -712.737779,
+     -672.725176,
+     -0.0
+    ],
+    [
+     688.262221,
+     -660.725176,
+     120.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/19675"
+  },
+  {
+   "key": "5/29180/20260",
+   "name": "7341-FR131A-S6",
+   "sourceName": "7341-FR131A-S6",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S6"
+   ],
+   "ownerKey": "5/29180/20260",
+   "ownerName": "7341-FR131A-S6",
+   "componentKey": "5/29180/20260",
+   "definitionEntity": 20251,
+   "occurrenceEntity": 20260,
+   "labelEntry": "0:1:1:2:10",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 9,
+   "worldBounds": [
+    [
+     -712.737779,
+     177.274824,
+     -0.0
+    ],
+    [
+     688.262221,
+     189.274824,
+     120.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/20260"
+  },
+  {
+   "key": "5/29180/20845",
+   "name": "7341-FR131A-S7",
+   "sourceName": "7341-FR131A-S7",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S7"
+   ],
+   "ownerKey": "5/29180/20845",
+   "ownerName": "7341-FR131A-S7",
+   "componentKey": "5/29180/20845",
+   "definitionEntity": 20836,
+   "occurrenceEntity": 20845,
+   "labelEntry": "0:1:1:2:11",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 9,
+   "worldBounds": [
+    [
+     -712.737779,
+     1877.274824,
+     -0.0
+    ],
+    [
+     688.262221,
+     1889.274824,
+     120.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/20845"
+  },
+  {
+   "key": "5/29180/21430",
+   "name": "7341-FR131A-S8",
+   "sourceName": "7341-FR131A-S8",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S8"
+   ],
+   "ownerKey": "5/29180/21430",
+   "ownerName": "7341-FR131A-S8",
+   "componentKey": "5/29180/21430",
+   "definitionEntity": 21421,
+   "occurrenceEntity": 21430,
+   "labelEntry": "0:1:1:2:12",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 9,
+   "worldBounds": [
+    [
+     -748.276852,
+     2727.274824,
+     -0.0
+    ],
+    [
+     688.262221,
+     2739.274824,
+     120.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/21430"
+  },
+  {
+   "key": "5/29180/22411",
+   "name": "7341-FR131A-S9",
+   "sourceName": "7341-FR131A-S9",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S9"
+   ],
+   "ownerKey": "5/29180/22411",
+   "ownerName": "7341-FR131A-S9",
+   "componentKey": "5/29180/22411",
+   "definitionEntity": 22402,
+   "occurrenceEntity": 22411,
+   "labelEntry": "0:1:1:2:13",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 14,
+   "worldBounds": [
+    [
+     -72.975719,
+     5173.274824,
+     -0.0
+    ],
+    [
+     688.262221,
+     5189.274824,
+     150.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/22411"
+  },
+  {
+   "key": "5/29180/22916",
+   "name": "7341-FR131A-S10",
+   "sourceName": "7341-FR131A-S10",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S10"
+   ],
+   "ownerKey": "5/29180/22916",
+   "ownerName": "7341-FR131A-S10",
+   "componentKey": "5/29180/22916",
+   "definitionEntity": 22907,
+   "occurrenceEntity": 22916,
+   "labelEntry": "0:1:1:2:14",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 8,
+   "worldBounds": [
+    [
+     66.03662,
+     -3175.725021,
+     0.0
+    ],
+    [
+     112.15991,
+     -2407.725332,
+     100.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/22916"
+  },
+  {
+   "key": "5/29180/23737",
+   "name": "7341-FR131A-S11",
+   "sourceName": "7341-FR131A-S11",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S11"
+   ],
+   "ownerKey": "5/29180/23737",
+   "ownerName": "7341-FR131A-S11",
+   "componentKey": "5/29180/23737",
+   "definitionEntity": 23728,
+   "occurrenceEntity": 23737,
+   "labelEntry": "0:1:1:2:15",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 12,
+   "worldBounds": [
+    [
+     -744.408029,
+     4474.274513,
+     0.0
+    ],
+    [
+     -393.314151,
+     5138.275134,
+     120.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/23737"
+  },
+  {
+   "key": "5/29180/24242",
+   "name": "7341-FR131A-S12",
+   "sourceName": "7341-FR131A-S12",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S12"
+   ],
+   "ownerKey": "5/29180/24242",
+   "ownerName": "7341-FR131A-S12",
+   "componentKey": "5/29180/24242",
+   "definitionEntity": 24233,
+   "occurrenceEntity": 24242,
+   "labelEntry": "0:1:1:2:16",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 8,
+   "worldBounds": [
+    [
+     -365.571497,
+     3624.274731,
+     0.0
+    ],
+    [
+     -95.670163,
+     4388.274916,
+     120.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/24242"
+  },
+  {
+   "key": "5/29180/24747",
+   "name": "7341-FR131A-S13",
+   "sourceName": "7341-FR131A-S13",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S13"
+   ],
+   "ownerKey": "5/29180/24747",
+   "ownerName": "7341-FR131A-S13",
+   "componentKey": "5/29180/24747",
+   "definitionEntity": 24738,
+   "occurrenceEntity": 24747,
+   "labelEntry": "0:1:1:2:17",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 8,
+   "worldBounds": [
+    [
+     -84.879376,
+     2774.274782,
+     0.0
+    ],
+    [
+     63.858194,
+     3542.274865,
+     120.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/24747"
+  },
+  {
+   "key": "5/29180/25655",
+   "name": "7341-FR131A-S14",
+   "sourceName": "7341-FR131A-S14",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S14"
+   ],
+   "ownerKey": "5/29180/25655",
+   "ownerName": "7341-FR131A-S14",
+   "componentKey": "5/29180/25655",
+   "definitionEntity": 25646,
+   "occurrenceEntity": 25655,
+   "labelEntry": "0:1:1:2:18",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 13,
+   "worldBounds": [
+    [
+     -747.73778,
+     -1526.725177,
+     -0.0
+    ],
+    [
+     688.262221,
+     -1510.725176,
+     400.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/25655"
+  },
+  {
+   "key": "5/29180/26563",
+   "name": "7341-FR131A-S15",
+   "sourceName": "7341-FR131A-S15",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-S15"
+   ],
+   "ownerKey": "5/29180/26563",
+   "ownerName": "7341-FR131A-S15",
+   "componentKey": "5/29180/26563",
+   "definitionEntity": 26554,
+   "occurrenceEntity": 26563,
+   "labelEntry": "0:1:1:2:19",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 13,
+   "worldBounds": [
+    [
+     -1304.358935,
+     4423.274823,
+     -0.0
+    ],
+    [
+     688.262221,
+     4439.274824,
+     400.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/26563"
+  },
+  {
+   "key": "5/29180/26916",
+   "name": "7341-FR131A-W1",
+   "sourceName": "7341-FR131A-W1",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-W1"
+   ],
+   "ownerKey": "5/29180/26916",
+   "ownerName": "7341-FR131A-W1",
+   "componentKey": "5/29180/26916",
+   "definitionEntity": 26907,
+   "occurrenceEntity": 26916,
+   "labelEntry": "0:1:1:2:20",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 6,
+   "worldBounds": [
+    [
+     452.262221,
+     -2965.725176,
+     -81.5
+    ],
+    [
+     607.262221,
+     -2655.725176,
+     68.5
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/26916"
+  },
+  {
+   "key": "5/29180/27269",
+   "name": "7341-FR131A-W2",
+   "sourceName": "7341-FR131A-W2",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-W2"
+   ],
+   "ownerKey": "5/29180/27269",
+   "ownerName": "7341-FR131A-W2",
+   "componentKey": "5/29180/27269",
+   "definitionEntity": 27260,
+   "occurrenceEntity": 27269,
+   "labelEntry": "0:1:1:2:21",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 6,
+   "worldBounds": [
+    [
+     297.262221,
+     -2965.725176,
+     -81.5
+    ],
+    [
+     452.262221,
+     -2655.725176,
+     68.5
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/27269"
+  },
+  {
+   "key": "5/29180/27622",
+   "name": "7341-FR131A-W3",
+   "sourceName": "7341-FR131A-W3",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-W3"
+   ],
+   "ownerKey": "5/29180/27622",
+   "ownerName": "7341-FR131A-W3",
+   "componentKey": "5/29180/27622",
+   "definitionEntity": 27613,
+   "occurrenceEntity": 27622,
+   "labelEntry": "0:1:1:2:22",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 6,
+   "worldBounds": [
+    [
+     297.262221,
+     1284.274824,
+     -80.0
+    ],
+    [
+     452.262221,
+     1594.274824,
+     70.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/27622"
+  },
+  {
+   "key": "5/29180/27975",
+   "name": "7341-FR131A-W4",
+   "sourceName": "7341-FR131A-W4",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-W4"
+   ],
+   "ownerKey": "5/29180/27975",
+   "ownerName": "7341-FR131A-W4",
+   "componentKey": "5/29180/27975",
+   "definitionEntity": 27966,
+   "occurrenceEntity": 27975,
+   "labelEntry": "0:1:1:2:23",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 6,
+   "worldBounds": [
+    [
+     452.262221,
+     1284.274824,
+     -80.0
+    ],
+    [
+     607.262221,
+     1594.274824,
+     70.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/27975"
+  },
+  {
+   "key": "5/29180/28492",
+   "name": "7341-FR131A-W5",
+   "sourceName": "7341-FR131A-W5",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-W5"
+   ],
+   "ownerKey": "5/29180/28492",
+   "ownerName": "7341-FR131A-W5",
+   "componentKey": "5/29180/28492",
+   "definitionEntity": 28483,
+   "occurrenceEntity": 28492,
+   "labelEntry": "0:1:1:2:24",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 8,
+   "worldBounds": [
+    [
+     -1417.846443,
+     -4610.725176,
+     -129.0
+    ],
+    [
+     -747.737779,
+     2109.274824,
+     121.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/28492"
+  },
+  {
+   "key": "5/29180/29155",
+   "name": "7341-FR131A-W6",
+   "sourceName": "7341-FR131A-W6",
+   "path": [
+    "Unnamed",
+    "7341-FR131A",
+    "7341-FR131A-W6"
+   ],
+   "ownerKey": "5/29180/29155",
+   "ownerName": "7341-FR131A-W6",
+   "componentKey": "5/29180/29155",
+   "definitionEntity": 29146,
+   "occurrenceEntity": 29155,
+   "labelEntry": "0:1:1:2:25",
+   "shapeType": "TopAbs_SOLID",
+   "solidCount": 1,
+   "shellCount": 1,
+   "faceCount": 10,
+   "worldBounds": [
+    [
+     -1369.253782,
+     2109.274823,
+     -154.0
+    ],
+    [
+     -747.737779,
+     4502.920789,
+     146.0
+    ]
+   ],
+   "worldTransform": [
+    [
+     0.0,
+     0.0,
+     -1.0,
+     3902.262220586
+    ],
+    [
+     0.0,
+     -1.0,
+     0.0,
+     -7410.725176483
+    ],
+    [
+     -1.0,
+     0.0,
+     0.0,
+     108160.0
+    ]
+   ],
+   "contactGeometry": {
+    "originalSolidCount": 1,
+    "contactSolidCount": 1,
+    "promotedClosedShellCount": 0,
+    "excludedShellCount": 0,
+    "shells": [],
+    "rule": "Source solids plus closed, valid shells that form a valid positive-volume solid; no sewing."
+   },
+   "sourceOccurrence": "5/29180/29155"
+  }
+ ],
+ "cadValidation": {
+  "hierarchyMatchesStep": true,
+  "leafCount": 33,
+  "solidCount": 33,
+  "surfaceOnlyLeafCount": 0,
+  "contactSolidCount": 33,
+  "promotedClosedShellCount": 0,
+  "excludedOpenOrInvalidShellCount": 0,
+  "rootWorldBounds": [
+   [
+    -1417.8469355252143,
+    -4610.725669229492,
+    -154.0004927464921,
+    1052.2627133327996,
+    5449.275316263493,
+    850.0004927464921
+   ]
+  ],
+  "nonIdentityNumericTransformCount": 1,
+  "nonIdentityNumericTransformOccurrences": [
+   "5/29180"
+  ],
+  "placementRule": "GetShape(occurrence).Moved(cumulative ancestor location), once."
+ },
+ "warnings": [
+  {
+   "code": "NON_GEOMETRIC_LEAF",
+   "key": "5/29180/1683/1677",
+   "name": "MBD-BK131B",
+   "definitionEntity": 1662,
+   "occurrenceEntity": 1677,
+   "labelEntry": "0:1:1:3:3",
+   "displayable": false,
+   "reason": "empty-placeholder",
+   "faceCount": 0,
+   "solidCount": 0
+  },
+  {
+   "code": "NON_GEOMETRIC_LEAF",
+   "key": "5/29180/3550/3544",
+   "name": "MBD-BK131A",
+   "definitionEntity": 3529,
+   "occurrenceEntity": 3544,
+   "labelEntry": "0:1:1:7:3",
+   "displayable": false,
+   "reason": "empty-placeholder",
+   "faceCount": 0,
+   "solidCount": 0
+  },
+  {
+   "code": "NON_GEOMETRIC_LEAF",
+   "key": "5/29180/5093/5087",
+   "name": "MBD-BZ12A",
+   "definitionEntity": 5072,
+   "occurrenceEntity": 5087,
+   "labelEntry": "0:1:1:11:3",
+   "displayable": false,
+   "reason": "empty-placeholder",
+   "faceCount": 0,
+   "solidCount": 0
+  },
+  {
+   "code": "NON_GEOMETRIC_LEAF",
+   "key": "5/29180/29174",
+   "name": "MBD-FR131A",
+   "definitionEntity": 29159,
+   "occurrenceEntity": 29174,
+   "labelEntry": "0:1:1:2:26",
+   "displayable": false,
+   "reason": "empty-placeholder",
+   "faceCount": 0,
+   "solidCount": 0
+  }
+ ],
+ "sourceAssemblyGroups": [
+  {
+   "key": "5/29180",
+   "name": "7341-FR131A",
+   "definitionEntity": 27,
+   "occurrenceEntity": 29180,
+   "isAssembly": true,
+   "directChildCount": 26,
+   "leafCount": 33,
+   "members": [
+    "5/29180/1683/1153",
+    "5/29180/1683/1658",
+    "5/29180/3550/3020",
+    "5/29180/3550/3525",
+    "5/29180/5093/4563",
+    "5/29180/5093/5068",
+    "5/29180/16672/5327",
+    "5/29180/16672/5524",
+    "5/29180/16672/8346",
+    "5/29180/16672/11353",
+    "5/29180/16672/15238",
+    "5/29180/16672/16666",
+    "5/29180/17257",
+    "5/29180/17684",
+    "5/29180/18269",
+    "5/29180/18774",
+    "5/29180/19675",
+    "5/29180/20260",
+    "5/29180/20845",
+    "5/29180/21430",
+    "5/29180/22411",
+    "5/29180/22916",
+    "5/29180/23737",
+    "5/29180/24242",
+    "5/29180/24747",
+    "5/29180/25655",
+    "5/29180/26563",
+    "5/29180/26916",
+    "5/29180/27269",
+    "5/29180/27622",
+    "5/29180/27975",
+    "5/29180/28492",
+    "5/29180/29155"
+   ]
+  }
+ ],
+ "independentSolidExpansion": [],
+ "smallAssemblyCount": 0,
+ "geometryLeafCount": 33
+}

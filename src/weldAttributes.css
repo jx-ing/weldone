@@ -1,0 +1,71 @@
+.workspace:has(.weld-attributes-panel){grid-template-columns:20.8% minmax(260px,1fr) 346px}
+.weld-attributes-panel{height:100%;min-height:0;display:flex;flex-direction:column;background:#fff;color:#262626;font-family:ProcessSourceHan,'Microsoft YaHei',sans-serif;font-size:13px}
+.weld-attributes-panel button,.weld-attributes-panel input,.weld-attributes-panel select{font-family:inherit}
+.wa-header{height:42px;flex:none;padding:10px 20px;border-bottom:1px solid #f2f2f2;font-size:14px;font-weight:500}
+.wa-summary{padding:8px 8px 0 12px;flex:none;border-bottom:1px solid #efefef}
+.wa-group{display:flex;align-items:center;gap:10px;height:38px;min-width:0;padding-left:8px}
+.wa-group>input{width:114px;flex:0 1 114px;min-width:40px;border:0;background:transparent;padding:0;color:#202020;font-size:13px;height:30px;text-overflow:ellipsis}
+.wa-group>input:focus{outline:1px solid #fa8c16;background:#fffaf2}
+.wa-count{background:#f6f6f6;border-radius:8px;padding:3px 11px;color:#8c8c8c;font-size:12px}
+.wa-segments{display:flex;align-items:center;background:#f6f6f6;border-radius:11px;padding:4px;height:38px;max-width:116px;overflow:auto;flex-shrink:0;margin-left:auto}
+.wa-segments>button{height:30px;min-width:52px;padding:0 10px;border:0;background:transparent;color:#777;font-size:13px;border-radius:8px;white-space:nowrap}
+.wa-segments>button.active{background:white;color:#fa8c16;box-shadow:0 1px 4px #0000000d}
+.wa-template-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.wa-match-card{min-width:0}
+.wa-choose-match{width:100%;border:0;border-radius:8px;background:#f8f8f8;min-width:0;height:70px;padding:9px 12px;text-align:left}
+.wa-create-match{display:block;width:100%;margin-top:5px;padding:5px 8px;border:0;border-radius:4px;background:#fff7e6;color:#874500;text-align:left;font-size:12px;line-height:17px;overflow-wrap:anywhere}
+button.wa-create-match:hover{background:#ffe7ba}
+.wa-pending-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:5px}
+.wa-pending-actions button{border:0;padding:2px 4px;color:#646464;font-size:11px;background:none}
+.wa-pending-actions button:hover{color:#ad4e00}
+.weld-row .wa-pending-dot{background:#d97706}
+.wa-choose-match>span{display:flex;align-items:center;justify-content:space-between;gap:5px;color:#333;font-size:12px;line-height:18px}
+.wa-template-cards svg{color:#d2d4d6;flex-shrink:0}
+.wa-template-cards small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;line-height:16px;color:#999;margin-top:3px;font-weight:400}
+.wa-tabs{display:flex;align-items:center;justify-content:space-between;gap:9px;height:38px;margin:10px 0 4px}
+.wa-tabs>button{height:36px;padding:0 15px;border:0;background:transparent;color:#999;border-radius:8px;white-space:nowrap;font-size:14px}
+.wa-tabs>button[aria-selected=true]{color:#262626;background:#f5f5f5;font-weight:500}
+.wa-scroll{min-height:0;flex:1;overflow:auto;scrollbar-width:thin;scrollbar-color:#e9e9e9 transparent}
+.wa-information,.wa-scan-settings{padding:8px 12px 24px}
+.wa-section-heading{height:23px;margin:0 0 11px;border-radius:3px;background:#f6f6f6;color:#a0a0a0;font-size:12px;font-weight:400;line-height:23px;padding:0 8px}
+.wa-section-heading.wa-segment-heading{margin-top:20px}
+.wa-row{display:grid;grid-template-columns:87px minmax(0,1fr);gap:8px;align-items:center;min-height:25px;margin:0 7px 5px;color:#8c8c8c;line-height:20px}
+.wa-row>span:first-child{white-space:nowrap}
+.wa-row select,.wa-number{width:100%;height:25px;min-width:0;border:0;border-radius:4px;background:#fafafa;color:#262626;font-size:13px}
+.wa-row select{padding:1px 10px;outline-offset:1px}
+.wa-row select:disabled{color:#b8b8b8}
+.wa-number{display:flex;align-items:center;overflow:hidden}
+.wa-number>input{width:100%;min-width:0;height:25px;padding:1px 10px;border:0;background:transparent;font-size:13px;color:#262626;appearance:textfield;-moz-appearance:textfield}
+.wa-number>input::-webkit-inner-spin-button,.wa-number>input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.wa-number>small,.wa-readonly>small{font-size:12px;color:#999;padding-right:11px;white-space:nowrap}
+.wa-number.disabled input{color:#b5b5b5}
+.wa-readonly{display:flex;align-items:center;height:25px;padding:0 8px;color:#999;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-length{justify-content:space-between}
+.wa-length>small{padding-right:2px}
+.wa-toggle{display:flex;align-items:center;min-width:0;height:25px;background:#f6f6f6;border-radius:4px;padding:2px;gap:1px}
+.wa-toggle>button{flex:1;min-width:0;height:21px;padding:0 5px;border:0;background:transparent;border-radius:3px;font-size:13px;color:#999;white-space:nowrap}
+.wa-toggle>button:first-child{flex:0 0 36px}
+.wa-toggle>button.active{background:#fff;color:#333;box-shadow:0 0 3px #00000014}
+.wa-groove-heading{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:400;color:#888;margin:14px 7px 10px;height:21px}
+.wa-groove-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:18px;row-gap:5px;margin:0 1px 0 7px}
+.wa-groove-grid>label{display:grid;grid-template-columns:69px minmax(0,1fr);align-items:center;gap:1px;color:#8c8c8c;font-size:13px;white-space:nowrap;min-width:0}
+.wa-groove-grid .wa-number>input{padding-left:12px}
+.wa-footer{height:45px;flex:none;padding:8px 14px;border-top:1px solid #f5f5f5;display:flex;align-items:center;justify-content:flex-end;background:white}
+.wa-footer>.btn{height:30px;padding:2px 15px;min-width:56px;font-size:13px;border-radius:2px}
+.weld-attributes-panel .inspector-body{padding:12px 20px;overflow:visible}
+.weld-attributes-panel .selection-title{margin-bottom:12px}
+.weld-attributes-panel .inspector-body h3{font-size:13px}
+.wa-muted{padding:12px 8px;color:#aaa;font-size:12px}
+.weld-attributes-panel button:focus-visible,.weld-attributes-panel select:focus-visible,.weld-attributes-panel input:focus-visible{outline:2px solid #fa8c16;outline-offset:1px}
+@media(max-width:1100px){.workspace:has(.weld-attributes-panel){grid-template-columns:200px minmax(220px,1fr) 326px}.wa-tabs>button{padding:0 12px}.wa-row{grid-template-columns:80px minmax(0,1fr)}.wa-groove-grid{column-gap:10px}}
+@media(max-width:800px){.workspace:has(.weld-attributes-panel){grid-template-columns:165px minmax(200px,1fr) 310px}.wa-summary{padding-left:8px;padding-right:8px}.wa-tabs{gap:3px}.wa-tabs>button{padding:0 12px}.wa-information,.wa-scan-settings{padding-left:8px;padding-right:8px}.wa-row{margin-left:4px;margin-right:4px}.wa-groove-grid>label{grid-template-columns:64px minmax(0,1fr);font-size:12px}.wa-groove-grid{column-gap:8px}}
+
+.wa-select{position:relative;min-width:0;display:block;height:25px}.wa-select>select{appearance:none;-webkit-appearance:none;padding-right:28px;font-size:14px}.wa-select>svg{position:absolute;right:11px;top:7px;color:#666;pointer-events:none}.wa-select:has(select:disabled)>svg{color:#bbb}.wa-section-heading{margin-right:3px}.wa-number>input{font-size:14px}
+
+.wa-planning-points{padding:12px 16px 5px}.wa-planning-points>header{display:flex;align-items:center;justify-content:space-between;font-size:13px}.wa-planning-points>header>span{font-size:11px;color:#aaa}.wa-point-group h4{font-size:11px;font-weight:400;color:#999;line-height:1.7;margin:10px 0 5px;overflow-wrap:anywhere}.wa-point-group>button{width:100%;display:flex;align-items:center;gap:8px;text-align:left;padding:8px 6px;border:1px solid transparent;border-radius:4px;background:#fafafa;margin:4px 0;min-width:0}.wa-point-group>button.selected{border-color:#ffd69a;background:#fff8ee}.wa-point-index{width:22px;height:22px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:10px;color:#2099c7;background:#eaf6fb}.wa-point-group>button.template .wa-point-index{color:#43a178;background:#eff8f3}.wa-point-group>button>span:nth-child(2){min-width:0;flex:1}.wa-point-group strong{display:block;font-size:12px;font-weight:400;color:#555}.wa-point-group small{display:block;font-size:10px;color:#aaa;margin-top:3px;overflow-wrap:anywhere}.wa-point-group em{font-size:10px;font-style:normal;flex:none;color:#aaa}.planning-point-labels{position:absolute;inset:0;pointer-events:none;z-index:4;overflow:hidden}.planning-point-labels button{position:absolute;transform:translate(-50%,-100%);padding:3px 6px;background:#f5fcff;border:1px solid #42acd2;border-radius:3px;color:#2787a8;font-size:10px;white-space:nowrap;pointer-events:auto}.planning-point-labels button.template{background:#f5fff8;border-color:#66ba93;color:#34875f}.planning-point-labels button.selected{background:#fff5e7;border-color:#fa8c16;color:#d67a0d}
+
+.wa-planning-points>header{position:sticky;top:0;z-index:1;background:#fff;padding:3px 0}.wa-point-group>button{scroll-margin-top:40px}
+
+.wa-group{height:auto;min-height:38px;flex-wrap:wrap}.wa-group .wa-segments{max-width:100%;height:auto;min-height:38px}.wa-group>input{flex:1;min-width:80px}.wa-segments>button{flex:none}
+.wa-scan-settings .wa-row{grid-template-columns:112px minmax(0,1fr)}
+.wa-work-face-note{margin:6px 7px 10px;color:#b77926;font-size:11px;line-height:1.7}
