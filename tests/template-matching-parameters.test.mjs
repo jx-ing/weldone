@@ -35,7 +35,7 @@ test('无覆盖的旧模板沿用原规则，非法覆盖和长度范围阻止�
 test('旧版精确条件保留至显式保存新版；混合段的基本条件不被默认覆盖',()=>{
  const original={...newTemplate('whole'),name:'旧版参数',mode:'exact'},legacy={...original,matchParameters:{version:1,leg:6,mode:'exact',segments:original.segments.map(segment=>({...segment,length:100,lengthTolerance:0,minLength:.1,maxLength:null})),corners:[],groove:original.groove,startHole:false,endHole:false}},weld=target(original);weld.segments[0].length=150;
  assert.equal(matchTemplate(legacy,weld).ok,false);const saved={...legacy,matchParameters:templateMatchParameters(legacy)};assert.equal(matchTemplate(saved,weld).ok,true);assert.equal(legacy.matchParameters.version,1);
- const mixed=addTemplateCorner(original);mixed.segments[1]={...mixed.segments[1],position:'PF · 立向上焊',joint:'搭接接头'};const parameters=templateMatchParameters(mixed);assert.equal(parameters.position,null);assert.equal(parameters.joint,null);assert.deepEqual(templateForMatching({...mixed,matchParameters:parameters}).segments.map(segment=>[segment.position,segment.joint]),mixed.segments.map(segment=>[segment.position,segment.joint]));
+ const mixed=addTemplateCorner(original);mixed.segments[1]={...mixed.segments[1],position:'PF · 立向上焊',joint:'搭接接头'};const parameters=templateMatchParameters(mixed);assert.equal(parameters.position,null);assert.equal(Object.hasOwn(parameters,'joint'),false);assert.deepEqual(templateForMatching({...mixed,matchParameters:parameters}).segments.map(segment=>segment.position),mixed.segments.map(segment=>segment.position));
 });
 
 test('转角角度范围兼容旧标准与容差边界，保存新范围并拒绝倒置或越界值',()=>{

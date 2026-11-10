@@ -13,7 +13,8 @@ test('整道只允许完整起终点，逐项匹配焊脚、数量、顺序、�
   assert.equal(matchTemplate(t,{...w,segments:[...w.segments].reverse()}).ok,false);
   assert.equal(matchTemplate(t,{...w,segments:w.segments.slice(0,1)}).ok,false);
   assert.equal(matchTemplate(t,{...w,startHole:true}).ok,false);
-  for (const [key, value] of [['joint','搭接接头'],['geometry','圆弧']]) { const changed=structuredClone(w);changed.segments[1][key]=value;assert.equal(matchTemplate(t,changed).ok,false); }
+  const legacy=structuredClone(w);legacy.segments[1].joint='搭接接头';assert.equal(matchTemplate(t,legacy).ok,true);
+  for (const [key, value] of [['position','PA · 平焊'],['geometry','圆弧']]) { const changed=structuredClone(w);changed.segments[1][key]=value;assert.equal(matchTemplate(t,changed).ok,false); }
 });
 
 test('转角标准角度与容差逐个匹配，k=0 时无角度条件', () => {

@@ -17,7 +17,7 @@ test('迁移规则与当前示例指纹一致，规范化依据及源文件完�
 test('真实几何完整处理得到105条焊道并保留未确认条件及实际路径',async()=>{
  result=await processDemoGeometry({...DEFAULT_GEOMETRY_OPTIONS,mergeGapCheck:true,splitParameters:{enabled:true,length:100},intermittentParameters:{enabled:true,weldLength:25,gapLength:15}});const s=result.summary;
  assert.equal(s.cadCandidateCount,224);assert.equal(s.extractedWeldCount,210);assert.equal(s.subWeldCount,433);assert.equal(s.survivingUnitCount,114);assert.equal(s.mergedGroupCount,9);assert.equal(s.processedWeldCount,105);
- assert.ok(result.welds.every(w=>validExtractedWeld(w)&&validWeldProcessParameters(w)));assert.equal(s.unknownJointCount,7);assert.equal(s.unknownPositionCount,13);
+ assert.ok(result.welds.every(w=>validExtractedWeld(w)&&validWeldProcessParameters(w)));assert.ok(result.welds.every(w=>w.weldType&&!Object.hasOwn(w,'joint')&&w.segments.every(segment=>!Object.hasOwn(segment,'joint'))));assert.equal(s.unknownPositionCount,13);
  for(const w of result.welds){assert.equal(w.current,null);assert.equal(w.voltage,null);assert.equal(w.speed,null);assert.ok(Math.abs(w.length-pathLength(w.segments.flatMap(s=>s.pathPoints)))<.001);}
  assert.equal(result.welds.flatMap(w=>w.segments).filter(s=>s.connectionGap).length,0);
 });

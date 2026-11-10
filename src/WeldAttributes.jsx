@@ -68,9 +68,8 @@ export default function WeldAttributes(props){
   <div className="wa-scroll" role="tabpanel" id={id+'-panel'} aria-labelledby={id+'-'+tab}>
    {tab==='information'?<div className="wa-information">
     <h3 className="wa-section-heading">焊缝组</h3>
-    <Row label="焊缝形式"><Options label="焊缝形式" value={weldForm(w)} onChange={value=>onPatch('weldType',value)} values={WELD_TYPES.map(([name])=>name)}/></Row>
+    <Row label="焊缝形式"><Options label="焊缝形式" value={weldForm(w)} onChange={value=>onPatch('weldType',value)} values={WELD_TYPES}/></Row>
     <Row label="焊接方式"><Options label="焊接方式" value={String(w.machineCount??1)} onChange={value=>onPatch('machineCount',Number(value))} values={[[ '1','单机焊接'],['2','双机焊接']]}/></Row>
-    <Row label="接头形式"><Options label="接头形式" value={w.joint} onChange={value=>setGroup('joint',value)} values={['T 形接头','角接头','搭接接头','对接接头']}/></Row>
     <Row label="工作面"><Options label="工作面" required={workFaces.length>0} disabled={!workFaces.length} value={workFaceValid?w.workFace:''} placeholder={workFaces.length?'请选择':'请先选择工件种类'} onChange={value=>{if(workFaces.includes(value))onPatch('workFace',value);}} values={workFaces}/></Row>
     {workFacePending&&<p className="wa-work-face-note">原工作面“{w.workFace}”已保留，{workFaces.length?'不适用于当前工件种类，请重新选择。':'请先选择工件种类后确认。'}</p>}
     <Row label="焊接位置"><Options label="焊接位置" value={w.position} onChange={value=>setGroup('position',value)} values={POSITIONS.map(value=>[value,value.startsWith('PF')?'立向上焊':value.startsWith('PG')?'立向下焊':processPositionLabel(value)])}/></Row>

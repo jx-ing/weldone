@@ -1,8 +1,8 @@
 import {PROCESS_TYPES} from './processLibraryView.mjs';
 import {newCornerPointGroups,newWrapPoints,processFeaturePointChanges} from './processFeaturePoints.mjs';
 import {grooveType,grooveValue,validGroove,grooveFieldsFor} from './grooveModel.mjs';
-import {roundWeldLeg,weldForm,weldPositionCode} from './planningRequirements.mjs';
-import {JOINTS,GROOVES,POSITIONS} from './templateModel.mjs';
+import {migrateProcessWeldForms,processWeldForms,roundWeldLeg,weldForm,weldPositionCode} from './planningRequirements.mjs';
+import {GROOVES,POSITIONS} from './templateModel.mjs';
 export const MACHINE_MODES={synergic:'一元',separate:'分别',job:'JOB'};
 export const WELDING_MODES={dc:'直流',pulse:'脉冲'};
 export const WEAVE_PATTERNS={sine:'正弦摆动',triangle:'三角摆动',l:'L摆动'};
@@ -16,7 +16,7 @@ const passKeys=['machineMode','weldingMode','start','weld','end','crater','offse
 const uid=()=>crypto.randomUUID();
 export function newProcessPass(){return {id:uid(),name:'第 1 道',machineMode:'separate',weldingMode:'dc',start:{current:null,voltage:null,correction:0,time:0,job:null},weld:{current:null,voltage:null,correction:0,speed:null,job:null},end:{current:null,voltage:null,correction:0,time:0,job:null},crater:{enabled:false,current:null,voltage:null,correction:0,distance:null,speed:null,job:null,actualSpeed:null,weave:weave()},offset:{y:0,z:0},angles:{pushPull:0,pitch:0},weave:weave(),cornerParameters:newCornerPointGroups(),wrapParameters:newWrapPoints(),cornerDistances:{inner:{before:null,after:null},outer:{before:null,after:null}},cornerOffsets:{inner:{x:null,y:null,z:null},outer:{x:null,y:null,z:null}}};}
 function passValues(p){return Object.fromEntries(passKeys.filter(k=>p[k]!==undefined).map(k=>[k,structuredClone(p[k])]));}
-export function newProcessEntry(){return {id:uid(),name:'',leg:null,position:'',joint:JOINTS[0],groove:{type:'无坡口',angle:0,depth:0},applicability:{welderModel:'',wireType:WIRE_TYPES[0],wireDiameter:1.2,gas:SHIELD_GASES[0],method:'MAG',material:'低碳钢'},...passValues(newProcessPass())};}
+export function newProcessEntry(){return {id:uid(),name:'',leg:null,position:'',weldForms:['角焊缝'],groove:{type:'无坡口',angle:0,depth:0},applicability:{welderModel:'',wireType:WIRE_TYPES[0],wireDiameter:1.2,gas:SHIELD_GASES[0],method:'MAG',material:'低碳钢'},...passValues(newProcessPass())};}
 export function ensureProcessLayers(p){
   if(p.processLayers!==undefined)return structuredClone(p);
   return {...structuredClone(p),processLayers:[{id:uid(),name:'第 1 层',passes:[{id:uid(),name:'第 1 道',...passValues(p)}]}]};
@@ -101,12 +101,10 @@ export function validateProcessEntry(p,{allowLegacyLeg=false}={}){
   if(!(allowLegacyLeg&&p.position===undefined)&&!POSITIONS.includes(p.position))errors.push('请选择焊接位置');
   if(p.recipeRevision===3){
     if(!['PB','PF','PG'].includes(weldPositionCode(p.position)))errors.push('请选择平角焊或立焊');
-    if(!p.weldForms?.length||p.weldForms.some(value=>!['角焊缝','搭接焊缝'].includes(value)))errors.push('请选择焊缝形式');
-    if(!p.joints?.length||p.joints.some(value=>!['T 形接头','角接头','搭接接头'].includes(value)))errors.push('请选择接头形式');
+    if(!Array.isArray(p.weldForms)||!p.weldForms.length||p.weldForms.some(value=>!['角焊缝','搭接焊缝'].includes(value)))errors.push('请选择焊缝形式');
     if(typeof p.arcTracking!=='boolean')errors.push('请选择是否使用电弧跟踪');
     if(!p.applicability?.deviceProfileId)errors.push('请选择启用的焊接设备');
   }
-  if(!JOINTS.includes(p.joint))errors.push('请选择接头类型');
   if(p.processType!==undefined&&!Object.hasOwn(PROCESS_TYPES,p.processType))errors.push('请选择有效的工艺类型');
   if(!validGroove(p.groove))errors.push('请完善坡口类型、角度、深度、根部间隙和根部半径');
   if(!(allowLegacyLeg&&p.applicability===undefined)){
@@ -137,7 +135,7 @@ function effectivePass(p){
 export function effectiveProcessEntry(p){
   const errors=validateProcessEntry(p,{allowLegacyLeg:true});if(errors.length)throw Error(errors.join('；'));
   const processLayers=p.processLayers?.map(l=>({id:l.id,name:l.name,passes:l.passes.map(pass=>({id:pass.id,name:pass.name,...effectivePass(pass)}))}));
-  return {id:p.id,name:p.name,...(p.leg!==undefined?{leg:p.leg}:{}),...(p.position!==undefined?{position:p.position}:{}),...(p.applicability?{applicability:structuredClone(p.applicability)}:{}),joint:p.joint,...(p.recipeRevision===3?{recipeRevision:3,weldForms:structuredClone(p.weldForms),joints:structuredClone(p.joints),arcTracking:p.arcTracking}:{}),groove:p.groove.type==='无坡口'?{type:'无坡口',angle:0,depth:0}:structuredClone(p.groove),...(processLayers?{processLayers}:{}),...effectivePass(processLayers?processLayers[0].passes[0]:p)};
+  return {id:p.id,name:p.name,...(p.leg!==undefined?{leg:p.leg}:{}),...(p.position!==undefined?{position:p.position}:{}),...(p.applicability?{applicability:structuredClone(p.applicability)}:{}),weldForms:structuredClone(processWeldForms(p)),...(p.recipeRevision===3?{recipeRevision:3,arcTracking:p.arcTracking}:{}),groove:p.groove.type==='无坡口'?{type:'无坡口',angle:0,depth:0}:structuredClone(p.groove),...(processLayers?{processLayers}:{}),...effectivePass(processLayers?processLayers[0].passes[0]:p)};
 }
 export function matchProcessEntry(p,w){
   const reasons=[];if(!w)return {ok:false,reasons:['请先在模型中选择焊道']};
@@ -146,10 +144,9 @@ export function matchProcessEntry(p,w){
   const invalid=validateProcessEntry(p);if(invalid.length)return {ok:false,reasons:invalid.map(v=>'工艺参数无效：'+v)};
   if(roundWeldLeg(w.leg)!==p.leg)reasons.push(`焊脚不一致（工艺 ${p.leg} mm / 焊道 ${w.leg} mm）`);
   const segments=w.segments?.length?w.segments:[w];
-  if(p.weldForms?.length&&!p.weldForms.includes(weldForm(w)))reasons.push('焊缝形式不一致');
+  if(!processWeldForms(p).includes(weldForm(w)))reasons.push('焊缝形式不一致');
   if(typeof p.arcTracking==='boolean'&&p.arcTracking!==segments.some(s=>(s.tracking??w.tracking)==='电弧跟踪'))reasons.push('电弧跟踪条件不一致');
   segments.forEach((s,i)=>{if(p.recipeRevision===3?(['PF','PG'].includes(weldPositionCode(p.position))?!['PF','PG'].includes(weldPositionCode(s.position)):weldPositionCode(s.position)!==weldPositionCode(p.position)):s.position!==p.position)reasons.push(`第 ${i+1} 段焊接位置不一致（工艺 ${p.position} / 焊道 ${s.position??'未提供'}）`);});
-  segments.forEach((s,i)=>{if(!(p.joints?.length?p.joints:[p.joint]).includes(s.joint))reasons.push(`第 ${i+1} 段接头类型不一致（工艺 ${p.joint} / 焊道 ${s.joint??'未提供'}）`);});
   const groove=w.groove||{type:'无坡口',angle:0,depth:0};
   if(grooveType(groove.type)!==grooveType(p.groove.type))reasons.push(`坡口类型不一致（工艺 ${p.groove.type} / 焊道 ${groove.type??'未提供'}）`);else if(groove.type!=='无坡口'){if(grooveType(groove.type)!=='I 形'&&groove.angle!==p.groove.angle)reasons.push(`坡口角度不一致（工艺 ${p.groove.angle}° / 焊道 ${groove.angle??'未提供'}°）`);for(const [key,label] of grooveFieldsFor(groove.type).filter(([key])=>key!=='angle'&&key!=='depth'))if(grooveValue(groove,key)!==grooveValue(p.groove,key))reasons.push(label+'不一致（工艺 '+grooveValue(p.groove,key)+' mm / 焊道 '+(grooveValue(groove,key)??'未提供')+' mm）');if(groove.depth!==p.groove.depth)reasons.push(`坡口深度不一致（工艺 ${p.groove.depth} mm / 焊道 ${groove.depth??'未提供'} mm）`);}
   return {ok:!reasons.length,reasons};
@@ -161,7 +158,7 @@ export function applyProcessEntry(w,p){
   if(processParameters.machineMode==='job'){delete next.current;delete next.voltage;}else{next.current=processParameters.weld.current;if(processParameters.machineMode==='separate')next.voltage=processParameters.weld.voltage;else delete next.voltage;}
   return next;
 }
-export function upsertProcessEntry(list,p){const errors=validateProcessEntry(p);if(errors.length)throw Error(errors.join('；'));const saved=structuredClone({...p,name:p.name.trim(),applicability:{...p.applicability,welderModel:p.applicability.welderModel.trim()}});return list.some(item=>item.id===p.id)?list.map(item=>item.id===p.id?saved:item):[...list,saved];}
+export function upsertProcessEntry(list,p){const errors=validateProcessEntry(p);if(errors.length)throw Error(errors.join('；'));const saved=structuredClone({...migrateProcessWeldForms(p),name:p.name.trim(),applicability:{...p.applicability,welderModel:p.applicability.welderModel.trim()}});return list.some(item=>item.id===p.id)?list.map(item=>item.id===p.id?saved:item):[...list,saved];}
 export function copyProcessEntry(p){const copy={...structuredClone(p),id:uid(),name:p.name.slice(0,72)+' · 副本'};if(copy.processLayers)copy.processLayers=copy.processLayers.map(l=>({...l,id:uid(),passes:l.passes.map(pass=>({...pass,id:uid()}))}));return copy;}
 export function validWeldProcessParameters(w){const p=w.processParameters;if((['extracted','manual-merge'].includes(w.source)||w.source==='manual'&&(typeof w.splitFrom?.id==='string'||w.current===null&&w.voltage===null))&&!p)return ['current','voltage'].every(k=>w[k]===null||finite(w[k],Number.MIN_VALUE));if(p&&validateProcessEntry(p,{allowLegacyLeg:true}).length)return false;const first=p?processPasses(p)[0].pass:null;return (first?.machineMode==='job'||finite(w.current,Number.MIN_VALUE))&&(['job','synergic'].includes(first?.machineMode)||finite(w.voltage,Number.MIN_VALUE));}
 export function effectivePointOverrides(overrides,mode){return Object.fromEntries(Object.entries(overrides||{}).filter(([key])=>!(mode==='job'&&['current','voltage','correction','weldingMode'].includes(key))&&!(mode==='synergic'&&key==='voltage')&&!(mode==='separate'&&key==='correction')));}

@@ -1,17 +1,18 @@
 import React,{useState} from 'react';
+import {weldForm} from './planningRequirements.mjs';
 import {templateProjectGroups,templateProjectName} from './templateProjects.mjs';
 import {templateForMatching} from './templateMatchingParameters.mjs';
-import {PROCESS_CATEGORIES,processCategory,processPositionLabel,processWeldType} from './processLibraryView.mjs';
+import {PROCESS_CATEGORIES,processCategory,processInCategory,processPositionLabel,processWeldType} from './processLibraryView.mjs';
 import {validTemplateCover} from './templateCoverModel.mjs';
 import './planningLibraryPicker.css';
 
 export default function PlanningLibraryPicker({kind,weld,templates,processLibrary,project,projectNames,onConfirm,onCancel}){
  const templateMode=kind==='template',entries=templateMode?templates.filter(value=>value.type==='whole'):processLibrary;
- const groups=templateMode?templateProjectGroups(templates,project,projectNames).map(value=>({id:value.name,name:value.name})):PROCESS_CATEGORIES.concat(entries.some(value=>processCategory(value)==='other')?[{id:'other',name:'其他接头'}]:[]);
- const initial=templateMode?project:processCategory(entries.find(value=>value.id===weld.processId)||weld);
+ const groups=templateMode?templateProjectGroups(templates,project,projectNames).map(value=>({id:value.name,name:value.name})):PROCESS_CATEGORIES.concat(entries.some(value=>processCategory(value)==='other')?[{id:'other',name:'其他焊缝'}]:[]);
+ const initial=templateMode?project:processCategory(entries.find(value=>value.id===weld.processId)||{weldForms:[weldForm(weld)]});
  const [group,setGroup]=useState(groups.some(value=>value.id===initial)?initial:groups[0]?.id||''),[search,setSearch]=useState(''),[position,setPosition]=useState(''),[leg,setLeg]=useState(''),[page,setPage]=useState(1),[selectedId,setSelectedId]=useState(templateMode?weld.templateId||'':weld.processId||''),[error,setError]=useState('');
  const data=entries.map(entry=>({entry,conditions:templateMode?templateForMatching(entry):entry}));
- const current=data.filter(({entry})=>templateMode?templateProjectName(entry,project)===group:processCategory(entry)===group);
+ const current=data.filter(({entry})=>templateMode?templateProjectName(entry,project)===group:processInCategory(entry,group));
  const positions=[...new Set(current.flatMap(({conditions})=>templateMode?conditions.segments.map(segment=>segment.position):[conditions.position]).filter(Boolean))],legs=[...new Set(current.map(({conditions})=>conditions.leg).filter(Number.isFinite))].sort((a,b)=>a-b);
  const filtered=current.filter(({entry,conditions})=>entry.name.toLowerCase().includes(search.trim().toLowerCase())&&(!position||(templateMode?conditions.segments.every(segment=>segment.position===position):conditions.position===position))&&(!leg||String(conditions.leg)===leg));
  const totalPages=Math.max(1,Math.ceil(filtered.length/8)),currentPage=Math.min(page,totalPages),visible=filtered.slice((currentPage-1)*8,currentPage*8),selected=entries.find(value=>value.id===selectedId);

@@ -1,13 +1,5 @@
-import {belongsToDevice,weldPositionCode} from './planningRequirements.mjs';
+import {belongsToDevice,processWeldForms,weldPositionCode} from './planningRequirements.mjs';
 import {grooveType,grooveFieldsFor,grooveValue} from './grooveModel.mjs';
-
-export function recipeCombinations(recipe) {
-  const joints = recipe.joints?.length ? recipe.joints : [recipe.joint];
-  const forms = recipe.weldForms?.length ? recipe.weldForms : [
-    recipe.joint==='搭接接头'?'搭接焊缝':recipe.joint==='对接接头'?'对接焊缝':'角焊缝'
-  ];
-  return forms.flatMap(form=>joints.map(joint=>({form,joint})));
-}
 
 function configKey(recipe) {
   const position = weldPositionCode(recipe.position);
@@ -25,9 +17,9 @@ function configKey(recipe) {
 export function recipeConflicts(entries, recipe) {
   const config = configKey(recipe);
   const candidates = entries.filter(entry=>entry.id!==recipe.id&&configKey(entry)===config);
-  return recipeCombinations(recipe).flatMap(combination => {
-    const existing = candidates.find(entry=>recipeCombinations(entry).some(value=>value.form===combination.form&&value.joint===combination.joint));
-    return existing ? [{...combination,existing}] : [];
+  return processWeldForms(recipe).flatMap(form => {
+    const existing = candidates.find(entry=>processWeldForms(entry).includes(form));
+    return existing ? [{form,existing}] : [];
   });
 }
 

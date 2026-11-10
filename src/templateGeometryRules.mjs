@@ -72,13 +72,13 @@ export function geometryRuleMismatches(rules,weld) {
 
 export function defaultPlanningTemplateName(weld) {
   const position = String(weld.position ?? '').split(' · ').at(-1).replace('横角焊','平角焊');
-  return [`${roundWeldLeg(weld.leg)}mm`,position,weld.joint,weld.endpointFacts?.start?.type ?? '起点待确认',weld.endpointFacts?.end?.type ?? '终点待确认'].join('-');
+  return [`${roundWeldLeg(weld.leg)}mm`,position,weld.endpointFacts?.start?.type ?? '起点待确认',weld.endpointFacts?.end?.type ?? '终点待确认'].join('-');
 }
 
 export function templateGeometryKey(template) {
   return JSON.stringify([
     template.leg,template.closure,template.groove,template.startHole,template.endHole,template.requirementsMatch,
-    template.segments.map(s=>[s.position,s.joint,s.geometry,Math.round(s.length*10)/10]),
+    template.segments.map(s=>[s.position,s.geometry,Math.round(s.length*10)/10]),
     template.corners.map(c=>[c.standard,c.angleSide])
   ]);
 }

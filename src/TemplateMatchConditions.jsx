@@ -1,6 +1,6 @@
 import GrooveFields from './GrooveFields';
 import React from 'react';
-import {POSITIONS,JOINTS,GROOVES,geometryOptions,isModelWholeTemplate,changeTemplateClosure,changeTemplateSegment,resizeSegments,resizeCorners,reconcileTemplateGeometry,addTemplateCorner,deleteTemplateCorner} from './templateModel.mjs';
+import {POSITIONS,GROOVES,geometryOptions,isModelWholeTemplate,changeTemplateClosure,changeTemplateSegment,resizeSegments,resizeCorners,reconcileTemplateGeometry,addTemplateCorner,deleteTemplateCorner} from './templateModel.mjs';
 import {validateProcessEntry} from './processParameterModel.mjs';
 import {bindLocalProcess} from './localTemplateConditions.mjs';
 import CornerConditions from './TemplateCornerConditions';
@@ -32,8 +32,8 @@ export default function MatchConditions({draft,setDraft,onChange,fixedOnly=false
     </div><section className="tpl-match-preview" aria-label="匹配条件焊缝段预览">
       <div className="tpl-section-title"><h3>焊缝段示意图</h3><span className="tag">{draft.segments.length} 段 · {draft.cornerCount} 个转角</span></div>{hasTemplateModelPath(draft)?<TemplateModelEditor template={draft} onChange={setDraft} onCaptureReady={onCaptureReady}/>:<><PathPreview template={draft} segmentsOnly/><ShapeControls template={draft} onChange={setDraft} readOnly={locked}/></>}
     </section></div>
-    {!whole&&<section className="tpl-detail-card"><header><h3>焊缝段条件</h3></header><div className="tpl-section-title tpl-segment-caption"><div><p>按第 1 段至第 {draft.segments.length} 段的顺序匹配焊接位置、接头类型和几何类型。</p></div></div>
-      <div className="tpl-table-wrap"><table className="tpl-segment-table"><thead><tr><th>焊缝段</th><th>焊接位置</th><th>接头类型</th><th>几何类型</th></tr></thead><tbody>{draft.segments.map((s,i)=><tr key={i}><td><b>{String(i+1).padStart(2,'0')}</b></td>{[['position',POSITIONS,'焊接位置'],['joint',JOINTS,'接头类型'],['geometry',geometryOptions(draft.closure),'几何类型']].map(([key,values,label])=><td key={key}><Select aria-label={`第${i+1}段${label}`} disabled={locked} values={values} value={s[key]} onChange={value=>setDraft(t=>changeTemplateSegment(t,i,{[key]:value,...(key==='geometry'?{shape:undefined}:{})}))}/></td>)}</tr>)}</tbody></table></div>
+    {!whole&&<section className="tpl-detail-card"><header><h3>焊缝段条件</h3></header><div className="tpl-section-title tpl-segment-caption"><div><p>按第 1 段至第 {draft.segments.length} 段的顺序匹配焊接位置和几何类型。</p></div></div>
+      <div className="tpl-table-wrap"><table className="tpl-segment-table"><thead><tr><th>焊缝段</th><th>焊接位置</th><th>几何类型</th></tr></thead><tbody>{draft.segments.map((s,i)=><tr key={i}><td><b>{String(i+1).padStart(2,'0')}</b></td>{[['position',POSITIONS,'焊接位置'],['geometry',geometryOptions(draft.closure),'几何类型']].map(([key,values,label])=><td key={key}><Select aria-label={`第${i+1}段${label}`} disabled={locked} values={values} value={s[key]} onChange={value=>setDraft(t=>changeTemplateSegment(t,i,{[key]:value,...(key==='geometry'?{shape:undefined}:{})}))}/></td>)}</tr>)}</tbody></table></div>
     </section>}
     <section className="tpl-detail-card"><header><h3>坡口{whole?'与过焊孔':''}</h3></header><div className="tpl-form-grid three tpl-detail-groove-fields">
       <GrooveFields value={draft.groove} disabled={locked} onChange={groove=>set({groove})}/>

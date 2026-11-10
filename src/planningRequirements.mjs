@@ -13,8 +13,28 @@ export function weldPositionCode(value) {
   return position;
 }
 
+export function legacyWeldForm(value) {
+  if (value === '搭接' || value === '搭接接头') return '搭接焊缝';
+  if (value === '对接' || value === '对接接头') return '对接焊缝';
+  return '角焊缝';
+}
+
 export function weldForm(weld) {
-  return weld.weldType || (weld.joint === '搭接接头' ? '搭接焊缝' : weld.joint === '对接接头' ? '对接焊缝' : '角焊缝');
+  return weld.weldType || legacyWeldForm(weld.joint ?? weld.segments?.[0]?.joint);
+}
+
+export function processWeldForms(recipe) {
+  return recipe.weldForms ?? [recipe.joint === '端接接头' ? '其他焊缝' : legacyWeldForm(recipe.joint)];
+}
+
+export function migrateProcessWeldForms(recipe) {
+  const {joint,joints,...value}=recipe;
+  return {...value,weldForms:processWeldForms(recipe)};
+}
+
+export function withoutLegacyJoint(value) {
+  const {joint,...rest}=value;
+  return rest;
 }
 
 export function planningContext(workspace) {
@@ -38,8 +58,7 @@ export function strategyScopeIssue(weld, settings) {
   if (weld.templateRequired) return '合并段的工艺条件不同，仅支持焊接模板规划';
   const segments = weld.segments?.length ? weld.segments : [weld];
   if (!['角焊缝', '搭接焊缝'].includes(weldForm(weld)) ||
-      segments.some(s => !['PB', 'PF', 'PG'].includes(weldPositionCode(s.position ?? weld.position)) ||
-        !['T 形接头', '角接头', '搭接接头'].includes(s.joint ?? weld.joint)) ||
+      segments.some(s => !['PB', 'PF', 'PG'].includes(weldPositionCode(s.position ?? weld.position))) ||
       !['无坡口', 'I形', 'I 形', 'V形', 'V 形', '喇叭形'].includes(weld.groove?.type ?? '无坡口')) {
     return '该焊缝超出策略规划范围，请创建或选择焊接模板';
   }

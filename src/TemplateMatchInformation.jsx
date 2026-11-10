@@ -1,5 +1,5 @@
 import React,{useState} from 'react';
-import {POSITIONS,JOINTS,geometryOptions,validateTemplate} from './templateModel.mjs';
+import {POSITIONS,geometryOptions,validateTemplate} from './templateModel.mjs';
 import {templateMatchParameters} from './templateMatchingParameters.mjs';
 import {processPositionLabel} from './processLibraryView.mjs';
 import {ENDPOINT_TYPES,ENDPOINT_DIMENSIONS,geometryRuleErrors,shortSegmentRange,SHORT_SEGMENT_MM} from './templateGeometryRules.mjs';
@@ -34,7 +34,6 @@ export default function TemplateMatchInformation({templates,onSave,onCancel}){
     <section aria-label="基本匹配参数"><h3>基本匹配参数</h3><div className="matching-field-grid three">
      <Field label="焊脚高度"><NumberField label="匹配焊脚高度" min={.5} step={.5} value={draft.leg} unit="mm" onChange={leg=>change({leg})}/></Field>
      <Field label="焊接位置"><Select label="匹配焊接位置" value={draft.position??''} placeholder="各段不同（保留原值）" values={POSITIONS.map(value=>[value,processPositionLabel(value)])} onChange={position=>change({position})}/></Field>
-     <Field label="接头类型"><Select label="匹配接头类型" value={draft.joint??''} placeholder="各段不同（保留原值）" values={JOINTS} onChange={joint=>change({joint})}/></Field>
     </div></section>
     <section aria-label="焊缝段匹配参数"><h3>焊缝段匹配参数</h3>{draft.segments.map((segment,index)=><fieldset className="matching-segment" key={index}><legend>第 {index+1} 段</legend><div className="matching-field-grid three">
      <Field label="几何类型"><Select label={`第${index+1}段匹配几何类型`} value={segment.geometry} values={geometryOptions(template.closure)} onChange={value=>segmentChange(index,'geometry',value)}/></Field>

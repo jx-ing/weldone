@@ -89,7 +89,7 @@ test('面打断使用真实交点，删除和恢复设备时同时移动其工�
  assert.deepEqual(stations,[37]);
  assert.deepEqual(multiSplitPreview(weld,stations).lengths,[37,63]);
  const p=recipe(), workspace={processDeviceProfiles:[device],processLibrary:[p]};
- assert.equal(recipeConflicts([p],{...p,id:'duplicate'}).length,1);
+ assert.equal(recipeConflicts([p],{...p,id:'duplicate',joint:'角接头',joints:['角接头']}).length,1);
  const deleted=deviceLibraryUpdates(workspace,{processDeviceProfiles:[]});
  assert.equal(deleted.processLibrary.length,0);
  assert.equal(clearRemovedProcess({...weld,processId:p.id,planned:true},new Set([p.id])).planned,false);

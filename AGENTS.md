@@ -375,3 +375,5 @@ While editing weld attributes, show the matching template or process name in its
 Remove intermittent welding and automatic fixed-length splitting from planning settings and new planning. Ignore their legacy settings on extraction and their old intervals on replanning. Keep stored weld geometry and saved previews until replanning, plus gap/edge thresholds, manual splitting, and merge length limits.
 
 Remove permission management, its navigation entry, mode storage, and password validation. Expose all seven current planning settings and each template's existing matching-parameter editor directly.
+
+Remove joint type from all application forms, filters, validation, matching, merge eligibility and template names. Weld form remains an independent field. Legacy joint metadata is read only for weld-form migration or underlying CAD geometry interpretation.
