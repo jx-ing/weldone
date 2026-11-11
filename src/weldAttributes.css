@@ -13,14 +13,13 @@
 .wa-template-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
 .wa-match-card{min-width:0}
 .wa-choose-match{width:100%;border:0;border-radius:8px;background:#f8f8f8;min-width:0;height:70px;padding:9px 12px;text-align:left}
-.wa-create-match{display:block;width:100%;margin-top:5px;padding:5px 8px;border:0;border-radius:4px;background:#fff7e6;color:#874500;text-align:left;font-size:12px;line-height:17px;overflow-wrap:anywhere}
-button.wa-create-match:hover{background:#ffe7ba}
 .wa-pending-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:5px}
 .wa-pending-actions button{border:0;padding:2px 4px;color:#646464;font-size:11px;background:none}
 .wa-pending-actions button:hover{color:#ad4e00}
 .weld-row .wa-pending-dot{background:#d97706}
 .wa-choose-match>span{display:flex;align-items:center;justify-content:space-between;gap:5px;color:#333;font-size:12px;line-height:18px}
 .wa-template-cards svg{color:#d2d4d6;flex-shrink:0}
+.wa-template-cards .wa-match-warning{color:#d97706}
 .wa-template-cards small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;line-height:16px;color:#999;margin-top:3px;font-weight:400}
 .wa-tabs{display:flex;align-items:center;justify-content:space-between;gap:9px;height:38px;margin:10px 0 4px}
 .wa-tabs>button{height:36px;padding:0 15px;border:0;background:transparent;color:#999;border-radius:8px;white-space:nowrap;font-size:14px}
@@ -68,6 +67,5 @@ button.wa-create-match:hover{background:#ffe7ba}
 
 .wa-group{height:auto;min-height:38px;flex-wrap:wrap}.wa-group .wa-segments{max-width:100%;height:auto;min-height:38px}.wa-group>input{flex:1;min-width:80px}.wa-segments>button{flex:none}
 .wa-scan-settings .wa-row{grid-template-columns:112px minmax(0,1fr)}
-.wa-work-face-note{margin:6px 7px 10px;color:#b77926;font-size:11px;line-height:1.7}
 
 .wa-point-adjustment{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;border:1px solid #f0d6b6;border-radius:4px;margin:8px 0;padding:8px}.wa-point-adjustment legend{padding:0 4px;color:#865629;font-size:12px}.wa-point-adjustment label{display:grid;gap:3px;min-width:0;color:#555;font-size:11px}.wa-point-adjustment input{width:100%;min-width:0;height:25px;padding:2px 4px;border:1px solid #ddd;border-radius:3px}

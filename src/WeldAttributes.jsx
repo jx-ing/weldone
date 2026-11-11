@@ -1,10 +1,10 @@
 import React,{useEffect,useId,useRef,useState} from 'react';
-import {FileOutput,Info,ChevronDown} from 'lucide-react';
+import {FileOutput,Info,ChevronDown,TriangleAlert} from 'lucide-react';
 import {POSITIONS} from './templateModel.mjs';
 import {weldForm} from './planningRequirements.mjs';
 import {grooveType,grooveValue,GROOVE_TYPES,grooveFieldsFor} from './grooveModel.mjs';
 import {processPositionLabel} from './processLibraryView.mjs';
-import {WELD_TYPES,workFacesForType,patchWeldGroup,patchWeldSegment,patchWeldGroove,segmentName} from './weldAttributeModel.mjs';
+import {WELD_TYPES,patchWeldGroup,patchWeldSegment,patchWeldGroove,segmentName} from './weldAttributeModel.mjs';
 import WeldPlanningPointList from './WeldPlanningPointList';
 import {weldPlanningPointGroups} from './weldPlanningPoints.mjs';
 import './weldAttributes.css';
@@ -17,25 +17,22 @@ function Options({label,value,onChange,values,placeholder='请选择',...props})
 function Toggle({label,value,onChange,values}){return <div className="wa-toggle" role="group" aria-label={label}>{values.map(([id,name])=><button type="button" key={id} aria-pressed={value===id} className={value===id?'active':''} onClick={()=>onChange(id)}>{name}</button>)}</div>;}
 function NumberField({label,value,onChange,unit,min=0,max,step='any',disabled=false}){return <span className={'wa-number'+(disabled?' disabled':'')}><input aria-label={label} type="number" min={min} max={max} step={step} disabled={disabled} required={!disabled} value={value??''} onChange={event=>{const number=event.target.value===''?'':+event.target.value;if(number===''||Number.isFinite(number)&&number>=min&&(max===undefined||number<=max))onChange(number);}}/>{unit&&<small>{unit}</small>}</span>;}
 
-function MatchCard({label,value,onChoose,onCreate,needsCreation}){
+function MatchCard({label,value,onChoose}){
  return <div className="wa-match-card">
-  <button className="wa-choose-match" type="button" aria-label={'选择'+label} onClick={onChoose}>
-   <span>{label}<FileOutput size={13}/></span><small>{value||'未选择'+label}</small>
+  <button className="wa-choose-match" type="button" aria-label={'选择'+label} title={value?undefined:'未匹配'+label} onClick={onChoose}>
+   <span>{label}{value?<FileOutput size={13}/>:<TriangleAlert className="wa-match-warning" size={15} aria-hidden="true"/>}</span><small>{value||'未选择'+label}</small>
   </button>
-  {needsCreation&&(onCreate?
-   <button className="wa-create-match" type="button" onClick={onCreate}>需要创建{label}</button>:
-   <p className="wa-create-match">需要创建{label}</p>)}
  </div>;
 }
 
 export default function WeldAttributes(props){
- const {weld:w,templates,processLibrary,decision,onPatch,onSave,onCancel,deviceProfiles=[]}=props,id=useId(),panel=useRef();
+ const {weld:w,templates,processLibrary,decision,onPatch,onSave,onCancel}=props,id=useId(),panel=useRef();
  const [tab,setTab]=useState('information'),[segmentIndex,setSegmentIndex]=useState(0);
  useEffect(()=>{props.onPlanningViewChange?.(tab==='welding');return()=>props.onPlanningViewChange?.(false);},[tab,props.onPlanningViewChange]);
  useEffect(()=>{setSegmentIndex(0);},[w.id]);
  useEffect(()=>{const body=panel.current?.querySelector('.wa-scroll');if(body)body.scrollTop=0;},[tab,w.id]);
  const index=Math.min(segmentIndex,Math.max(0,w.segments.length-1)),segment=w.segments[index],groove=w.groove||{type:'无坡口',angle:0,depth:0},inactive=grooveType(groove.type)==='无坡口';
- const template=templates.find(t=>t.id===w.templateId)||templates.find(t=>t.name===w.template),process=processLibrary.find(p=>p.id===w.processId),robot=w.robotModel||w.robotName||deviceProfiles.find(p=>p.enabled)?.applicability?.robotModel;
+ const template=templates.find(t=>t.id===w.templateId)||templates.find(t=>t.name===w.template),process=processLibrary.find(p=>p.id===w.processId);
  const setGroup=(key,value)=>onPatch('segments',patchWeldGroup(w,key,value)),setSegment=(key,value)=>onPatch('segments',patchWeldSegment(w,index,key,value)),setGroove=(key,value)=>onPatch('groove',patchWeldGroove(w,key,value));
  const wrapValues=[['none','不包角'],['half','半包角'],['full','全包角']],scan=w.scanSettings||{};
  const precisionMethod=scan.precisionMethod??(scan.mode==='laser'?'laserSweep':'');
@@ -54,17 +51,14 @@ export default function WeldAttributes(props){
  const appliedProcess=!onCancel&&!needsProcess&&(process?.name||w.processName||template?.baseProcess?.name);
  const templateName=appliedTemplate||decision?.whole?.name;
  const processName=appliedProcess||decision?.process?.name;
- const workFaces=workFacesForType(props.workpieceType),workFaceValid=workFaces.includes(w.workFace),workFacePending=!!w.workFace&&!workFaceValid;
  function tabKey(event){const at=tabs.findIndex(([key])=>key===tab),next=event.key==='ArrowRight'?(at+1)%tabs.length:event.key==='ArrowLeft'?(at+tabs.length-1)%tabs.length:event.key==='Home'?0:event.key==='End'?tabs.length-1:-1;if(next<0)return;event.preventDefault();setTab(tabs[next][0]);event.currentTarget.parentElement.querySelectorAll('[role=tab]')[next].focus();}
  return <section ref={panel} className="weld-attributes-panel" aria-label="焊缝属性">
   <header className="wa-header">焊缝属性</header>
   <div className="wa-summary">
    <div className="wa-group"><input aria-label="焊缝名称" required maxLength={80} value={w.name} title={w.name} onChange={event=>onPatch('name',event.target.value)}/><div className="wa-segments" role="group" aria-label="选择焊缝段">{w.segments.map((s,i)=><button type="button" key={i} title={segmentName(w,i)} aria-pressed={i===index} className={i===index?'active':''} onClick={()=>setSegmentIndex(i)}>{segmentName(w,i)}</button>)}</div></div>
    <div className="wa-template-cards" key={w.id}>
-    <MatchCard label="焊接模板" value={templateName} onChoose={props.onChooseTemplate}
-     onCreate={props.onCreateWhole} needsCreation={needsTemplate}/>
-    <MatchCard label="工艺参数" value={processName} onChoose={props.onChooseProcess}
-     onCreate={props.onCreateProcess} needsCreation={needsProcess}/>
+    <MatchCard label="焊接模板" value={templateName} onChoose={props.onChooseTemplate}/>
+    <MatchCard label="工艺参数" value={processName} onChoose={props.onChooseProcess}/>
    </div>
    {pending&&<div className="wa-pending-actions">
     <button type="button" onClick={props.onDisable}>屏蔽焊缝</button>
@@ -77,12 +71,9 @@ export default function WeldAttributes(props){
     <h3 className="wa-section-heading">焊缝组</h3>
     <Row label="焊缝形式"><Options label="焊缝形式" value={weldForm(w)} onChange={value=>onPatch('weldType',value)} values={WELD_TYPES}/></Row>
     <Row label="焊接方式"><Options label="焊接方式" value={String(w.machineCount??1)} onChange={value=>onPatch('machineCount',Number(value))} values={[[ '1','单机焊接'],['2','双机焊接']]}/></Row>
-    <Row label="工作面"><Options label="工作面" required={workFaces.length>0} disabled={!workFaces.length} value={workFaceValid?w.workFace:''} placeholder={workFaces.length?'请选择':'请先选择工件种类'} onChange={value=>{if(workFaces.includes(value))onPatch('workFace',value);}} values={workFaces}/></Row>
-    {workFacePending&&<p className="wa-work-face-note">原工作面“{w.workFace}”已保留，{workFaces.length?'不适用于当前工件种类，请重新选择。':'请先选择工件种类后确认。'}</p>}
     <Row label="焊接位置"><Options label="焊接位置" value={w.position} onChange={value=>setGroup('position',value)} values={POSITIONS.map(value=>[value,value.startsWith('PF')?'立向上焊':value.startsWith('PG')?'立向下焊':processPositionLabel(value)])}/></Row>
     <Row label="焊脚高度"><NumberField label="焊脚尺寸" min={.5} step={.5} value={w.leg} unit="mm" onChange={value=>{if(value!==''&&Number.isInteger(value*2))onPatch('leg',value);}}/></Row>
     <h3 className="wa-section-heading wa-segment-heading">{segmentName(w,index)}</h3>
-    <Row label="执行机器人"><span className="wa-readonly" title={robot||'未配置'}>{robot||'未配置'}</span></Row>
     <Row label="起点包角"><Options label="起点包角" value={segment?.startWrapMode??w.startWrapMode??'none'} onChange={value=>setSegment('startWrapMode',value)} values={wrapValues}/></Row>
     <Row label="终点包角"><Options label="终点包角" value={segment?.endWrapMode??w.endWrapMode??'none'} onChange={value=>setSegment('endWrapMode',value)} values={wrapValues}/></Row>
     <Row label="焊缝长度"><span className="wa-readonly wa-length"><span>{Number.isFinite(w.length)?Number(w.length.toFixed(1)):'—'}</span><small>mm</small></span></Row>

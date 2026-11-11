@@ -5,9 +5,9 @@ import {excludeConfirmedNonWelds} from './confirmedNonWelds.mjs';
 import {connectSegmentIntersections,mergeCornerAngles} from './mergeIntersectionGeometry.mjs';
 import {pathLength,pathGeometry,distance,EXAMPLE_MODEL} from './manualWeldModel.mjs';
 import {POSITIONS} from './templateModel.mjs';
-import {DEFAULT_MERGE_GAP} from './planningConfiguration.mjs';
+import {DEFAULT_MERGE_ANGLE_RANGE,DEFAULT_MERGE_GAP} from './planningConfiguration.mjs';
 export const DEMO_SOURCE_SHA256='c85056ed9022210cd93e48bc4d09b97615c57a70235f4f55d986e6a2bdec4fc8';
-export const DEFAULT_GEOMETRY_OPTIONS={mergeGapCheck:false,offset:50,extendThreshold:50,offsetThreshold:50,minimumWeldLength:50,thicknessWeldThresholdMm:50,mergeParams:{最小通过高度:25,最长通过距离:45,夹角阈值下限:60,夹角阈值上限:120,长度阈值下限:0,长度阈值上限:99999,最大合并距离:DEFAULT_MERGE_GAP}};
+export const DEFAULT_GEOMETRY_OPTIONS={mergeGapCheck:false,offset:50,extendThreshold:50,offsetThreshold:50,minimumWeldLength:50,thicknessWeldThresholdMm:50,mergeParams:{最小通过高度:25,最长通过距离:45,夹角阈值下限:DEFAULT_MERGE_ANGLE_RANGE.angleMin,夹角阈值上限:DEFAULT_MERGE_ANGLE_RANGE.angleMax,长度阈值下限:0,长度阈值上限:99999,最大合并距离:DEFAULT_MERGE_GAP}};
 const metric=v=>Math.round(v*10000)/10000;
 function grooveOf(source){const raw=source.properties?.坡口||{},v=raw.参数||{};if(raw.类型==='无坡口')return {type:'无坡口',angle:0,depth:0};const names={'I形':'I 形','I 形':'I 形','单V形':'V 形','V形':'V 形','X形':'X 形','U形':'U 形','J形':'J 形','单边V形':'单边 V 形','喇叭形':'喇叭形'},type=names[raw.类型];return {type:type||'待确认',angle:Number.isFinite(v.坡口角度)?v.坡口角度:null,depth:Number.isFinite(v.坡口深度)?v.坡口深度:null,...(Number.isFinite(v.钝边长度)?{rootFace:v.钝边长度}:{}),...(Number.isFinite(v.根部间隙)?{rootGap:v.根部间隙}:{}),...(Number.isFinite(v.根部半径)?{rootRadius:v.根部半径}:{})};}
 function angle(a,b){const before=a.pathPoints,after=b.pathPoints,u=before.at(-2).map((v,i)=>v-before.at(-1)[i]),v=after[1].map((n,i)=>n-after[0][i]),den=Math.hypot(...u)*Math.hypot(...v);return metric(Math.acos(Math.max(-1,Math.min(1,u.reduce((s,n,i)=>s+n*v[i],0)/(den||1))))*180/Math.PI);}

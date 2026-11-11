@@ -126,10 +126,13 @@ test('同一内角的转角路径使用一组工艺，编辑时保留外角参�
  const cornerCurrents=planned=>planned.strategyPlan.passes[0].points.filter(point=>point.kind==='corner').map(point=>point.parameters.current);
  assert.deepEqual(cornerCurrents(original),[240,240,240]);
  const pass=mixed.processLayers[0].passes[0];
- const revised=updateProcessPass(mixed,id,sharedCornerPointChanges(pass,'inner',{...sharedCornerPoint(pass,'inner'),current:220}));
+ const revised=updateProcessPass(mixed,id,{...sharedCornerPointChanges(pass,'inner',{...sharedCornerPoint(pass,'inner'),current:220}),cornerOffsets:{inner:2,outer:null}});
  assert.deepEqual(revised.cornerParameters.outer,points);
  const [updated]=planWorkspace([weld],[],[revised],config);
  assert.deepEqual(cornerCurrents(updated),[220,220,220]);
+ const cornerPoint=updated.strategyPlan.passes[0].points.find(point=>point.kind==='corner'&&point.distance===100);
+ assert.ok(Math.abs(cornerPoint.position[0]-(100+Math.SQRT2))<1e-6);
+ assert.ok(Math.abs(cornerPoint.position[1]+Math.SQRT2)<1e-6);
 });
 
 test('激光跟踪在边缘距离不足的区间内关闭并在区间后恢复',()=>{

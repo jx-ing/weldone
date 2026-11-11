@@ -387,3 +387,5 @@ Remove crater refill and vertical pass-hole filling from process recipes and str
 Expose the five mixed-weld scan distances under 精定位设置. Save them per project with existing precision settings.
 
 Show interference endpoints side by side, each with one posture angle (advance), distance and a signed line offset. Keep the existing vertical start transition distance below the two columns. Display white-background local diagrams beside the requested threshold, overlap, stagger and transition-distance fields.
+
+Use one signed corner-point offset per inner/outer corner. Show the offset, speed, distances and power parameters on the same pass row. Retire legacy XYZ values since they do not encode the new signed corner offset. Hide work face, executing robot and creation prompts in weld attributes. Mark unmatched cards with a warning icon and show green list indicators for current process or template matches.

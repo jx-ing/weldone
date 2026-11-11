@@ -1,4 +1,7 @@
 export const DEFAULT_MERGE_GAP=10;
+export const DEFAULT_MERGE_ANGLE_RANGE={angleMin:60,angleMax:120};
+export const DEFAULT_INTERFERENCE_ANGLE=38;
+export const DEFAULT_INTERFERENCE_DISTANCE=35;
 export const WORKPIECE_TYPES=['小组立','中组立','护板'];
 export const L_WRAP_DISTANCES=[['1/2','1/2板厚'],['2/3','2/3板厚']];
 export const INTERFERENCE_END_FIELDS=[['Angle','姿态','°'],['Distance','距离','mm'],['LineOffset','线偏移','mm']];

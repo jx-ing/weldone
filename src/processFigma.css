@@ -93,6 +93,7 @@
 .process-parameter-table td{background:#fff}
 .process-parameter-table td[rowspan]{background:#f9f9f9}
 .process-parameter-table th small{color:#8c8c8c;font-size:calc(10 * var(--ps));font-weight:400;margin-left:calc(2 * var(--ps))}
+.process-corner-offset-diagram{display:block;width:calc(54 * var(--ps));height:calc(48 * var(--ps));object-fit:contain;margin:calc(3 * var(--ps)) auto 0;border-radius:calc(2 * var(--ps))}
 .process-eye-button{border:0;background:transparent;padding:0;opacity:1!important;display:inline-flex;align-items:center}
 .process-parameter-table tr:last-child td{border-bottom:0}
 .process-parameter-table tbody tr:not(:last-child)>td:not([rowspan]){height:calc(49 * var(--ps))}

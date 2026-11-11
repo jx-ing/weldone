@@ -1,3 +1,5 @@
+import {DEFAULT_INTERFERENCE_DISTANCE} from './planningConfiguration.mjs';
+
 export const MAX_PLANNING_WELDS = 2500;
 
 export function roundWeldLeg(value) {
@@ -27,18 +29,24 @@ export function processWeldForms(recipe) {
   return recipe.weldForms ?? [recipe.joint === '端接接头' ? '其他焊缝' : legacyWeldForm(recipe.joint)];
 }
 
-function withoutRetiredProcessPass({crater,holeFill,...pass}) {
+export function normalizeCornerOffsets(offsets) {
+  if(!offsets||typeof offsets!=='object'||Array.isArray(offsets))return offsets;
+  return Object.fromEntries(Object.entries(offsets).map(([side,value])=>[side,value&&typeof value==='object'&&!Array.isArray(value)?null:value]));
+}
+
+function migrateProcessPass({crater,holeFill,...pass}) {
+  if(pass.cornerOffsets!==undefined)pass.cornerOffsets=normalizeCornerOffsets(pass.cornerOffsets);
   return pass;
 }
 
-export function withoutRetiredProcessStages(recipe) {
-  const value=withoutRetiredProcessPass(recipe);
-  if(Array.isArray(value.processLayers))value.processLayers=value.processLayers.map(layer=>({...layer,passes:layer.passes.map(withoutRetiredProcessPass)}));
+export function migrateProcessPasses(recipe) {
+  const value=migrateProcessPass(recipe);
+  if(Array.isArray(value.processLayers))value.processLayers=value.processLayers.map(layer=>({...layer,passes:layer.passes.map(migrateProcessPass)}));
   return value;
 }
 
 export function migrateProcessWeldForms(recipe) {
-  const {joint,joints,...value}=withoutRetiredProcessStages(recipe);
+  const {joint,joints,...value}=migrateProcessPasses(recipe);
   return {...value,weldForms:processWeldForms(recipe)};
 }
 
@@ -74,7 +82,7 @@ export function strategyScopeIssue(weld, settings) {
   }
   const ends = settings.interferenceEndParameters ?? {};
   const vertical = segments.some(s => ['PF', 'PG'].includes(weldPositionCode(s.position ?? weld.position)));
-  const limit = vertical ? ends.verticalStartDistance ?? 20 : Math.max(ends.startDistance ?? 0, ends.endDistance ?? 0);
+  const limit = vertical ? ends.verticalStartDistance ?? 20 : Math.max(ends.startDistance ?? DEFAULT_INTERFERENCE_DISTANCE, ends.endDistance ?? DEFAULT_INTERFERENCE_DISTANCE);
   if (weld.length < limit) return '焊缝长度小于端点变姿态距离，仅支持焊接模板规划';
   return '';
 }

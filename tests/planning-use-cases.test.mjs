@@ -37,11 +37,11 @@ test('用例默认值和空值回退，设备默认已配置，明确无配置�
  assert.deepEqual(d.actionParameters.safeTransitionOffset,{x:0,y:50,z:100});assert.deepEqual(d.actionParameters.safeApproachOffset,{x:0,y:20,z:40});assert.equal(d.actionParameters.lineStep,5);assert.equal(d.actionParameters.arcStep,2);assert.equal(d.precisionParameters.lineSweepSpeed,150);assert.equal(d.precisionParameters.arcSweepSpeed,70);
  assert.equal(d.actionParameters.liftHeight,100);assert.equal(d.actionParameters.externalAxisLength,1500);
  assert.equal(d.wrapParameters.independentLength,30);assert.equal(d.wrapParameters.passHoleThreshold,35);assert.equal(d.wrapParameters.gapThreshold,350);
- assert.equal(d.mergeParameters.passHoleSize,15);assert.equal(d.mergeParameters.maxLength,1500);assert.equal(d.intermittentParameters,undefined);
+ assert.equal(d.mergeParameters.angleMin,60);assert.equal(d.mergeParameters.angleMax,120);assert.equal(d.mergeParameters.passHoleSize,15);assert.equal(d.mergeParameters.maxLength,1500);assert.equal(d.intermittentParameters,undefined);
  assert.deepEqual(d.trackingParameters,{laserEnabled:true,arcEnabled:true,minLineLength:160,minArcDiameter:160,minEdgeWidth:10,rulesVersion:2});
  assert.equal(d.visionParameters.twoFaceSpeed,null);assert.equal(d.splitParameters.gapThreshold,null);
  d.wrapParameters.independentLength='';d.interferenceEndParameters.startDistance='';d.interferenceEndParameters.startAngle='';
- const saved=serializeSettings(d);assert.equal(saved.wrapParameters.independentLength,30);assert.equal(saved.interferenceEndParameters.startDistance,0);assert.equal(saved.interferenceEndParameters.startAngle,null);
+ const saved=serializeSettings(d);assert.equal(saved.wrapParameters.independentLength,30);assert.equal(saved.interferenceEndParameters.startDistance,35);assert.equal(saved.interferenceEndParameters.startAngle,38);
  const absent=settingsDefaults({}, {laserTracking:false,arcTracking:false});assert.equal(absent.trackingParameters.laserEnabled,false);assert.equal(absent.trackingParameters.arcEnabled,false);
  assert.deepEqual([...planningSettingsErrors(saved),...useCaseSettingsErrors(saved)],[]);
 });
@@ -79,7 +79,7 @@ test('干涉端使用单一角度，距离和有符号线偏移可独立保存',
  const d=settingsDefaults({interferenceEndParameters:{startPose:{advance:15,work:35},endAngle:38.1}});d.actionParameters.flatPose={advance:10,work:45,rotation:0};d.actionParameters.verticalPose={advance:20,work:35,rotation:5};d.interferenceEndParameters.startLineOffset='-2.5';d.interferenceEndParameters.endLineOffset='1.5';d.interferenceEndParameters.startDistance='35';
  assert.deepEqual(resolveEndpointPose(d,'start','PB'),{advance:15,work:45,rotation:0});assert.deepEqual(resolveEndpointPose(d,'end','PF'),{advance:38.1,work:35,rotation:5});
  const values=serializeSettings(d).interferenceEndParameters;
- assert.deepEqual(values,{startAngle:15,endAngle:38.1,startDistance:35,endDistance:0,verticalStartDistance:20,startLineOffset:-2.5,endLineOffset:1.5});
+ assert.deepEqual(values,{startAngle:15,endAngle:38.1,startDistance:35,endDistance:35,verticalStartDistance:20,startLineOffset:-2.5,endLineOffset:1.5});
  assert.deepEqual(planningSettingsErrors({interferenceEndParameters:values}),[]);
  assert.match(planningSettingsErrors({interferenceEndParameters:{...values,endAngle:361}}).join(''),/终点姿态/);
 });

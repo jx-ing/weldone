@@ -46,6 +46,17 @@ test('旧工作区和工艺库移除填充字段，仅清除受影响的路径�
  }
 });
 
+test('单一转角点偏移按层道保存，旧XYZ偏移恢复为空',()=>{
+ const p=ensureProcessLayers(recipe());
+ const id=p.processLayers[0].passes[0].id;
+ const legacy=updateProcessPass(p,id,{cornerOffsets:{inner:{x:1,y:-2,z:3},outer:{x:null,y:null,z:null}}});
+ const [migrated]=upsertProcessEntry([],legacy);
+ assert.deepEqual(migrated.processLayers[0].passes[0].cornerOffsets,{inner:null,outer:null});
+ const updated=updateProcessPass(migrated,id,{cornerOffsets:{inner:1.5,outer:-2}});
+ assert.deepEqual(effectiveProcessEntry(updated).cornerOffsets,{inner:1.5,outer:-2});
+ assert.deepEqual(mergeProcessLibrary([], [updated])[0].processLayers[0].passes[0].cornerOffsets,updated.cornerOffsets);
+});
+
 test('导入异常结构给出校验结果，避免隐藏无效数值流入应用',()=>{for(const value of [null,{}, {id:'bad',name:123}])assert.ok(validateProcessEntry(value).length);const p=recipe();p.offset.y=NaN;assert.ok(validateProcessEntry(p).length);assert.throws(()=>upsertProcessEntry([],p));assert.throws(()=>applyProcessEntry(weld(),p));});
 
 test('点位工艺覆盖遵守当前焊机模式，休眠值不被误标为生效',()=>{const overrides={current:180,voltage:24,speed:300,amplitude:2};assert.deepEqual(effectivePointOverrides(overrides,'job'),{speed:300,amplitude:2});assert.deepEqual(effectivePointOverrides(overrides,'synergic'),{current:180,speed:300,amplitude:2});assert.deepEqual(effectivePointOverrides(overrides,'separate'),overrides);assert.equal(overrides.current,180);});

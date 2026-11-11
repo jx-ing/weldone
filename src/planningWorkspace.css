@@ -64,6 +64,11 @@
 .planning-endpoint-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .planning-endpoint-columns fieldset{min-width:0;border:1px solid #eee;border-radius:4px;margin:0;padding:0 12px}
 .planning-endpoint-columns legend{font-size:13px;font-weight:500;color:#595959;padding:0 4px}
+.planning-endpoint-columns .planning-number-with-diagram{gap:8px}
+.planning-endpoint-columns .planning-number-with-diagram img{width:clamp(36px,6vw,51px);height:auto;border-radius:2px}
+.planning-endpoint-columns fieldset:first-child .planning-number-with-diagram{grid-template-columns:auto minmax(0,1fr)}
+.planning-endpoint-columns fieldset:first-child .planning-value{grid-column:2;grid-row:1}
+.planning-endpoint-columns fieldset:first-child img{grid-column:1;grid-row:1}
 .planning-settings .planning-endpoint-columns .planning-setting-row{grid-template-columns:3em minmax(0,1fr);gap:8px;margin:12px 0}
 @media(max-width:450px){.planning-endpoint-columns{gap:8px}.planning-endpoint-columns fieldset{padding:0 6px}.planning-settings .planning-endpoint-columns .planning-setting-row{grid-template-columns:1fr;gap:3px}}
 

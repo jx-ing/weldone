@@ -151,7 +151,12 @@ function migrateStrategyPlan(weld){
   const containsRetiredMotion=plan.endpointActions?.includes('fill')||plan.passes.some(pass=>
     pass.points?.some(point=>point.kind==='crater'||point.kind==='holeFill')
   );
-  if(containsRetiredMotion){
+  const recipe=weld.processParameters;
+  const passes=recipe?.processLayers?.flatMap(layer=>layer.passes)??[recipe];
+  const hasLegacyCornerOffset=passes.some(pass=>Object.values(pass?.cornerOffsets??{}).some(value=>
+    value&&typeof value==='object'&&Object.values(value).some(axis=>Number.isFinite(axis)&&axis!==0)
+  ));
+  if(containsRetiredMotion||hasLegacyCornerOffset){
     delete weld.strategyPlan;
     weld.planned=false;
     return;

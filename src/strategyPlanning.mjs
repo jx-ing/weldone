@@ -42,12 +42,17 @@ function orientation(frame, pose) {
   ))).toArray();
 }
 
-function motionPoint(frame, pass, at, phase, pose, parameters, displacement = {}) {
+function motionPoint(frame, pass, at, phase, pose, parameters) {
   const binormal = new Vector3().crossVectors(new Vector3(...frame.tangent), new Vector3(...frame.normal)).normalize().toArray();
-  let position = add(frame.position, frame.tangent, displacement.x ?? 0);
-  position = add(position, frame.normal, (pass.offset?.y ?? 0) + (displacement.y ?? 0));
-  position = add(position, binormal, (pass.offset?.z ?? 0) + (displacement.z ?? 0));
+  const position = add(add(frame.position, frame.normal, pass.offset?.y ?? 0), binormal, pass.offset?.z ?? 0);
   return {distance:at,kind:phase,name:phaseName[phase],position,orientation:orientation(frame,pose),pose,parameters:phase==='weld'?{...parameters,weave:pass.weave}:parameters};
+}
+
+function cornerFrame(frame, incoming, outgoing, offset) {
+  if(!offset)return frame;
+  const outward=new Vector3(...incoming).sub(new Vector3(...outgoing));
+  if(outward.lengthSq()<=EPS)return frame;
+  return {...frame,position:add(frame.position,outward.normalize().toArray(),offset)};
 }
 
 function cornerValues(pass, side) {
@@ -120,10 +125,10 @@ export function generateStrategyPlan(weld, process, rawSettings) {
     const startPose = segments[0].strategyWrapKind==='L' ? lWrapPose(segments[0],startStandard) : verticalWeld ? action.flatPose : isInterference(ends[0]) ? {...startStandard,advance:endSettings.startAngle??startStandard.advance} : startStandard;
     const endPose = segments.at(-1).strategyWrapKind==='L' ? lWrapPose(segments.at(-1),endStandard) : !verticalWeld && isInterference(ends[1]) ? {...endStandard,advance:endSettings.endAngle??endStandard.advance} : endStandard;
     const points = [];
-    const point = (at, kind, pose, parameters, displacement, frame = sample(at)) => {
+    const point = (at, kind, pose, parameters, frame = sample(at)) => {
       const index=segmentAt(at),tracking=blockedTracking[index].some(([from,to])=>at>=from-EPS&&at<=to+EPS)?
         '无跟踪':segments[index].tracking;
-      points.push({...motionPoint(frame,pass,at,kind,pose,parameters,displacement),tracking});
+      points.push({...motionPoint(frame,pass,at,kind,pose,parameters),tracking});
     };
     const transition=(from,to,initial,target,includeEnd)=>{
       const count=Math.min(128,Math.max(1,Math.ceil((to-from)/action.lineStep)));
@@ -158,10 +163,14 @@ export function generateStrategyPlan(weld, process, rawSettings) {
       }
       for (const [index, at] of stations.slice(1,-1).entries()) {
         const before = segments[index], after = segments[index + 1], corner = directed.cornerDirections?.[index];
+        const atCorner = side => {
+          const incoming=sample(Math.max(stations[index],at-1e-4)), outgoing=sample(at);
+          return cornerFrame(outgoing,incoming.tangent,outgoing.tangent,pass.cornerOffsets?.[side]);
+        };
         if(after.strategyRole==='wrap'){
           const begin=Math.max(stations[index],at-(pass.cornerDistances?.outer?.before??30));
           point(begin,'wrap',standard(before),cornerValues(pass,'outer'));
-          point(at,'wrap',standard(before),cornerValues(pass,'outer'),pass.cornerOffsets?.outer);
+          point(at,'wrap',standard(before),cornerValues(pass,'outer'),atCorner('outer'));
           if(after.strategyWrapKind==='L')continue;
           const middle=(at+stations[index+2])/2;
           const pose={...standard(before),...Object.fromEntries(Object.entries(settings.wrapParameters.uPose).filter(([,v])=>v!==null))};
@@ -169,7 +178,7 @@ export function generateStrategyPlan(weld, process, rawSettings) {
           continue;
         }
         if(before.strategyRole==='wrap'){
-          point(at,'wrap',standard(after),cornerValues(pass,'outer'),pass.cornerOffsets?.outer);
+          point(at,'wrap',standard(after),cornerValues(pass,'outer'),atCorner('outer'));
           const depart=Math.min(stations[index+2],at+(pass.cornerDistances?.outer?.after??30));
           point(depart,'wrap',standard(after),cornerValues(pass,'outer'));
           continue;
@@ -183,7 +192,7 @@ export function generateStrategyPlan(weld, process, rawSettings) {
           const bisect = new Vector3(...a.tangent).add(new Vector3(...b.tangent));
           const frame = {...b,tangent:bisect.lengthSq()>EPS?bisect.normalize().toArray():b.tangent};
           point(approach,'corner',standard(before),cornerValues(pass,side));
-          point(at,'corner',standard(after),cornerValues(pass,side),pass.cornerOffsets?.[side],frame);
+          point(at,'corner',standard(after),cornerValues(pass,side),cornerFrame(frame,a.tangent,b.tangent,pass.cornerOffsets?.[side]));
           point(depart,'corner',standard(after),cornerValues(pass,side));
         } else point(at,'weld',standard(after),pass.weld);
       }
@@ -201,10 +210,12 @@ export function generateStrategyPlan(weld, process, rawSettings) {
         const distance = facts.plateThickness * (settings.wrapParameters.lDistanceRatio==='1/2'?.5:2/3);
         const offsetFrame = {...frame,position:add(frame.position,facts.offsetDirection,distance)};
         const pose = {...(index?endStandard:startStandard),...Object.fromEntries(Object.entries(choice==='vertical'?settings.wrapParameters.verticalLPose:settings.wrapParameters.flatLPose).filter(([,v])=>v!==null))};
-        const wrapPoint = motionPoint(offsetFrame,pass,index?total:0,'wrap',pose,cornerValues(pass,'outer'),pass.cornerOffsets?.outer);
+        const wrapPoint = motionPoint(offsetFrame,pass,index?total:0,'wrap',pose,cornerValues(pass,'outer'));
         const approachAt=index?Math.max(0,total-(pass.cornerDistances?.outer?.before??30)):Math.min(total,pass.cornerDistances?.outer?.after??30);
         const transition=motionPoint(sample(approachAt),pass,approachAt,'wrap',index?endStandard:startStandard,cornerValues(pass,'outer'));
-        const corner=motionPoint(frame,pass,index?total:0,'wrap',pose,cornerValues(pass,'outer'),pass.cornerOffsets?.outer);
+        const offset=pass.cornerOffsets?.outer??0;
+        const cornerPosition={...frame,position:add(frame.position,facts.offsetDirection,offset)};
+        const corner=motionPoint(cornerPosition,pass,index?total:0,'wrap',pose,cornerValues(pass,'outer'));
         if(index){points.splice(points.length-1,1,transition,corner,wrapPoint);}else{points.splice(0,1,wrapPoint,corner,transition);}
         points.sort((a,b)=>a.distance-b.distance);
       }

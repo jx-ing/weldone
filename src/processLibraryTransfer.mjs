@@ -1,11 +1,11 @@
 import {validateProcessEntry,copyProcessEntry} from './processParameterModel.mjs';
-import {belongsToDevice,withoutRetiredProcessStages} from './planningRequirements.mjs';
+import {belongsToDevice,migrateProcessPasses} from './planningRequirements.mjs';
 import {validDeviceProfileStore} from './processDeviceModel.mjs';
 import {normalizeActiveDevices} from './processDeviceLibraries.mjs';
-export function mergeProcessLibrary(entries,data){const incoming=Array.isArray(data)?data:data?.entries;if(!Array.isArray(incoming)||incoming.length>1000||incoming.some(p=>!p||typeof p!=='object'||validateProcessEntry(p,{allowLegacyLeg:true}).length))throw Error('文件中的工艺参数不完整或格式无效');const next=structuredClone(entries.map(withoutRetiredProcessStages)),ids=new Map(next.map(p=>[p.id,p]));for(const value of incoming){const p=structuredClone(withoutRetiredProcessStages(value));if(!ids.has(p.id)){next.push(p);ids.set(p.id,p);}else if(JSON.stringify(ids.get(p.id))!==JSON.stringify(p)){const copy=copyProcessEntry(p);next.push(copy);ids.set(copy.id,copy);}}if(next.length>1000)throw Error('工艺参数总数不能超过1000');return next;}
+export function mergeProcessLibrary(entries,data){const incoming=Array.isArray(data)?data:data?.entries;if(!Array.isArray(incoming)||incoming.length>1000||incoming.some(p=>!p||typeof p!=='object'||validateProcessEntry(p,{allowLegacyLeg:true}).length))throw Error('文件中的工艺参数不完整或格式无效');const next=structuredClone(entries.map(migrateProcessPasses)),ids=new Map(next.map(p=>[p.id,p]));for(const value of incoming){const p=structuredClone(migrateProcessPasses(value));if(!ids.has(p.id)){next.push(p);ids.set(p.id,p);}else if(JSON.stringify(ids.get(p.id))!==JSON.stringify(p)){const copy=copyProcessEntry(p);next.push(copy);ids.set(copy.id,copy);}}if(next.length>1000)throw Error('工艺参数总数不能超过1000');return next;}
 
 export function exportDeviceLibrary(entries,profile){
- return {format:'weldone.process-library',version:2,device:structuredClone(profile),entries:entries.filter(value=>belongsToDevice(value,profile)).map(withoutRetiredProcessStages)};
+ return {format:'weldone.process-library',version:2,device:structuredClone(profile),entries:entries.filter(value=>belongsToDevice(value,profile)).map(migrateProcessPasses)};
 }
 
 export function importDeviceLibraries(entries,profiles,documents){

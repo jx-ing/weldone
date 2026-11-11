@@ -45,12 +45,13 @@ export function analyzeWeldMatch(w,templates=[],processLibrary=[],options={}){
   if(w.gapJoinError)return {ready:false,route:'blocked',reason:w.gapJoinError,steps:['路径连接无效','不检查','不检查']};
   if(!w.enabled)return {ready:false,route:'disabled',steps:['已屏蔽','不检查','不检查']};
   const strategy=options.planningRevision===3;
+  const includeDiagnostics=options.includeMatchDiagnostics!==false;
   if(strategy)w={...w,leg:roundWeldLeg(w.leg)};
   const wholeCandidates=unique([w.templateSnapshot?.type==='whole'?w.templateSnapshot:null,...preferred(templates.filter(t=>t.type==='whole'),w.templateId)]).filter(t=>templateAvailable(t,templates));
   if(strategy)wholeCandidates.sort((a,b)=>Number(!!b.defaultForGeometry)-Number(!!a.defaultForGeometry));
   const whole=wholeCandidates.find(t=>templateMatches(t,w,options));
   if(whole)return {ready:true,route:'whole',whole,steps:[`已匹配：${whole.name}`,'无需匹配','无需匹配']};
-  const wholeFailures=wholeCandidates.map(t=>failedTemplate(t,w,options));
+  const wholeFailures=includeDiagnostics?wholeCandidates.map(t=>failedTemplate(t,w,options)):[];
   if(strategy){
     const reason=strategyScopeIssue(w,options);
     if(reason)return {ready:false,route:'blocked',creation:'template',reason,templateFailures:wholeFailures,steps:['未匹配','仅支持模板规划','不检查']};
@@ -59,7 +60,7 @@ export function analyzeWeldMatch(w,templates=[],processLibrary=[],options={}){
   const processCandidates=unique([w.processParameters,...preferred(processLibrary,w.processId)]).filter(p=>!strategy||belongsToDevice(p,options.activeDevice));
   if(strategy)processCandidates.sort((a,b)=>Number((a.processLayers?.flatMap(l=>l.passes).length??1)>1)-Number((b.processLayers?.flatMap(l=>l.passes).length??1)>1));
   const process=processCandidates.find(p=>{try{return matchProcessEntry(p,w).ok;}catch{return false;}});
-  if(!process)return {ready:false,route:'blocked',creation:'template-or-process',...(strategy?{plannedSegments:w.segments}:{}),reason:'无匹配的工艺参数，无法进行焊接',templateFailures:wholeFailures,processFailures:processLibrary.map(p=>({id:p.id,name:p.name,reasons:matchProcessEntry(p,w).reasons})),steps:['未匹配','未匹配','不检查']};
+  if(!process)return {ready:false,route:'blocked',creation:'template-or-process',...(strategy?{plannedSegments:w.segments}:{}),reason:'无匹配的工艺参数，无法进行焊接',templateFailures:wholeFailures,processFailures:includeDiagnostics?processLibrary.map(p=>({id:p.id,name:p.name,reasons:matchProcessEntry(p,w).reasons})):[],steps:['未匹配','未匹配','不检查']};
   if(strategy)return {ready:true,route:'automatic',process,locals:[],plannedSegments:w.segments,templateFailures:wholeFailures,steps:['未匹配',`已匹配：${process.name}`,'策略规划']};
   const localCandidates=unique([...(w.localApplications||[]).map(a=>a.templateSnapshot),...(w.templateSnapshot?.type==='local'?[w.templateSnapshot]:[]),...preferred(templates.filter(t=>t.type==='local'),w.localTemplateId)]).filter(t=>templateAvailable(t,templates));
   const candidates=[];
