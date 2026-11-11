@@ -1,7 +1,7 @@
 import {roundWeldLeg, weldForm} from './planningRequirements.mjs';
 
 export const SHORT_SEGMENT_MM = 30;
-export const ENDPOINT_TYPES = ['两面交','三面交','两面交过焊孔','三面交过焊孔','间隙打断','长度打断','对称打断','过焊孔打断','避障打断'];
+export const ENDPOINT_TYPES = ['两面交','三面交','两面交过焊孔','三面交过焊孔','间隙打断','长度打断','对称打断','过焊孔打断','避障打断','边缘打断'];
 export const ENDPOINT_DIMENSIONS = [['holeSize','过焊孔尺寸'],['gap','间隙距离']];
 
 function exactRange(value) {

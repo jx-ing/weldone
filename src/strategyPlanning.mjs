@@ -4,6 +4,7 @@ import {directedWeld} from './weldDirectionGeometry.mjs';
 import {settingsDefaults, trackingChoice} from './planningSettingsModel.mjs';
 import {weldPositionCode} from './planningRequirements.mjs';
 import {sharedCornerPoint} from './processFeaturePoints.mjs';
+import {weldPointDistance} from './manualSplitModel.mjs';
 
 const EPS = 1e-6;
 const radians = Math.PI / 180;
@@ -76,27 +77,36 @@ export function generateStrategyPlan(weld, process, rawSettings) {
   for (const segment of segments) stations.push(stations.at(-1) + pathLength(segment.pathPoints));
   const total = stations.at(-1);
   const baseStations = [];
+  const blockedTracking=segments.map((segment,index)=>{
+    const clearance=segment.laserTrackingClearance;
+    if(segment.tracking!=='激光跟踪'||clearance?.threshold!==settings.trackingParameters.minEdgeWidth||!Array.isArray(clearance.blocked))return [];
+    return clearance.blocked.filter(points=>Array.isArray(points)&&points.length===2&&points.every(position=>Array.isArray(position)&&position.length===3&&position.every(Number.isFinite))).map(points=>{
+      const [start,end]=points.map(position=>stations[index]+weldPointDistance({segments:[segment]},position)).sort((a,b)=>a-b);
+      baseStations.push(start,Math.min(stations[index+1],end+.001));
+      return [start,end];
+    });
+  });
   for (const [index, segment] of segments.entries()) {
     const length = stations[index + 1] - stations[index];
     if (segment.geometry !== '直线' || segment.strategyRole==='wrap') {
-      const count = Math.min(48, Math.max(4, Math.ceil((segment.shape?.arcAngle ?? 90) / 10)));
+      const count=Math.min(256,Math.max(1,Math.ceil(length/settings.actionParameters.arcStep)));
       for (let step = 1; step < count; step++) baseStations.push(stations[index] + length * step / count);
     }
     if (index < segments.length - 1) baseStations.push(stations[index + 1]);
   }
+  baseStations.sort((a,b)=>a-b);
   const closed = directed.closure === 'closed';
   const verticalWeld = vertical(segments[0].position);
   const action = settings.actionParameters;
   const endSettings = settings.interferenceEndParameters;
   const layers = process.processLayers?.length ? process.processLayers : [{passes:[process]}];
   const passes = [];
-  const sample = at => {
-    const index = Math.max(0, Math.min(segments.length - 1, stations.findIndex(value => value > at + EPS) - 1));
-    const segment = segments[at >= total - EPS ? segments.length - 1 : index];
-    const start = at >= total - EPS ? stations.at(-2) : stations[index];
-    return sampleManualWeldPath([segment], at - start, segment.referenceNormal);
+  const segmentAt=at=>at>=total-EPS?segments.length-1:Math.max(0,stations.findIndex(value=>value>at+EPS)-1);
+  const sample=at=>{
+    const index=segmentAt(at),segment=segments[index];
+    return sampleManualWeldPath([segment],at-stations[index],segment.referenceNormal);
   };
-  const isInterference = facts => facts && (['间隙打断','过焊孔打断'].includes(facts.breakReason) ||
+  const isInterference = facts => facts && (['间隙打断','过焊孔打断','避障打断'].includes(facts.breakReason??facts.type) ||
     facts.junctionType === '三面交' && (!facts.hasHole || facts.holeSize < settings.wrapParameters.passHoleThreshold));
   const endpointActions = closed ? ['none','none'] : ends.map((facts, index) =>
     endpointStrategy(facts, settings, segments[index ? segments.length - 1 : 0].position, index ? 'end' : 'start', weld.machineCount === 2));
@@ -112,7 +122,19 @@ export function generateStrategyPlan(weld, process, rawSettings) {
     const endPose = segments.at(-1).strategyWrapKind==='L' ? lWrapPose(segments.at(-1),endStandard) : !verticalWeld && isInterference(ends[1]) ? {...endStandard,...Object.fromEntries(Object.entries(endSettings.endPose).filter(([,v])=>v!==null))} : endStandard;
     const points = [];
     const point = (at, kind, pose, parameters, displacement, frame = sample(at)) => {
-      points.push(motionPoint(frame, pass, at, kind, pose, parameters, displacement));
+      const index=segmentAt(at),tracking=blockedTracking[index].some(([from,to])=>at>=from-EPS&&at<=to+EPS)?
+        '无跟踪':segments[index].tracking;
+      points.push({...motionPoint(frame,pass,at,kind,pose,parameters,displacement),tracking});
+    };
+    const transition=(from,to,initial,target,includeEnd)=>{
+      const count=Math.min(128,Math.max(1,Math.ceil((to-from)/action.lineStep)));
+      for(let index=1;index<count+(includeEnd?1:0);index++){
+        const ratio=index/count;
+        const pose=Object.fromEntries(['advance','work','rotation'].map(axis=>[
+          axis,(initial[axis]??0)+((target[axis]??0)-(initial[axis]??0))*ratio
+        ]));
+        point(from+(to-from)*ratio,'weld',pose,pass.weld);
+      }
     };
     const startShift = closed ? (passes.length * action.staggerDistance) % total : 0;
     const overlap = closed ? action.overlapDistance : 0;
@@ -146,7 +168,7 @@ export function generateStrategyPlan(weld, process, rawSettings) {
         }
       }
       const startDistance = verticalWeld ? endSettings.verticalStartDistance : isInterference(ends[0]) ? endSettings.startDistance : 0;
-      if (positive(startDistance) && startDistance < total) point(startDistance,'weld',startStandard,pass.weld);
+      if (positive(startDistance) && startDistance < total)transition(0,startDistance,startPose,startStandard,true);
       for (const at of baseStations) {
         if (stations.some(station=>Math.abs(station-at)<EPS)) continue;
         const index = stations.findIndex(station=>station>at) - 1;
@@ -185,7 +207,10 @@ export function generateStrategyPlan(weld, process, rawSettings) {
         } else point(at,'weld',standard(after),pass.weld);
       }
       const endDistance = !verticalWeld && isInterference(ends[1]) ? endSettings.endDistance : 0;
-      if (positive(endDistance) && endDistance < total) point(total-endDistance,'weld',endStandard,pass.weld);
+      if (positive(endDistance) && endDistance < total){
+        point(total-endDistance,'weld',endStandard,pass.weld);
+        transition(total-endDistance,total,endStandard,endPose,false);
+      }
       point(total,'end',endPose,pass.end);
       points.sort((a,b)=>a.distance-b.distance);
       for (const [index, choice] of endpointActions.entries()) {
@@ -209,8 +234,15 @@ export function generateStrategyPlan(weld, process, rawSettings) {
       point(fill,'crater',endStandard,pass.crater);
     }
     const start = points[0]?.position, end = points.at(-1)?.position;
-    const lift = (position, frame) => position && add(position,new Vector3().crossVectors(new Vector3(...frame.tangent),new Vector3(...frame.normal)).normalize().toArray(),action.liftHeight);
-    passes.push({layerIndex,passIndex,points,approach:lift(start,sample(0)),retract:lift(end,sample(total)),crater:pass.crater?.enabled?pass.crater:null});
+    const safePoint=(position,frame,offset)=>{
+      if(!position)return undefined;
+      const binormal=new Vector3().crossVectors(new Vector3(...frame.tangent),new Vector3(...frame.normal)).normalize().toArray();
+      return add(add(add(position,frame.tangent,offset.x),frame.normal,offset.y),binormal,offset.z);
+    };
+    const startFrame=sample(points[0]?.distance??0),endFrame=sample(points.at(-1)?.distance??total);
+    passes.push({layerIndex,passIndex,points,approach:safePoint(start,startFrame,action.safeApproachOffset),
+      transitionIn:safePoint(start,startFrame,action.safeTransitionOffset),retract:safePoint(end,endFrame,action.safeTransitionOffset),
+      crater:pass.crater?.enabled?pass.crater:null});
   }
   return {passes,endpointActions,externalAxis:total>action.externalAxisLength,collisionStatus:'未验证'};
 }

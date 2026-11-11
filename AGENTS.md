@@ -377,3 +377,7 @@ Remove intermittent welding and automatic fixed-length splitting from planning s
 Remove permission management, its navigation entry, mode storage, and password validation. Expose all seven current planning settings and each template's existing matching-parameter editor directly.
 
 Remove joint type from all application forms, filters, validation, matching, merge eligibility and template names. Weld form remains an independent field. Legacy joint metadata is read only for weld-form migration or underlying CAD geometry interpretation.
+
+Hide the welding template library page and navigation. Keep the planning page's create and choose template buttons visible and show 暂不支持 for each click, without opening a picker or editor. Retain automatic matching with stored templates and access to the process parameter library.
+
+Follow the no-template-library requirements for planning settings and strategy planning. Keep geometry and precision calibration fields in the planning configuration, show tracking separately, and group merge and split under topology. Use a 350 mm default wrap gap, one decimal place for break thresholds, and a split setting for verified unavoidable intervals. Keep per-weld trajectory offsets and pose overrides separate from template definitions and recipes.

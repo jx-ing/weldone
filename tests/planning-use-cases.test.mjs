@@ -4,13 +4,13 @@ import {settingsDefaults,serializeSettings,SETTINGS_TABS,updateProjectPlanning,u
 import {planningSettingsErrors,geometryOptionsForPlanning,samplingAvoidanceValues} from '../src/planningConfiguration.mjs';
 import {DEFAULT_GEOMETRY_OPTIONS,mergeFeatureWithinSize} from '../src/geometryProcessingModel.mjs';
 
-test('七类工艺规划设置统一可保存，旧项目配置兼容',()=>{
- assert.deepEqual(SETTINGS_TABS.map(v=>v[1]),["全局焊接设置","包角设置","端点变姿态设置","视觉设置","采样避障设置","焊缝合并设置","焊缝打断设置"]);
+test('五类工艺规划设置可保存并兼容旧项目配置',()=>{
+ assert.deepEqual(SETTINGS_TABS.map(v=>v[1]),["全局焊接设置","包角设置","端点干涉设置","跟踪设置","焊缝拓扑调整"]);
  const baseline={intermittentParameters:{enabled:true},splitParameters:{enabled:true,length:100,gapThreshold:25},visionParameters:{twoFaceSpeed:123},samplingAvoidance:{enabled:false,step:7},custom:'保留'};
  const draft=settingsDefaults(baseline);draft.visionParameters.twoFaceSpeed=999;draft.wrapParameters.flatEnabled=false;
  const saved=serializeSettings(draft);
  assert.equal('intermittentParameters' in saved,false);
- assert.deepEqual(saved.splitParameters,{gapThreshold:25,edgeThreshold:null,rulesVersion:2});
+ assert.deepEqual(saved.splitParameters,{gapThreshold:25,edgeThreshold:null,autoDeleteUnavoidable:false,rulesVersion:3});
  assert.equal(saved.visionParameters.twoFaceSpeed,999);
  assert.equal(saved.samplingAvoidance.step,7);
  assert.equal(saved.custom,'保留');
@@ -19,8 +19,9 @@ test('七类工艺规划设置统一可保存，旧项目配置兼容',()=>{
 });
 test('用例默认值和空值回退，设备默认已配置，明确无配置时关闭跟踪',()=>{
  const d=serializeSettings(settingsDefaults());
+ assert.deepEqual(d.actionParameters.safeTransitionOffset,{x:0,y:50,z:100});assert.deepEqual(d.actionParameters.safeApproachOffset,{x:0,y:20,z:40});assert.equal(d.actionParameters.lineStep,5);assert.equal(d.actionParameters.arcStep,2);assert.equal(d.precisionParameters.lineSweepSpeed,150);assert.equal(d.precisionParameters.arcSweepSpeed,70);
  assert.equal(d.actionParameters.liftHeight,100);assert.equal(d.actionParameters.externalAxisLength,1500);
- assert.equal(d.wrapParameters.independentLength,30);assert.equal(d.wrapParameters.passHoleThreshold,35);assert.equal(d.wrapParameters.gapThreshold,null);
+ assert.equal(d.wrapParameters.independentLength,30);assert.equal(d.wrapParameters.passHoleThreshold,35);assert.equal(d.wrapParameters.gapThreshold,350);
  assert.equal(d.mergeParameters.passHoleSize,15);assert.equal(d.mergeParameters.maxLength,1500);assert.equal(d.intermittentParameters,undefined);
  assert.deepEqual(d.trackingParameters,{laserEnabled:true,arcEnabled:true,minLineLength:160,minArcDiameter:160,minEdgeWidth:10,rulesVersion:2});
  assert.equal(d.visionParameters.twoFaceSpeed,null);assert.equal(d.splitParameters.gapThreshold,null);
@@ -38,7 +39,7 @@ test('项目参数独立持久化，新建项目不复制当前参数，返回�
  next=updateProjectPlanning(JSON.parse(JSON.stringify(next)),{project:'项目B'});assert.equal(next.planningSettings.actionParameters.liftHeight,234);assert.equal(next.workpieceType,'中组立');assert.deepEqual(source,copy);
 });
 test('严格校验新用例整数、一位小数和范围，合并数量不设旧30条上限',()=>{
- for(const mutate of [d=>d.actionParameters.liftHeight=0,d=>d.actionParameters.externalAxisLength=1.2,d=>d.wrapParameters.independentLength=1.23,d=>d.wrapParameters.passHoleThreshold=3.5,d=>d.splitParameters.gapThreshold=0,d=>d.interferenceEndParameters.startDistance=-1,d=>d.trackingParameters.minEdgeWidth=1.23,d=>d.mergeParameters.passHoleSize=0,d=>{d.mergeParameters.countEnabled=true;d.mergeParameters.count=1;}]){const d=serializeSettings(settingsDefaults());mutate(d);assert.ok(useCaseSettingsErrors(d).length);}
+ for(const mutate of [d=>d.actionParameters.lineStep=0,d=>d.actionParameters.externalAxisLength=1.2,d=>d.wrapParameters.independentLength=1.23,d=>d.wrapParameters.passHoleThreshold=3.5,d=>d.splitParameters.gapThreshold=0,d=>d.interferenceEndParameters.startDistance=-1,d=>d.trackingParameters.minEdgeWidth=1.23,d=>d.mergeParameters.passHoleSize=0,d=>{d.mergeParameters.countEnabled=true;d.mergeParameters.count=1;}]){const d=serializeSettings(settingsDefaults());mutate(d);assert.ok(useCaseSettingsErrors(d).length);}
  const draft=settingsDefaults();draft.mergeParameters={...draft.mergeParameters,countEnabled:true,count:100,angleMin:0,angleMax:360,angleDefinition:'included',lengthEnabled:false,maxLength:-1};
  const saved=serializeSettings(draft);assert.deepEqual([...planningSettingsErrors(saved),...useCaseSettingsErrors(saved)],[]);const options=geometryOptionsForPlanning(DEFAULT_GEOMETRY_OPTIONS,saved);assert.equal(options.maxMergeCount,100);assert.equal(options.maxMergeLength,undefined);
 });
@@ -52,11 +53,11 @@ test('采样总开关和步长在子参数编辑后保留，禁用轴可保留�
  const child=samplingAvoidanceValues(d.samplingAvoidance);assert.equal(child.enabled,false);assert.equal(child.step,5);
  const saved=serializeSettings(d);assert.deepEqual(planningSettingsErrors(saved),[]);saved.samplingAvoidance.enabled=true;assert.ok(planningSettingsErrors(saved).some(e=>e.includes('最小值')));
 });
-test('包角决策覆盖三面交、两面交、35mm板厚和50mm间隙的已确认阈值',()=>{
- const p=settingsDefaults().wrapParameters,three={position:'PB',junctionType:'三面交',hasHole:true,holeSize:35,plateThickness:35},two={...three,junctionType:'两面交',gap:51};
- assert.equal(wrapChoice(three,p),'L形包角');assert.equal(wrapChoice({...three,hasHole:false},p),'不包角');assert.equal(wrapChoice({...three,holeSize:34.9},p),'不包角');assert.equal(wrapChoice({...three,plateThickness:35.1},p),'不包角');
- assert.equal(wrapChoice(two,p),'U形包角');assert.equal(wrapChoice({...two,plateThickness:36},p),'U形包角');assert.equal(wrapChoice({...two,hasHole:false},p),'U形包角');assert.equal(wrapChoice({...two,gap:49.9},p),'L形包角');assert.equal(wrapChoice({...two,holeSize:34},p),'不包角');
- for(const breakReason of ['间隙打断','过焊孔打断','长度打断','对称打断'])assert.equal(wrapChoice({...two,breakReason},p),'不包角');
+test('包角决策覆盖三面交、两面交、30mm独立焊缝长度和350mm包角间隙',()=>{
+ const p=settingsDefaults().wrapParameters,three={position:'PB',junctionType:'三面交',hasHole:true,holeSize:35,plateThickness:29.9},two={...three,junctionType:'两面交',gap:351};
+ assert.equal(wrapChoice(three,p),'L形包角');assert.equal(wrapChoice({...three,hasHole:false},p),'不包角');assert.equal(wrapChoice({...three,holeSize:34.9},p),'不包角');assert.equal(wrapChoice({...three,plateThickness:30},p),'不包角');
+ assert.equal(wrapChoice(two,p),'U形包角');assert.equal(wrapChoice({...two,plateThickness:36},p),'U形包角');assert.equal(wrapChoice({...two,hasHole:false},p),'U形包角');assert.equal(wrapChoice({...two,gap:349.9},p),'L形包角');assert.equal(wrapChoice({...two,holeSize:34},p),'不包角');
+ for(const breakReason of ['间隙打断','过焊孔打断','长度打断','对称打断','避障打断','边缘打断'])assert.equal(wrapChoice({...two,breakReason},p),'不包角');
  assert.equal(wrapChoice(three,{...p,flatEnabled:false}),'不包角');assert.equal(wrapChoice({...three,position:'PB · 平角焊'},{...p,flatEnabled:false}),'不包角');
 });
 test('干涉端空姿态继承对应标准姿态，各轴覆盖和距离互不干扰',()=>{

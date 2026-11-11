@@ -134,3 +134,12 @@ test('同一内角的转角路径使用一组工艺，编辑时保留外角参�
  const [updated]=planWorkspace([weld],[],[revised],config);
  assert.deepEqual(cornerCurrents(updated),[220,220,220]);
 });
+
+test('激光跟踪在边缘距离不足的区间内关闭并在区间后恢复',()=>{
+ const w=source();
+ w.segments[0].laserTrackingClearance={threshold:10,blocked:[[[30,0,0],[60,0,0]]]};
+ const [planned]=planWorkspace([w],[],[recipe()],{...config,trackingParameters:{laserEnabled:true,arcEnabled:false,minLineLength:50,minEdgeWidth:10}});
+ const points=planned.strategyPlan.passes[0].points;
+ assert.equal(points.find(point=>point.distance===30).tracking,'无跟踪');
+ assert.equal(points.find(point=>point.distance>60).tracking,'激光跟踪');
+});

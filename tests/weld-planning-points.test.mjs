@@ -26,3 +26,16 @@ test('局部模板各窗口点使用实际目标模型坐标和原段序号',()=
  const w=weld(),t={...newTemplate('local'),name:'局部点'},windows=localTemplateWindows(t,w);assert.equal(windows.length,1);
  const groups=weldPlanningPointGroups(w,{locals:windows});assert.equal(groups.length,2);assert.equal(groups[1].points.length,3);assert.deepEqual(groups[1].points.map(p=>p.position),[[90,0,0],[100,0,0],[100,10,0]]);assert.ok(groups[1].points.every(p=>Number.isInteger(p.segment)&&p.segment>=1&&p.segment<=2));
 });
+
+test('点位覆盖跟随原始几何并随草稿持久化，重规划到不同位置时不套用旧覆盖',()=>{
+ const point={kind:'start',name:'起弧',distance:0,position:[0,0,0],pose:{work:0},orientation:[0,0,0,1]};
+ const w={...weld(),planned:true,strategyPlan:{passes:[{layerIndex:0,passIndex:0,points:[point]}]}};
+ const {overrideKey}=weldPlanningPointGroups(w)[1].points[0];
+ w.planningPointOverrides={[overrideKey]:{x:12,work:30}};
+ const saved=JSON.parse(JSON.stringify(w)),adjusted=weldPlanningPointGroups(saved)[1].points[0];
+ assert.deepEqual(adjusted.position,[12,0,0]);
+ assert.equal(adjusted.pose.work,30);
+ assert.notDeepEqual(adjusted.orientation,point.orientation);
+ saved.strategyPlan.passes[0].points[0].position=[1,0,0];
+ assert.deepEqual(weldPlanningPointGroups(saved)[1].points[0].position,[1,0,0]);
+});

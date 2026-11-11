@@ -33,9 +33,10 @@ export function removeProcessLayer(p,id){return p.processLayers.length>1?withLay
 export function removeProcessPass(p,layerId,id){return withLayers(p,p.processLayers.map(l=>l.id===layerId&&l.passes.length>1?{...l,passes:l.passes.filter(pass=>pass.id!==id)}:l));}
 export function moveProcessPass(p,layerId,id,direction=-1){return withLayers(p,p.processLayers.map(layer=>{if(layer.id!==layerId)return layer;const passes=[...layer.passes],index=passes.findIndex(pass=>pass.id===id),next=index+direction;if(index<0||next<0||next>=passes.length)return layer;[passes[index],passes[next]]=[passes[next],passes[index]];return {...layer,passes};}));}
 const finite=(v,min=-Infinity)=>Number.isFinite(v)&&v>=min;
-function validatePass(p,modern=false){
+function validatePass(p,modern=false,allowLegacyZero=false){
   const decimal=(value,digits)=>Number.isFinite(value)&&Math.abs(value*10**digits-Math.round(value*10**digits))<1e-8;
   const integerRange=(value,min,max=Infinity)=>Number.isInteger(value)&&value>=min&&value<=max;
+  const minSpeed=modern&&!allowLegacyZero?1:0;
   const errors=[];
   if(p.cornerOffsets!==undefined){
     if(!p.cornerOffsets||typeof p.cornerOffsets!=='object'||Array.isArray(p.cornerOffsets))errors.push('转角点偏移参数无效');
@@ -69,7 +70,7 @@ function validatePass(p,modern=false){
     }else{
       const {speed,time}=p.holeFill;
       phase({...p.start,...Object.fromEntries(Object.entries(p.holeFill).filter(([,value])=>value!=null))},'过焊孔填充');
-      if(speed!=null&&(!Number.isFinite(speed)||!integerRange(speed/10,0)))errors.push('过焊孔填充速度须为非负整数 cm/min');
+      if(speed!=null&&(!Number.isFinite(speed)||!integerRange(speed/10,minSpeed)))errors.push('过焊孔填充速度须为大于0的整数 cm/min');
       if(time!=null&&(!finite(time,0)||!decimal(time,2)))errors.push('过焊孔填充起弧停留时间须为非负数，最多两位小数');
     }
   }
@@ -78,7 +79,7 @@ function validatePass(p,modern=false){
   if(p.wrapParameters!==undefined)pointSet(p.wrapParameters,'包角点',7);
   if(modern&&[p.start?.time,p.end?.time].some(value=>!decimal(value,2)))errors.push('起收弧动作时间最多两位小数');
   if(!finite(p.start?.time,0)||!finite(p.end?.time,0))errors.push('起弧时间、收弧时间必须大于等于 0');
-  if(modern?(!Number.isFinite(p.weld?.speed)||!integerRange(p.weld.speed/10,0)):!finite(p.weld?.speed,Number.MIN_VALUE))errors.push(modern?'焊接速度须为非负整数 cm/min':'焊接速度必须大于 0');
+  if(modern?(!Number.isFinite(p.weld?.speed)||!integerRange(p.weld.speed/10,minSpeed)):!finite(p.weld?.speed,Number.MIN_VALUE))errors.push(modern?'焊接速度须为大于0的整数 cm/min':'焊接速度必须大于 0');
   function validateWeave(value,label){if(!value||typeof value.enabled!=='boolean'){errors.push(`${label}启用状态无效`);return;}if(value.enabled&&value.pattern!==undefined&&!Object.hasOwn(WEAVE_PATTERNS,value.pattern))errors.push(`${label}请选择有效的摆动方式`);if(modern&&value.enabled){for(const [key,digits] of [['amplitude',1],['frequency',1],['dwellLeft',2],['dwellRight',2],['centerOffset',1]])if(!finite(value[key],0)||!decimal(value[key],digits))errors.push(label+'：'+({amplitude:'振幅',frequency:'频率',dwellLeft:'左停留时间',dwellRight:'右停留时间',centerOffset:'中央隆起度'})[key]+'缺失或精度不符');return;}if(value.enabled&&(!finite(value.amplitude,Number.MIN_VALUE)||!finite(value.frequency,Number.MIN_VALUE)||!finite(value.dwellLeft,0)||!finite(value.dwellRight,0)))errors.push(`${label}需填写正数幅度、频率和非负停留时间`);}
   for(const [key,label] of [['cornerWeave','拐角摆弧'],['wrapWeave','包角摆弧']])if(p[key]!==undefined)validateWeave(p[key],label);
   if(!p.crater||typeof p.crater.enabled!=='boolean')errors.push('弧坑回填启用状态无效');
@@ -89,7 +90,7 @@ function validatePass(p,modern=false){
     const offsets=[p.offset?.y,p.offset?.z,...Object.values(p.cornerOffsets??{}).flatMap(value=>Object.values(value??{})).filter(value=>value!=null)];
     if(offsets.some(value=>!decimal(value,1)||value < -50||value > 50))errors.push('偏移须为-50–50 mm的一位小数');
     if([p.angles?.pushPull,p.angles?.pitch].some(value=>!integerRange(value,0)))errors.push('前进角和工作角须为非负整数');
-    if(Object.values(p.cornerSpeeds??{}).some(value=>value!=null&&!integerRange(value/10,0)))errors.push('转角速度须为非负整数 cm/min');
+    if(Object.values(p.cornerSpeeds??{}).some(value=>value!=null&&!integerRange(value/10,minSpeed)))errors.push('转角速度须为大于0的整数 cm/min');
   }
   validateWeave(p.weave,'摆动参数');return errors;
 }
@@ -117,8 +118,8 @@ export function validateProcessEntry(p,{allowLegacyLeg=false}={}){
     if(!Array.isArray(layers)||!layers.length||layers.length>20||layers.some(l=>!l||typeof l.id!=='string'||!l.id||typeof l.name!=='string'||!l.name.trim()||!Array.isArray(l.passes)||!l.passes.length||l.passes.length>50))return [...errors,'每套工艺需要1–20层，每层1–50道'];
     const passes=layers.flatMap(l=>l.passes);
     if(passes.length>200||new Set(layers.map(l=>l.id)).size!==layers.length||new Set(passes.map(v=>v?.id)).size!==passes.length)errors.push('工艺层道编号重复或总道数超过200');
-    layers.forEach((l,li)=>l.passes.forEach((pass,pi)=>{if(!pass||typeof pass.id!=='string'||!pass.id||typeof pass.name!=='string'||!pass.name.trim())errors.push(`第${li+1}层/第${pi+1}道名称或编号无效`);if(pass)errors.push(...validatePass(pass,p.recipeRevision===3).map(v=>`第${li+1}层/第${pi+1}道：${v}`));}));
-  }else errors.push(...validatePass(p,p.recipeRevision===3));
+    layers.forEach((l,li)=>l.passes.forEach((pass,pi)=>{if(!pass||typeof pass.id!=='string'||!pass.id||typeof pass.name!=='string'||!pass.name.trim())errors.push(`第${li+1}层/第${pi+1}道名称或编号无效`);if(pass)errors.push(...validatePass(pass,p.recipeRevision===3,allowLegacyLeg).map(v=>`第${li+1}层/第${pi+1}道：${v}`));}));
+  }else errors.push(...validatePass(p,p.recipeRevision===3,allowLegacyLeg));
   return errors;
 }
 function effectivePass(p){

@@ -10332,8 +10332,8 @@ function computeWeldSplit(weld, meshData, partsData, edgesData, contactPairs, of
         for (const segment of Object.values(edgePerp[gKey]["\u5B54/\u8FB9\u7F18"])) {
           const d1 = segment.\u8D77\u70B9\u5230\u710A\u7F1D\u7684\u8DDD\u79BB;
           const d2 = segment.\u7EC8\u70B9\u5230\u710A\u7F1D\u7684\u8DDD\u79BB;
-          if (d1 < edgeThreshold) addSplitAt(segment.\u6295\u5F71\u70B91, { \u89C4\u5219: "offset\u5C0F\u4E8E\u9608\u503C", \u5173\u8054\u96F6\u4EF6: partId, \u8DDD\u79BB: d1 });
-          if (d2 < edgeThreshold) addSplitAt(segment.\u6295\u5F71\u70B92, { \u89C4\u5219: "offset\u5C0F\u4E8E\u9608\u503C", \u5173\u8054\u96F6\u4EF6: partId, \u8DDD\u79BB: d2 });
+          if (d1 < edgeThreshold) addSplitAt(segment.\u6295\u5F71\u70B91, { \u89C4\u5219: "offset\u5C0F\u4E8E\u9608\u503C", \u5173\u8054\u96F6\u4EF6: partId, \u8DDD\u79BB: d1, edgeBoundaryBreak: true });
+          if (d2 < edgeThreshold) addSplitAt(segment.\u6295\u5F71\u70B92, { \u89C4\u5219: "offset\u5C0F\u4E8E\u9608\u503C", \u5173\u8054\u96F6\u4EF6: partId, \u8DDD\u79BB: d2, edgeBoundaryBreak: true });
         }
       }
     }
@@ -10341,7 +10341,7 @@ function computeWeldSplit(weld, meshData, partsData, edgesData, contactPairs, of
       const boundaryResults = computeBoundaryOffsetSpans(weld, edgesData, Math.min(edgeOffset, edgeThreshold));
       for (const { edge, spans } of boundaryResults) for (const span of spans) {
         if (span.minDistance >= edgeThreshold - 1e-9) continue;
-        const trigger = { \u89C4\u5219: "offset\u5C0F\u4E8E\u9608\u503C", \u5173\u8054\u96F6\u4EF6: edge.partId, \u8DDD\u79BB: r13(span.minDistance) };
+        const trigger = { \u89C4\u5219: "offset\u5C0F\u4E8E\u9608\u503C", \u5173\u8054\u96F6\u4EF6: edge.partId, \u8DDD\u79BB: r13(span.minDistance), edgeBoundaryBreak: true };
         const outer = edge.wire === "outer";
         const startTail = outer && span.startPoint.distanceTo(poly[0]) <= 0.02;
         const endTail = outer && span.endPoint.distanceTo(poly.at(-1)) <= 0.02;
@@ -10382,7 +10382,8 @@ function computeWeldSplit(weld, meshData, partsData, edgesData, contactPairs, of
       \u89C4\u5219: sp.\u89C4\u5219,
       \u5173\u8054\u96F6\u4EF6: sp.\u5173\u8054\u96F6\u4EF6,
       \u8DDD\u79BB: sp.\u8DDD\u79BB,
-      ...sp.subplateContact ? { subplateContact: true } : {}
+      ...sp.subplateContact ? { subplateContact: true } : {},
+      ...sp.edgeBoundaryBreak ? { edgeBoundaryBreak: true } : {}
     }
   });
   const stripExt = (c) => c ? { \u89C4\u5219: c.\u89C4\u5219, \u5173\u8054\u96F6\u4EF6: c.\u5173\u8054\u96F6\u4EF6, \u8DDD\u79BB: c.\u8DDD\u79BB, \u5EF6\u4F38\u5230: c.\u5EF6\u4F38\u5230 } : null;

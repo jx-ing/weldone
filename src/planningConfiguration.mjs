@@ -6,6 +6,7 @@ export function interferenceEndValues(value={}){return {...value,...Object.fromE
 export const SAMPLING_AXES=[['advance','前进角',20,-45,45],['work','工作角',45,-40,50],['rotation','旋转角',0,-80,80]];
 export function samplingAvoidanceValues(value={}){return {...value,autoDeleteUnavoidable:value.autoDeleteUnavoidable??false,...Object.fromEntries(SAMPLING_AXES.map(([key,,,min,max])=>[key,{enabled:true,min,max,...value[key]}]))};}
 export function trackingParameterValues(value={}){return {laserEnabled:true,arcEnabled:true,minLineLength:160,minArcDiameter:160,...value};}
+const positiveTenth=value=>Number.isFinite(value)&&value>0&&Math.abs(value*10-Math.round(value*10))<1e-8;
 const filled=value=>value!==null&&value!==undefined&&value!=='';
 const hasRange=value=>'angleMin' in value||'angleMax' in value;
 export function wrapParameterErrors(value={}){
@@ -30,10 +31,10 @@ export function mergeParameterErrors(value={}){
  if(hasRange(value)){
   const min=filled(value.angleMin),max=filled(value.angleMax);
   if(min!==max)errors.push('请同时填写最小合并角度和最大合并角度');
-  if([value.angleMin,value.angleMax].some(v=>filled(v)&&(!Number.isFinite(v)||v<0||v>(value.rulesVersion===2?360:180))))errors.push(value.rulesVersion===2?'合并角度应为0–360°':'合并角度应为0–180°');
-  if(min&&max&&Number.isFinite(value.angleMin)&&Number.isFinite(value.angleMax)&&value.angleMin>value.angleMax)errors.push('最小合并角度不能大于最大合并角度');
+  if([value.angleMin,value.angleMax].some(v=>filled(v)&&(!Number.isFinite(v)||v<0||v>(value.rulesVersion>=2?360:180))))errors.push(value.rulesVersion>=2?'合并角度应为0–360°':'合并角度应为0–180°');
+  if(min&&max&&Number.isFinite(value.angleMin)&&Number.isFinite(value.angleMax)&&(value.rulesVersion>=3?value.angleMin>=value.angleMax:value.angleMin>value.angleMax))errors.push('最小合并角度须小于最大合并角度');
  }else if(filled(value.angle)&&(!Number.isFinite(value.angle)||value.angle<0||value.angle>180))errors.push('合并角度应为0–180°');
- if(value.countEnabled!==false&&value.count!==null&&value.count!==undefined&&value.count!==''&&(!Number.isInteger(value.count)||value.count<2||value.rulesVersion!==2&&value.count>30))errors.push(value.rulesVersion===2?'合并数量应为不小于2的整数':'合并个数应为2–30的整数');
+ if(value.countEnabled!==false&&value.count!==null&&value.count!==undefined&&value.count!==''&&(!Number.isInteger(value.count)||value.count<2||!(value.rulesVersion>=2)&&value.count>30))errors.push(value.rulesVersion>=2?'合并数量应为不小于2的整数':'合并个数应为2–30的整数');
  if(value.countEnabled===true&&!filled(value.count))errors.push('请输入合并数量');
  return errors;
 }
@@ -50,9 +51,9 @@ export function geometryOptionsForPlanning(defaults,settings={}){
  if(Number.isFinite(merge.passHoleSize)){options.mergePassHoleSize=merge.passHoleSize;if(merge.passHoleInclusive===false)options.mergePassHoleInclusive=false;options.mergeParams.最长通过距离=merge.passHoleSize;options.mergeParams.最小通过高度=merge.passHoleSize;}
  if(settings.wrapParameters){options.wrapParameters=structuredClone(settings.wrapParameters);options.wrapDistanceRatio=settings.wrapParameters.lDistanceRatio==='1/2'?.5:2/3;}
  if(settings.planningRevision===3)options.planningRevision=3;
- if(settings.splitParameters){
-  const {enabled,length,...thresholds}=structuredClone(settings.splitParameters);
-  options.splitParameters=thresholds;
+ if(settings.splitParameters||settings.planningRevision===3){
+  const {enabled,length,...thresholds}=structuredClone(settings.splitParameters??{});
+  options.splitParameters={...(settings.planningRevision===3?{edgeThreshold:null}:{}),...thresholds};
  }
  if(Number.isFinite(settings.splitParameters?.gapThreshold)){options.offsetThreshold=settings.splitParameters.gapThreshold;options.offset=Math.max(options.offset,settings.splitParameters.gapThreshold);}
  if(settings.interferenceEndParameters)options.interferenceEndParameters=structuredClone(settings.interferenceEndParameters);
@@ -88,7 +89,8 @@ export function planningSettingsErrors(settings={}){
   for(const [axis,axisLabel] of INTERFERENCE_POSE_AXES){const value=pose[axis];if(filled(value)&&(!Number.isFinite(value)||value < -360||value>360))errors.push(`${label}${axisLabel}应为-360–360°`);}
  }
  const split=settings.splitParameters||{};
- if(filled(split.edgeThreshold)&&(!Number.isInteger(split.edgeThreshold)||split.edgeThreshold<=0))errors.push('边缘打断阈值须为大于0的整数');
- if(filled(split.gapThreshold)&&(!Number.isFinite(split.gapThreshold)||split.gapThreshold<0))errors.push('间隙打断阈值应为非负数');
+ if(split.autoDeleteUnavoidable!==undefined&&typeof split.autoDeleteUnavoidable!=='boolean')errors.push('自动删除无法避障焊缝开关无效');
+ if(filled(split.edgeThreshold)&&(!positiveTenth(split.edgeThreshold)))errors.push('边缘打断阈值须为大于0的一位小数');
+ if(filled(split.gapThreshold)&&(split.rulesVersion>=3?!positiveTenth(split.gapThreshold):!Number.isFinite(split.gapThreshold)||split.gapThreshold<0))errors.push('间隙打断阈值须为大于0的一位小数');
  return errors;
 }

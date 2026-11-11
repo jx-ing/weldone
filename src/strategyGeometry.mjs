@@ -16,7 +16,7 @@ const boundary = (weld,side) => {
 };
 const weldArc=segment=>segment.geometry==='圆弧'||Number.isFinite(segment.shape?.radius);
 const isVertical=weld=>['PF','PG'].includes(weldPositionCode(weld.position));
-const actualCollision=(weld,settings)=>settings.samplingAvoidance.enabled&&settings.samplingAvoidance.autoDeleteUnavoidable&&weld.collisionResult?.verified===true;
+const actualCollision=(weld,settings)=>settings.splitParameters.autoDeleteUnavoidable&&weld.collisionResult?.verified===true;
 
 export function excludeVerifiedCollision(weld,settings,nextId){
  if(!actualCollision(weld,settings)||!weld.segments?.every(segment=>segment.pathPoints?.length>=2))return [weld];

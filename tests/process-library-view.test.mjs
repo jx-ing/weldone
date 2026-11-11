@@ -15,3 +15,11 @@ test('坡口和焊道类型与现有筛选组合，兼容旧V形名称和单道�
  assert.equal(queryProcesses(rows,'fillet',{groove:'喇叭形',weldType:'single'}).length,0);
  assert.deepEqual(queryProcesses(rows,'fillet',{}),rows);assert.deepEqual(rows,snapshot);
 });
+
+test('查询以匹配条件优先，支持坡口尺寸与层道数',()=>{
+ const record={...entries[0],id:'sized',groove:{type:'V 形',depth:3},processLayers:[{passes:[{}]},{passes:[{},{}]}]};
+ const rows=[...entries,record];
+ assert.deepEqual(queryProcesses(rows,'fillet',{name:'无此名称',groove:'V 形',depth:'3',layerCount:'2',passCount:'3'}).map(p=>p.id),['sized']);
+ assert.deepEqual(queryProcesses(rows,'fillet',{name:'无此名称'}),[]);
+ assert.deepEqual(queryProcesses(rows,'fillet',{groove:'V 形',depth:'4'}),[]);
+});

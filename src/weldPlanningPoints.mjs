@@ -1,9 +1,28 @@
 import {directedWeld} from './weldDirectionGeometry.mjs';
 import {applyTemplateToWeld} from './templateModel.mjs';
 import {analyzeWeldMatch} from './weldMatching.mjs';
+import {Euler,Quaternion} from 'three';
 
 const xyz=value=>Array.isArray(value)?[...value]:value&&[value.x,value.y,value.z];
 const validPosition=position=>position?.length===3&&position.every(Number.isFinite);
+const axes=['x','y','z'];
+const poseAxes=['advance','work','rotation'];
+const radians=Math.PI/180;
+const localRotation=pose=>new Quaternion().setFromEuler(new Euler(
+ (pose.work??0)*radians,(pose.advance??0)*radians,(pose.rotation??0)*radians,'XYZ'
+));
+function editablePoint(point,key,weld){
+ if(!validPosition(point.position))return point;
+ const overrideKey=JSON.stringify([key,point.kind,point.distance,point.position]);
+ const override=weld.planningPointOverrides?.[overrideKey]??{};
+ const original=point.pose??point.angles??{};
+ const pose={...original};
+ for(const axis of poseAxes)if(Number.isFinite(override[axis]))pose[axis]=override[axis];
+ const position=point.position.map((value,index)=>value+(Number.isFinite(override[axes[index]])?override[axes[index]]:0));
+ const orientation=Array.isArray(point.orientation)&&poseAxes.some(axis=>Number.isFinite(override[axis]))?
+  new Quaternion().fromArray(point.orientation).multiply(localRotation(original).invert()).multiply(localRotation(pose)).toArray():point.orientation;
+ return {...point,overrideKey,override,originalPose:original,position,pose,...(orientation?{orientation}:{})};
+}
 export function weldPlanningPointGroups(weld,decision,templates=[],processLibrary=[],options={}){
  if(!weld?.segments?.length)return [];
  const path=directedWeld(weld),segments=path.segments,anchors=[];
@@ -15,7 +34,10 @@ export function weldPlanningPointGroups(weld,decision,templates=[],processLibrar
  if(weld.planned&&weld.strategyPlan?.passes){
   for(const pass of weld.strategyPlan.passes){
    const id=`${weld.id}:strategy:${pass.layerIndex}:${pass.passIndex}`;
-   groups.push({id,name:`策略规划 · 第${pass.layerIndex+1}层 / 第${pass.passIndex+1}道`,points:pass.points.map((point,index)=>({...point,id:id+':'+index,source:'strategy',layerIndex:pass.layerIndex,passIndex:pass.passIndex}))});
+   groups.push({id,name:`策略规划 · 第${pass.layerIndex+1}层 / 第${pass.passIndex+1}道`,points:pass.points.map((point,index)=>editablePoint(
+    {...point,id:id+':'+index,source:'strategy',layerIndex:pass.layerIndex,passIndex:pass.passIndex},
+    ['strategy',pass.layerIndex,pass.passIndex,index],weld
+   ))});
   }
   return groups;
  }
@@ -25,7 +47,7 @@ export function weldPlanningPointGroups(weld,decision,templates=[],processLibrar
   let applied;try{applied=applyTemplateToWeld(target,template);}catch{continue;}
   applied.layers.forEach((layer,layerIndex)=>layer.passes.forEach((pass,passIndex)=>{
    const groupId=`${weld.id}:${key}:${template.id}:${layer.id}:${pass.id}`;
-   groups.push({id:groupId,name:`${template.name} · 第${layerIndex+1}层 / 第${passIndex+1}道`,templateName:template.name,points:pass.controlPoints.map(point=>{const position=xyz(point.position);return {...point,id:groupId+':'+point.id,originalId:point.id,source:'template',templateName:template.name,layerIndex,passIndex,segment:segmentIndices?segmentIndices[(point.actualSegment||point.segment)-1]+1:point.originalSegment||point.actualSegment||point.segment,position:validPosition(position)?position:null};})});
+   groups.push({id:groupId,name:`${template.name} · 第${layerIndex+1}层 / 第${passIndex+1}道`,templateName:template.name,points:pass.controlPoints.map(point=>{const position=xyz(point.position);return editablePoint({...point,id:groupId+':'+point.id,originalId:point.id,source:'template',templateName:template.name,layerIndex,passIndex,segment:segmentIndices?segmentIndices[(point.actualSegment||point.segment)-1]+1:point.originalSegment||point.actualSegment||point.segment,position:validPosition(position)?position:null},[key,template.id,layer.id,pass.id,point.id],weld);})});
   }));
  }
  return groups;

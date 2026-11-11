@@ -6,9 +6,9 @@ import {DEFAULT_GEOMETRY_OPTIONS} from '../src/geometryProcessingModel.mjs';
 import {resolveEdgeBreakThreshold,withPlanningEdgeThresholds} from '../src/planningEdgeThreshold.mjs';
 import {computeAllSplitsAsync} from '../src/vendor/geometry-engine.mjs';
 
-test('边缘阈值允许空值或正整数，拒绝0、负数、小数和无穷大；保存不固定动态默认值',()=>{
- for(const value of [0,-1,1.5,Infinity,NaN,'12'])assert.ok(planningSettingsErrors({splitParameters:{edgeThreshold:value}}).some(error=>error.includes('边缘打断阈值')));
- for(const value of [null,undefined,'',1,35])assert.deepEqual(planningSettingsErrors({splitParameters:{edgeThreshold:value}}),[]);
+test('边缘阈值允许空值或正的一位小数，拒绝0、负数、超精度和无穷大；保存不固定动态默认值',()=>{
+ for(const value of [0,-1,1.55,Infinity,NaN,'12'])assert.ok(planningSettingsErrors({splitParameters:{edgeThreshold:value}}).some(error=>error.includes('边缘打断阈值')));
+ for(const value of [null,undefined,'',1,1.5,35])assert.deepEqual(planningSettingsErrors({splitParameters:{edgeThreshold:value}}),[]);
  const draft=settingsDefaults();assert.equal(draft.splitParameters.edgeThreshold,null);draft.splitParameters.edgeThreshold='12';
  const saved=serializeSettings(draft);assert.equal(saved.splitParameters.edgeThreshold,12);
  const options=geometryOptionsForPlanning(DEFAULT_GEOMETRY_OPTIONS,saved);assert.equal(options.splitParameters.edgeThreshold,12);assert.equal(options.offsetThreshold,DEFAULT_GEOMETRY_OPTIONS.offsetThreshold);assert.equal(options.extendThreshold,DEFAULT_GEOMETRY_OPTIONS.extendThreshold);
@@ -18,7 +18,7 @@ test('空值对每条焊缝动态取自身焊脚，允许实际焊脚为小数�
  assert.equal(resolveEdgeBreakThreshold({}, {leg:6}),6);assert.equal(resolveEdgeBreakThreshold({edgeThreshold:null},{leg:8.5}),8.5);
  assert.equal(resolveEdgeBreakThreshold({edgeThreshold:15},{leg:6}),15);assert.equal(resolveEdgeBreakThreshold({}, {properties:{焊脚:9}}),9);
  for(const leg of [0,-1,null,undefined,NaN])assert.equal(resolveEdgeBreakThreshold({}, {leg}),null);
- assert.throws(()=>resolveEdgeBreakThreshold({edgeThreshold:1.5},{leg:6}),/正整数|大于0的整数/);
+ assert.throws(()=>resolveEdgeBreakThreshold({edgeThreshold:1.55},{leg:6}),/一位小数/);
 });
 test('项目边缘阈值独立恢复；新项目沿用自动焊脚规则，保存草稿不改原数据',()=>{
  const original={project:'A',templateProjects:['A','B'],welds:[],planningSettings:{splitParameters:{edgeThreshold:12,gapThreshold:50,length:100,enabled:true}}};
