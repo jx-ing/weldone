@@ -1,7 +1,7 @@
 import {PROCESS_TYPES} from './processLibraryView.mjs';
 import {newCornerPointGroups,newWrapPoints,processFeaturePointChanges} from './processFeaturePoints.mjs';
 import {grooveType,grooveValue,validGroove,grooveFieldsFor} from './grooveModel.mjs';
-import {migrateProcessWeldForms,processWeldForms,roundWeldLeg,weldForm,weldPositionCode} from './planningRequirements.mjs';
+import {migrateProcessWeldForms,withoutRetiredProcessStages,processWeldForms,roundWeldLeg,weldForm,weldPositionCode} from './planningRequirements.mjs';
 import {GROOVES,POSITIONS} from './templateModel.mjs';
 export const MACHINE_MODES={synergic:'一元',separate:'分别',job:'JOB'};
 export const WELDING_MODES={dc:'直流',pulse:'脉冲'};
@@ -12,12 +12,13 @@ export const SHIELD_GASES=['CO2','80%Ar+20%CO2','80%CO2+20%AR'];
 export const WELD_METHODS=['MIG','MAG'];
 export const MATERIALS=['低碳钢','不锈钢','铝合金','Q235碳钢','Q345不锈钢','SPHC'];
 const weave=()=>({enabled:false,pattern:'sine',amplitude:null,frequency:null,dwellLeft:0,dwellRight:0});
-const passKeys=['machineMode','weldingMode','start','weld','end','crater','offset','angles','weave','cornerWeave','wrapWeave','cornerParameters','wrapParameters','legacyCornerParameters','cornerDistances','cornerOffsets','cornerSpeeds','holeFill'];
+const passKeys=['machineMode','weldingMode','start','weld','end','offset','angles','weave','cornerWeave','wrapWeave','cornerParameters','wrapParameters','legacyCornerParameters','cornerDistances','cornerOffsets','cornerSpeeds'];
 const uid=()=>crypto.randomUUID();
-export function newProcessPass(){return {id:uid(),name:'第 1 道',machineMode:'separate',weldingMode:'dc',start:{current:null,voltage:null,correction:0,time:0,job:null},weld:{current:null,voltage:null,correction:0,speed:null,job:null},end:{current:null,voltage:null,correction:0,time:0,job:null},crater:{enabled:false,current:null,voltage:null,correction:0,distance:null,speed:null,job:null,actualSpeed:null,weave:weave()},offset:{y:0,z:0},angles:{pushPull:0,pitch:0},weave:weave(),cornerParameters:newCornerPointGroups(),wrapParameters:newWrapPoints(),cornerDistances:{inner:{before:null,after:null},outer:{before:null,after:null}},cornerOffsets:{inner:{x:null,y:null,z:null},outer:{x:null,y:null,z:null}}};}
+export function newProcessPass(){return {id:uid(),name:'第 1 道',machineMode:'separate',weldingMode:'dc',start:{current:null,voltage:null,correction:0,time:0,job:null},weld:{current:null,voltage:null,correction:0,speed:null,job:null},end:{current:null,voltage:null,correction:0,time:0,job:null},offset:{y:0,z:0},angles:{pushPull:0,pitch:0},weave:weave(),cornerParameters:newCornerPointGroups(),wrapParameters:newWrapPoints(),cornerDistances:{inner:{before:null,after:null},outer:{before:null,after:null}},cornerOffsets:{inner:{x:null,y:null,z:null},outer:{x:null,y:null,z:null}}};}
 function passValues(p){return Object.fromEntries(passKeys.filter(k=>p[k]!==undefined).map(k=>[k,structuredClone(p[k])]));}
 export function newProcessEntry(){return {id:uid(),name:'',leg:null,position:'',weldForms:['角焊缝'],groove:{type:'无坡口',angle:0,depth:0},applicability:{welderModel:'',wireType:WIRE_TYPES[0],wireDiameter:1.2,gas:SHIELD_GASES[0],method:'MAG',material:'低碳钢'},...passValues(newProcessPass())};}
 export function ensureProcessLayers(p){
+  p=withoutRetiredProcessStages(p);
   if(p.processLayers!==undefined)return structuredClone(p);
   return {...structuredClone(p),processLayers:[{id:uid(),name:'第 1 层',passes:[{id:uid(),name:'第 1 道',...passValues(p)}]}]};
 }
@@ -64,16 +65,6 @@ function validatePass(p,modern=false,allowLegacyZero=false){
     else {if(!finite(value.current,Number.MIN_VALUE))errors.push(`${label}电流必须大于 0`);if(p.machineMode==='separate'&&!finite(value.voltage,Number.MIN_VALUE))errors.push(`${label}电压必须大于 0`);if(p.machineMode==='synergic'&&!finite(value.correction))errors.push(`${label}电压修正值必须为有效数值`);}
   }
   phase(p.start,'起弧');phase(p.weld,'焊接');phase(p.end,'收弧');
-  if(p.holeFill!=null){
-    if(typeof p.holeFill!=='object'||Array.isArray(p.holeFill)){
-      errors.push('过焊孔填充参数无效');
-    }else{
-      const {speed,time}=p.holeFill;
-      phase({...p.start,...Object.fromEntries(Object.entries(p.holeFill).filter(([,value])=>value!=null))},'过焊孔填充');
-      if(speed!=null&&(!Number.isFinite(speed)||!integerRange(speed/10,minSpeed)))errors.push('过焊孔填充速度须为大于0的整数 cm/min');
-      if(time!=null&&(!finite(time,0)||!decimal(time,2)))errors.push('过焊孔填充起弧停留时间须为非负数，最多两位小数');
-    }
-  }
   const pointSet=(values,label,count)=>{if(!Array.isArray(values)||(count!==undefined?values.length!==count:values.length>20)){errors.push(count===undefined?'拐角参数最多20组':`${label}必须包含${count}个点`);return;}values.forEach((value,i)=>{const name=label+(i+1);if(!value||typeof value.enabled!=='boolean')errors.push(`${name}启用状态无效`);else if(value.enabled){phase(value,name);if(!finite(value.time,0))errors.push(`${name}动作时间必须大于等于0`);if(value.weave!==undefined)validateWeave(value.weave,`${name}摆弧`);}});};
   if(p.cornerParameters!==undefined){if(Array.isArray(p.cornerParameters))pointSet(p.cornerParameters,'拐角');else if(!p.cornerParameters||typeof p.cornerParameters!=='object')errors.push('拐角参数类型无效');else{pointSet(p.cornerParameters.inner,'内角点',3);pointSet(p.cornerParameters.outer,'外角点',3);}}
   if(p.wrapParameters!==undefined)pointSet(p.wrapParameters,'包角点',7);
@@ -82,8 +73,6 @@ function validatePass(p,modern=false,allowLegacyZero=false){
   if(modern?(!Number.isFinite(p.weld?.speed)||!integerRange(p.weld.speed/10,minSpeed)):!finite(p.weld?.speed,Number.MIN_VALUE))errors.push(modern?'焊接速度须为大于0的整数 cm/min':'焊接速度必须大于 0');
   function validateWeave(value,label){if(!value||typeof value.enabled!=='boolean'){errors.push(`${label}启用状态无效`);return;}if(value.enabled&&value.pattern!==undefined&&!Object.hasOwn(WEAVE_PATTERNS,value.pattern))errors.push(`${label}请选择有效的摆动方式`);if(modern&&value.enabled){for(const [key,digits] of [['amplitude',1],['frequency',1],['dwellLeft',2],['dwellRight',2],['centerOffset',1]])if(!finite(value[key],0)||!decimal(value[key],digits))errors.push(label+'：'+({amplitude:'振幅',frequency:'频率',dwellLeft:'左停留时间',dwellRight:'右停留时间',centerOffset:'中央隆起度'})[key]+'缺失或精度不符');return;}if(value.enabled&&(!finite(value.amplitude,Number.MIN_VALUE)||!finite(value.frequency,Number.MIN_VALUE)||!finite(value.dwellLeft,0)||!finite(value.dwellRight,0)))errors.push(`${label}需填写正数幅度、频率和非负停留时间`);}
   for(const [key,label] of [['cornerWeave','拐角摆弧'],['wrapWeave','包角摆弧']])if(p[key]!==undefined)validateWeave(p[key],label);
-  if(!p.crater||typeof p.crater.enabled!=='boolean')errors.push('弧坑回填启用状态无效');
-  else if(p.crater.enabled){phase(p.crater,'回填');if(modern?(!finite(p.crater.distance,0)||!Number.isFinite(p.crater.speed)||!integerRange(p.crater.speed/10,0)):(!finite(p.crater.distance,0)||!finite(p.crater.speed,Number.MIN_VALUE)||!finite(p.crater.actualSpeed,Number.MIN_VALUE)))errors.push(modern?'请填写回填距离及非负整数回填速度 cm/min':'请完善回填距离、回填速度和人工填写的实际焊接速度');validateWeave(p.crater.weave,'弧坑回填摆动');}
   if(!p.offset||!finite(p.offset.y)||!finite(p.offset.z))errors.push('Y、Z 偏移必须为有效数值');
   if(!p.angles||!finite(p.angles.pushPull)||!finite(p.angles.pitch))errors.push('推拉角、俯仰角必须为有效数值');
   if(modern){
@@ -126,12 +115,7 @@ function effectivePass(p){
   const phase=v=>p.machineMode==='job'?{job:v.job}:p.machineMode==='synergic'?{current:v.current,correction:v.correction}:{current:v.current,voltage:v.voltage};
   const effectiveWeave=v=>v.enabled?structuredClone(v):{enabled:false};
   const point=v=>v.enabled?{enabled:true,...phase(v),time:v.time,...(v.weave!==undefined?{weave:effectiveWeave(v.weave)}:{})}:{enabled:false};
-  const holeFill=p.holeFill&&{
-    ...phase({...p.start,...Object.fromEntries(Object.entries(p.holeFill).filter(([,value])=>value!=null))}),
-    speed:p.holeFill.speed??p.weld.speed,
-    time:p.holeFill.time??p.start.time
-  };
-  return {...(holeFill?{holeFill}:{}),...(p.cornerSpeeds?{cornerSpeeds:structuredClone(p.cornerSpeeds)}:{}),...(p.cornerOffsets!==undefined?{cornerOffsets:structuredClone(p.cornerOffsets)}:{}),...(p.cornerDistances!==undefined?{cornerDistances:structuredClone(p.cornerDistances)}:{}),machineMode:p.machineMode,...(p.machineMode!=='job'?{weldingMode:p.weldingMode}:{}),start:{...phase(p.start),time:p.start.time},weld:{...phase(p.weld),speed:p.weld.speed},end:{...phase(p.end),time:p.end.time},crater:p.crater.enabled?{enabled:true,...phase(p.crater),distance:p.crater.distance,speed:p.crater.speed,actualSpeed:p.crater.actualSpeed,weave:effectiveWeave(p.crater.weave)}:{enabled:false},offset:structuredClone(p.offset),angles:structuredClone(p.angles),weave:effectiveWeave(p.weave),...(p.cornerWeave?{cornerWeave:effectiveWeave(p.cornerWeave)}:{}),...(p.wrapWeave?{wrapWeave:effectiveWeave(p.wrapWeave)}:{}),...(p.cornerParameters!==undefined?{cornerParameters:Array.isArray(p.cornerParameters)?p.cornerParameters.map(point):{inner:p.cornerParameters.inner.map(point),outer:p.cornerParameters.outer.map(point)}}:{}),...(p.wrapParameters!==undefined?{wrapParameters:p.wrapParameters.map(point)}:{})};
+  return {...(p.cornerSpeeds?{cornerSpeeds:structuredClone(p.cornerSpeeds)}:{}),...(p.cornerOffsets!==undefined?{cornerOffsets:structuredClone(p.cornerOffsets)}:{}),...(p.cornerDistances!==undefined?{cornerDistances:structuredClone(p.cornerDistances)}:{}),machineMode:p.machineMode,...(p.machineMode!=='job'?{weldingMode:p.weldingMode}:{}),start:{...phase(p.start),time:p.start.time},weld:{...phase(p.weld),speed:p.weld.speed},end:{...phase(p.end),time:p.end.time},offset:structuredClone(p.offset),angles:structuredClone(p.angles),weave:effectiveWeave(p.weave),...(p.cornerWeave?{cornerWeave:effectiveWeave(p.cornerWeave)}:{}),...(p.wrapWeave?{wrapWeave:effectiveWeave(p.wrapWeave)}:{}),...(p.cornerParameters!==undefined?{cornerParameters:Array.isArray(p.cornerParameters)?p.cornerParameters.map(point):{inner:p.cornerParameters.inner.map(point),outer:p.cornerParameters.outer.map(point)}}:{}),...(p.wrapParameters!==undefined?{wrapParameters:p.wrapParameters.map(point)}:{})};
 }
 export function effectiveProcessEntry(p){
   const errors=validateProcessEntry(p,{allowLegacyLeg:true});if(errors.length)throw Error(errors.join('；'));
@@ -160,6 +144,6 @@ export function applyProcessEntry(w,p){
   return next;
 }
 export function upsertProcessEntry(list,p){const errors=validateProcessEntry(p);if(errors.length)throw Error(errors.join('；'));const saved=structuredClone({...migrateProcessWeldForms(p),name:p.name.trim(),applicability:{...p.applicability,welderModel:p.applicability.welderModel.trim()}});return list.some(item=>item.id===p.id)?list.map(item=>item.id===p.id?saved:item):[...list,saved];}
-export function copyProcessEntry(p){const copy={...structuredClone(p),id:uid(),name:p.name.slice(0,72)+' · 副本'};if(copy.processLayers)copy.processLayers=copy.processLayers.map(l=>({...l,id:uid(),passes:l.passes.map(pass=>({...pass,id:uid()}))}));return copy;}
+export function copyProcessEntry(p){const copy={...structuredClone(withoutRetiredProcessStages(p)),id:uid(),name:p.name.slice(0,72)+' · 副本'};if(copy.processLayers)copy.processLayers=copy.processLayers.map(l=>({...l,id:uid(),passes:l.passes.map(pass=>({...pass,id:uid()}))}));return copy;}
 export function validWeldProcessParameters(w){const p=w.processParameters;if((['extracted','manual-merge'].includes(w.source)||w.source==='manual'&&(typeof w.splitFrom?.id==='string'||w.current===null&&w.voltage===null))&&!p)return ['current','voltage'].every(k=>w[k]===null||finite(w[k],Number.MIN_VALUE));if(p&&validateProcessEntry(p,{allowLegacyLeg:true}).length)return false;const first=p?processPasses(p)[0].pass:null;return (first?.machineMode==='job'||finite(w.current,Number.MIN_VALUE))&&(['job','synergic'].includes(first?.machineMode)||finite(w.voltage,Number.MIN_VALUE));}
 export function effectivePointOverrides(overrides,mode){return Object.fromEntries(Object.entries(overrides||{}).filter(([key])=>!(mode==='job'&&['current','voltage','correction','weldingMode'].includes(key))&&!(mode==='synergic'&&key==='voltage')&&!(mode==='separate'&&key==='correction')));}

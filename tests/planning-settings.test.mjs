@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {mergeIncludedAngleRange,planningSettingsErrors,geometryOptionsForPlanning} from '../src/planningConfiguration.mjs';
 import {DEFAULT_GEOMETRY_OPTIONS,convertGeometryPlan,mergeFeatureWithinSize} from '../src/geometryProcessingModel.mjs';
 import {mergeWeldPreview} from '../src/manualMergeModel.mjs';
+import {settingsDefaults,serializeSettings} from '../src/planningSettingsModel.mjs';
 test('旧转角换算为内夹角，明确新内夹角原值传给提取规则，数量禁用不再限组',()=>{
  assert.deepEqual(mergeIncludedAngleRange({angleMin:30,angleMax:75}),{angleMin:105,angleMax:150});
  assert.deepEqual(mergeIncludedAngleRange({angle:45}),{angleMin:135,angleMax:180});
@@ -24,6 +25,16 @@ test('禁用自动合并保留每条源焊缝，连续性检查禁止延长线�
  const members=[{key:'a',id:'a',weldId:'a',points:[[0,0,0],[100,0,0]],length:100,weldingPosition:'PB',焊脚:6},{key:'b',id:'b',weldId:'b',points:[[105,0,0],[200,0,0]],length:95,weldingPosition:'PB',焊脚:6}],data={weldsData:{welds:members.map(m=>({id:m.id,properties:{坡口:{类型:'无坡口'}}}))}},plan={merges:{groups:[{id:'group',members,totalLength:195,connections:[]}],units:members,mergedUnitKeys:new Set(['a','b'])},splits:new Map()};
  for(const options of [{automaticMerge:false},{continuousOnly:true}]){const result=convertGeometryPlan(data,plan,options);assert.equal(result.length,2);assert.equal(result.reduce((sum,w)=>sum+w.length,0),195);}
  const weld=convertGeometryPlan(data,plan,{automaticMerge:false})[0];
+ for(const [input,expected,count] of [[undefined,10,1],['5',5,1],['4.9',4.9,2],['0',0,2]]){
+  const settings=serializeSettings({mergeParameters:{gapThreshold:input}});
+  const options=geometryOptionsForPlanning(DEFAULT_GEOMETRY_OPTIONS,settings);
+  assert.equal(settings.mergeParameters.gapThreshold,expected);
+  assert.equal(options.mergeGapCheck,true);
+  assert.equal(options.mergeParams.最大合并距离,expected);
+  assert.equal(convertGeometryPlan(data,plan,options).length,count);
+ }
+ assert.equal(settingsDefaults().mergeParameters.gapThreshold,10);
+ assert.match(planningSettingsErrors({mergeParameters:{gapThreshold:-1}}).join(''),/合并间隙阈值/);
  const other=convertGeometryPlan(data,plan,{automaticMerge:false})[1];assert.match(mergeWeldPreview([weld,other],[weld.id,other.id]).errors.join(),/不允许非连续焊缝合并/);
 });
 test('过焊孔最大尺寸与间隙阈值独立保存和传入，留空保持原规则',()=>{

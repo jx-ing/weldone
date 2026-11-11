@@ -5,8 +5,9 @@ import {excludeConfirmedNonWelds} from './confirmedNonWelds.mjs';
 import {connectSegmentIntersections,mergeCornerAngles} from './mergeIntersectionGeometry.mjs';
 import {pathLength,pathGeometry,distance,EXAMPLE_MODEL} from './manualWeldModel.mjs';
 import {POSITIONS} from './templateModel.mjs';
+import {DEFAULT_MERGE_GAP} from './planningConfiguration.mjs';
 export const DEMO_SOURCE_SHA256='c85056ed9022210cd93e48bc4d09b97615c57a70235f4f55d986e6a2bdec4fc8';
-export const DEFAULT_GEOMETRY_OPTIONS={mergeGapCheck:false,offset:50,extendThreshold:50,offsetThreshold:50,minimumWeldLength:50,thicknessWeldThresholdMm:50,mergeParams:{最小通过高度:25,最长通过距离:45,夹角阈值下限:60,夹角阈值上限:120,长度阈值下限:0,长度阈值上限:99999,最大合并距离:10}};
+export const DEFAULT_GEOMETRY_OPTIONS={mergeGapCheck:false,offset:50,extendThreshold:50,offsetThreshold:50,minimumWeldLength:50,thicknessWeldThresholdMm:50,mergeParams:{最小通过高度:25,最长通过距离:45,夹角阈值下限:60,夹角阈值上限:120,长度阈值下限:0,长度阈值上限:99999,最大合并距离:DEFAULT_MERGE_GAP}};
 const metric=v=>Math.round(v*10000)/10000;
 function grooveOf(source){const raw=source.properties?.坡口||{},v=raw.参数||{};if(raw.类型==='无坡口')return {type:'无坡口',angle:0,depth:0};const names={'I形':'I 形','I 形':'I 形','单V形':'V 形','V形':'V 形','X形':'X 形','U形':'U 形','J形':'J 形','单边V形':'单边 V 形','喇叭形':'喇叭形'},type=names[raw.类型];return {type:type||'待确认',angle:Number.isFinite(v.坡口角度)?v.坡口角度:null,depth:Number.isFinite(v.坡口深度)?v.坡口深度:null,...(Number.isFinite(v.钝边长度)?{rootFace:v.钝边长度}:{}),...(Number.isFinite(v.根部间隙)?{rootGap:v.根部间隙}:{}),...(Number.isFinite(v.根部半径)?{rootRadius:v.根部半径}:{})};}
 function angle(a,b){const before=a.pathPoints,after=b.pathPoints,u=before.at(-2).map((v,i)=>v-before.at(-1)[i]),v=after[1].map((n,i)=>n-after[0][i]),den=Math.hypot(...u)*Math.hypot(...v);return metric(Math.acos(Math.max(-1,Math.min(1,u.reduce((s,n,i)=>s+n*v[i],0)/(den||1))))*180/Math.PI);}
@@ -36,7 +37,17 @@ export function convertGeometryPlan(data,plan,options={}){
       if(row.closed)pairs.push([row.members.at(-1).endFeatureProp,row.members[0].startFeatureProp]);
       if(pairs.some(pair=>pair.some(feature=>!mergeFeatureWithinSize(feature,options.mergePassHoleSize,options.mergePassHoleInclusive!==false,options.planningRevision===3))))return row.members.flatMap(member=>build({key:'unit:'+member.key,label:'处理 '+member.id,members:[member],closed:distance(member.points[0],member.points.at(-1))<.05,ruleLength:member.length,connections:[],rejectedMergeKey:row.key,rejectedMergeReason:'过焊孔尺寸超过合并上限或尺寸待确认'}));
     }
-    if(row.members.length>1&&(options.continuousOnly&&(row.members.slice(1).some((member,i)=>distance(row.members[i].points.at(-1),member.points[0])>.001)||row.closed&&distance(row.members.at(-1).points.at(-1),row.members[0].points[0])>.001)||options.mergePosition==='flat-flat'&&row.members.some(m=>m.weldingPosition!=='PB'))){return row.members.flatMap(member=>build({key:'unit:'+member.key,label:'处理 '+member.id,members:[member],closed:distance(member.points[0],member.points.at(-1))<.05,ruleLength:member.length,connections:[],rejectedMergeKey:row.key,rejectedMergeReason:'仅允许连续的平角焊合并'}));}
+    const gapLimit=options.maxMergeGap??(options.continuousOnly ? .001 : Infinity);
+    if(row.members.length>1){
+      const starts=row.members.slice(1).map(member=>member.points[0]);
+      if(row.closed)starts.push(row.members[0].points[0]);
+      const exceedsGap=starts.some((start,i)=>distance(row.members[i].points.at(-1),start)>gapLimit+1e-9);
+      const invalidPosition=options.mergePosition==='flat-flat'&&row.members.some(member=>member.weldingPosition!=='PB');
+      if(exceedsGap||invalidPosition){
+        const reason=exceedsGap&&Number.isFinite(options.maxMergeGap)?'端点间隙超过合并阈值':'仅允许连续的平角焊合并';
+        return row.members.flatMap(member=>build({key:'unit:'+member.key,label:'处理 '+member.id,members:[member],closed:distance(member.points[0],member.points.at(-1))<.05,ruleLength:member.length,connections:[],rejectedMergeKey:row.key,rejectedMergeReason:reason}));
+      }
+    }
     let segments=[];
     for(const member of row.members){const source=raw.get(member.weldId),points=structuredClone(member.points),position=POSITIONS.find(p=>p.startsWith(member.weldingPosition+' · '))||'待确认';
       const shape=pathGeometry(points);segments.push({...shape,geometry:!row.closed&&shape.geometry==='圆弧'?'曲线':shape.geometry,length:metric(pathLength(points)),pathPoints:points,position,sourceWeldId:member.weldId,sourceUnitKey:member.key,mainPartId:member.mainPartId,subPartId:member.subPartId,...(options.planningRevision===3?{plateThickness:structuredClone(source?.properties?.厚度??null),jointAngle:source?.properties?.主板面与副板面夹角??null,...measuredSegmentFacts(member,source,data.edgesData,options),endpointFacts:{start:extractedEndpointFacts(member,'start',plan),end:extractedEndpointFacts(member,'end',plan)}}:{}),referenceNormal:source?.properties?.焊缝段?.find(s=>s.主板面?.法向)?.主板面.法向,sourceGeometry:source?.segments?.map(s=>s.type)});

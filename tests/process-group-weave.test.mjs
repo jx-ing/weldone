@@ -6,7 +6,7 @@ function recipe(){let p=newProcessEntry();Object.assign(p,{name:'共用摆弧',l
 test('拐角和包角按道统一摆弧，内外角/包角所有点同步且不改写工艺和其他道',()=>{
  let p=recipe(),pass=processPasses(p)[0].pass,id=pass.id;p=addProcessPass(p,p.processLayers[0].id,id);const other=structuredClone(processPasses(p)[1].pass),before=structuredClone(p);
  p=updateProcessPass(p,id,groupWeaveChanges(pass,'arc',v));pass=processPasses(p)[0].pass;
- assert.deepEqual(pass.cornerWeave,v);assert.ok([...processFeaturePoints(pass,'inner'),...processFeaturePoints(pass,'outer')].every(point=>JSON.stringify(point.weave)===JSON.stringify(v)&&!point.enabled));assert.deepEqual(processPasses(p)[1].pass,other);assert.deepEqual(p.weave,before.weave);assert.deepEqual(p.crater,before.crater);
+ assert.deepEqual(pass.cornerWeave,v);assert.ok([...processFeaturePoints(pass,'inner'),...processFeaturePoints(pass,'outer')].every(point=>JSON.stringify(point.weave)===JSON.stringify(v)&&!point.enabled));assert.deepEqual(processPasses(p)[1].pass,other);assert.deepEqual(p.weave,before.weave);
  p=updateProcessPass(p,id,groupWeaveChanges(pass,'wrap',{...v,pattern:'l',amplitude:2.2}));assert.equal(groupWeaveState(processPasses(p)[0].pass,'wrap').value.amplitude,2.2);assert.equal(processPasses(p)[0].pass.cornerWeave.amplitude,1.1);assert.deepEqual(validateProcessEntry(p),[]);
  for(const saved of [JSON.parse(JSON.stringify(p)),copyProcessEntry(p),effectiveProcessEntry(p)]){const pass=processPasses(saved)[0].pass;assert.equal(pass.cornerWeave.pattern,'triangle');assert.equal(pass.wrapWeave.pattern,'l');}
  const bad=updateProcessPass(p,id,{cornerWeave:{...v,frequency:null}});assert.ok(validateProcessEntry(bad).some(e=>e.includes('拐角摆弧')));

@@ -9,7 +9,6 @@ export default function ProcessParameterSummary({parameters:p}){
     {p.processLayers&&<label className="process-pass-select"><span>{p.processLayers.length} 层 / {rows.length} 道</span><select aria-label="查看工艺层道" value={v.id} onChange={e=>setActive(e.target.value)}>{rows.map(r=><option key={r.pass.id} value={r.pass.id}>{r.layer.name} / {r.pass.name}</option>)}</select></label>}
     <p>{MACHINE_MODES[v.machineMode]}{v.machineMode!=='job'?` · ${WELDING_MODES[v.weldingMode]}`:' · 使用焊机 JOB 保存的内容'}</p>
     {phase('起弧',v.start)}{phase('焊接',v.weld)}{phase('收弧',v.end)}
-    {v.crater.enabled?<>{phase('弧坑回填',v.crater)}<small>回填距离 {v.crater.distance} mm · 实际焊接速度 {v.crater.actualSpeed} mm/min（人工填写）</small><small>回填摆动：{v.crater.weave.enabled?`${v.crater.weave.amplitude} mm / ${v.crater.weave.frequency} Hz，左停留 ${v.crater.weave.dwellLeft} s / 右停留 ${v.crater.weave.dwellRight} s`:'关闭'}</small></>:<small>弧坑回填：关闭</small>}
     <small>Y / Z 偏移：{v.offset.y} / {v.offset.z} mm</small><small>推拉 / 俯仰角：{v.angles.pushPull} / {v.angles.pitch}°</small><small>摆动：{v.weave.enabled?`${v.weave.amplitude} mm / ${v.weave.frequency} Hz，左停留 ${v.weave.dwellLeft} s / 右停留 ${v.weave.dwellRight} s`:'关闭'}</small>
   </div>;
 }

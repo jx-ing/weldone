@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {settingsDefaults,serializeSettings,SETTINGS_TABS,updateProjectPlanning,useCaseSettingsErrors,wrapChoice,resolveEndpointPose} from '../src/planningSettingsModel.mjs';
+import {MIXED_SCAN_FIELDS,settingsDefaults,serializeSettings,SETTINGS_TABS,updateProjectPlanning,useCaseSettingsErrors,wrapChoice,resolveEndpointPose} from '../src/planningSettingsModel.mjs';
 import {planningSettingsErrors,geometryOptionsForPlanning,samplingAvoidanceValues} from '../src/planningConfiguration.mjs';
 import {DEFAULT_GEOMETRY_OPTIONS,mergeFeatureWithinSize} from '../src/geometryProcessingModel.mjs';
 
-test('五类工艺规划设置可保存并兼容旧项目配置',()=>{
- assert.deepEqual(SETTINGS_TABS.map(v=>v[1]),["全局焊接设置","包角设置","端点干涉设置","跟踪设置","焊缝拓扑调整"]);
+test('六类工艺规划设置可保存并兼容旧项目配置',()=>{
+ assert.deepEqual(SETTINGS_TABS.map(v=>v[1]),["全局焊接设置","包角设置","端点干涉设置","精定位设置","跟踪设置","焊缝拓扑调整"]);
  const baseline={intermittentParameters:{enabled:true},splitParameters:{enabled:true,length:100,gapThreshold:25},visionParameters:{twoFaceSpeed:123},samplingAvoidance:{enabled:false,step:7},custom:'保留'};
  const draft=settingsDefaults(baseline);draft.visionParameters.twoFaceSpeed=999;draft.wrapParameters.flatEnabled=false;
  const saved=serializeSettings(draft);
@@ -17,6 +17,21 @@ test('五类工艺规划设置可保存并兼容旧项目配置',()=>{
  assert.equal(saved.wrapParameters.flatEnabled,false);
  assert.deepEqual(baseline.visionParameters,{twoFaceSpeed:123});
 });
+test('混合焊缝扫描五项按项目保存，保留旧配置的其他字段',()=>{
+ const draft=settingsDefaults({precisionParameters:{mixedScan:{custom:42}}});
+ const scan=draft.precisionParameters.mixedScan;
+ for(const [index,[key]] of MIXED_SCAN_FIELDS.entries())scan[key]=String(index+0.5);
+ const settings=serializeSettings(draft);
+ assert.deepEqual(settings.precisionParameters.mixedScan,{custom:42,arcPointDistance:.5,linePointDistance:1.5,endClearance:2.5,minWeldLength:3.5,scanDistance:4.5});
+ assert.deepEqual(useCaseSettingsErrors(settings),[]);
+ const workspace={project:'项目A',planningSettings:{},welds:[]};
+ const updated=updateProjectPlanning(workspace,{planningSettings:settings});
+ assert.deepEqual(updated.projectPlanning['项目A'].planningSettings.precisionParameters.mixedScan,settings.precisionParameters.mixedScan);
+ scan.scanDistance='';
+ assert.equal(serializeSettings(draft).precisionParameters.mixedScan.scanDistance,null);
+ scan.scanDistance='-1';
+ assert.match(useCaseSettingsErrors(serializeSettings(draft)).join(''),/扫描距离/);
+});
 test('用例默认值和空值回退，设备默认已配置，明确无配置时关闭跟踪',()=>{
  const d=serializeSettings(settingsDefaults());
  assert.deepEqual(d.actionParameters.safeTransitionOffset,{x:0,y:50,z:100});assert.deepEqual(d.actionParameters.safeApproachOffset,{x:0,y:20,z:40});assert.equal(d.actionParameters.lineStep,5);assert.equal(d.actionParameters.arcStep,2);assert.equal(d.precisionParameters.lineSweepSpeed,150);assert.equal(d.precisionParameters.arcSweepSpeed,70);
@@ -25,8 +40,8 @@ test('用例默认值和空值回退，设备默认已配置，明确无配置�
  assert.equal(d.mergeParameters.passHoleSize,15);assert.equal(d.mergeParameters.maxLength,1500);assert.equal(d.intermittentParameters,undefined);
  assert.deepEqual(d.trackingParameters,{laserEnabled:true,arcEnabled:true,minLineLength:160,minArcDiameter:160,minEdgeWidth:10,rulesVersion:2});
  assert.equal(d.visionParameters.twoFaceSpeed,null);assert.equal(d.splitParameters.gapThreshold,null);
- d.wrapParameters.independentLength='';d.interferenceEndParameters.startDistance='';d.interferenceEndParameters.startPose.advance='';
- const saved=serializeSettings(d);assert.equal(saved.wrapParameters.independentLength,30);assert.equal(saved.interferenceEndParameters.startDistance,0);assert.equal(saved.interferenceEndParameters.startPose.advance,null);
+ d.wrapParameters.independentLength='';d.interferenceEndParameters.startDistance='';d.interferenceEndParameters.startAngle='';
+ const saved=serializeSettings(d);assert.equal(saved.wrapParameters.independentLength,30);assert.equal(saved.interferenceEndParameters.startDistance,0);assert.equal(saved.interferenceEndParameters.startAngle,null);
  const absent=settingsDefaults({}, {laserTracking:false,arcTracking:false});assert.equal(absent.trackingParameters.laserEnabled,false);assert.equal(absent.trackingParameters.arcEnabled,false);
  assert.deepEqual([...planningSettingsErrors(saved),...useCaseSettingsErrors(saved)],[]);
 });
@@ -60,7 +75,11 @@ test('包角决策覆盖三面交、两面交、30mm独立焊缝长度和350mm�
  for(const breakReason of ['间隙打断','过焊孔打断','长度打断','对称打断','避障打断','边缘打断'])assert.equal(wrapChoice({...two,breakReason},p),'不包角');
  assert.equal(wrapChoice(three,{...p,flatEnabled:false}),'不包角');assert.equal(wrapChoice({...three,position:'PB · 平角焊'},{...p,flatEnabled:false}),'不包角');
 });
-test('干涉端空姿态继承对应标准姿态，各轴覆盖和距离互不干扰',()=>{
- const d=settingsDefaults();d.actionParameters.flatPose={advance:10,work:45,rotation:0};d.actionParameters.verticalPose={advance:20,work:35,rotation:5};d.interferenceEndParameters.startPose.advance=15;
- assert.deepEqual(resolveEndpointPose(d,'start','PB'),{advance:15,work:45,rotation:0});assert.deepEqual(resolveEndpointPose(d,'end','PF'),{advance:20,work:35,rotation:5});
+test('干涉端使用单一角度，距离和有符号线偏移可独立保存',()=>{
+ const d=settingsDefaults({interferenceEndParameters:{startPose:{advance:15,work:35},endAngle:38.1}});d.actionParameters.flatPose={advance:10,work:45,rotation:0};d.actionParameters.verticalPose={advance:20,work:35,rotation:5};d.interferenceEndParameters.startLineOffset='-2.5';d.interferenceEndParameters.endLineOffset='1.5';d.interferenceEndParameters.startDistance='35';
+ assert.deepEqual(resolveEndpointPose(d,'start','PB'),{advance:15,work:45,rotation:0});assert.deepEqual(resolveEndpointPose(d,'end','PF'),{advance:38.1,work:35,rotation:5});
+ const values=serializeSettings(d).interferenceEndParameters;
+ assert.deepEqual(values,{startAngle:15,endAngle:38.1,startDistance:35,endDistance:0,verticalStartDistance:20,startLineOffset:-2.5,endLineOffset:1.5});
+ assert.deepEqual(planningSettingsErrors({interferenceEndParameters:values}),[]);
+ assert.match(planningSettingsErrors({interferenceEndParameters:{...values,endAngle:361}}).join(''),/终点姿态/);
 });

@@ -11,6 +11,7 @@ import {CORNER_SIDES,cornerSide,cornerMeasuredAngle} from './templateCornerAngle
 import {templateForMatching,matchingParameterShapeErrors} from './templateMatchingParameters.mjs';
 import {sampleManualWeldPath,horizontalWeldNormal} from './manualWeldModel.mjs';
 import {migrateProcessWeldForms,weldForm,withoutLegacyJoint} from './planningRequirements.mjs';
+import {withoutRetiredFillSettings} from './planningSettingsModel.mjs';
 export const POSITIONS = ['PA · 平焊', 'PB · 横角焊', 'PC · 横焊', 'PD · 仰角焊', 'PE · 仰焊', 'PF · 立向上焊', 'PG · 立向下焊'];
 export const GEOMETRIES = ['直线', '圆弧', '曲线'];
 export const GROOVES = GROOVE_TYPES;
@@ -119,6 +120,7 @@ export function newWholeTemplateFromWeld(model,welds,weldId,copy) {
 }
 function withoutTemplateJoint(template){
   const value=withoutLegacyJoint(template);
+  if(value.baseProcessSnapshot)value.baseProcessSnapshot=migrateProcessWeldForms(value.baseProcessSnapshot);
   if(Array.isArray(value.segments))value.segments=value.segments.map(withoutLegacyJoint);
   if(Array.isArray(value.matchParameters?.segments)){
     value.matchParameters={...withoutLegacyJoint(value.matchParameters),segments:value.matchParameters.segments.map(withoutLegacyJoint)};
@@ -143,9 +145,24 @@ export function migrateTemplate(t) {
   result.points.forEach(p => { p.overrides = { current: t.current, voltage: t.voltage, speed: t.speed }; });
   return ensureLayers(syncControlPoints(result,true));
 }
+function migrateStrategyPlan(weld){
+  const plan=weld.strategyPlan;
+  if(!Array.isArray(plan?.passes))return;
+  const containsRetiredMotion=plan.endpointActions?.includes('fill')||plan.passes.some(pass=>
+    pass.points?.some(point=>point.kind==='crater'||point.kind==='holeFill')
+  );
+  if(containsRetiredMotion){
+    delete weld.strategyPlan;
+    weld.planned=false;
+    return;
+  }
+  weld.strategyPlan={...plan,passes:plan.passes.map(({crater,...pass})=>pass)};
+}
 function migrateWeld(weld){
   const value={...withoutLegacyJoint(weld),weldType:weldForm(weld)};
   if(weld.segments)value.segments=weld.segments.map(withoutLegacyJoint);
+  if(Array.isArray(weld.mergeHistory?.originals))value.mergeHistory={...weld.mergeHistory,originals:weld.mergeHistory.originals.map(migrateWeld)};
+  migrateStrategyPlan(value);
   if(weld.processParameters)value.processParameters=migrateProcessWeldForms(weld.processParameters);
   if(weld.templateSnapshot)value.templateSnapshot=withoutTemplateJoint(weld.templateSnapshot);
   if(weld.localApplications)value.localApplications=weld.localApplications.map(application=>({
@@ -162,7 +179,20 @@ function migrateWeld(weld){
   }
   return value;
 }
-export function migrateDraft(v) { return { ...v, processLibrary:(v.processLibrary??[]).map(migrateProcessWeldForms), processDeviceProfiles:v.processDeviceProfiles??[], welds: v.welds?.map(migrateWeld).map(w => v.model === '肋板组件 A' ? { ...w, completeStart:w.completeStart??true,completeEnd:w.completeEnd??true,closure:w.closure??'open',segments:w.segments??[segment(w)],cornerAngles:w.cornerAngles??[],groove:w.groove??{type:'无坡口',angle:0,depth:0},startHole:w.startHole??false,endHole:w.endHole??false } : normalizeLegacyMergeGaps(w)), templates: v.templates.map(migrateTemplate), fixedTemplates: (v.fixedTemplates || []).map(f=>{
+export function migrateDraft(v) {
+  const history={};
+  for(const key of ['previousExample','previousGeometryProcessing']){
+    if(Array.isArray(v[key]?.welds))history[key]={...v[key],welds:v[key].welds.map(migrateWeld)};
+  }
+  if(Array.isArray(v.rejectedGeometryWelds))history.rejectedGeometryWelds=v.rejectedGeometryWelds.map(migrateWeld);
+  if(Array.isArray(v.manualSplitHistory))history.manualSplitHistory=v.manualSplitHistory.map(entry=>({...entry,original:migrateWeld(entry.original)}));
+  if(Array.isArray(v.deletedProcessDevices))history.deletedProcessDevices=v.deletedProcessDevices.map(entry=>({...entry,entries:entry.entries.map(migrateProcessWeldForms)}));
+  const settings={};
+  if(v.planningSettings)settings.planningSettings=withoutRetiredFillSettings(v.planningSettings);
+  if(v.projectPlanning)settings.projectPlanning=Object.fromEntries(Object.entries(v.projectPlanning).map(([name,profile])=>[
+    name,profile.planningSettings?{...profile,planningSettings:withoutRetiredFillSettings(profile.planningSettings)}:profile
+  ]));
+  return { ...v, ...history, ...settings, processLibrary:(v.processLibrary??[]).map(migrateProcessWeldForms), processDeviceProfiles:v.processDeviceProfiles??[], welds: v.welds?.map(migrateWeld).map(w => v.model === '肋板组件 A' ? { ...w, completeStart:w.completeStart??true,completeEnd:w.completeEnd??true,closure:w.closure??'open',segments:w.segments??[segment(w)],cornerAngles:w.cornerAngles??[],groove:w.groove??{type:'无坡口',angle:0,depth:0},startHole:w.startHole??false,endHole:w.endHole??false } : normalizeLegacyMergeGaps(w)), templates: v.templates.map(migrateTemplate), fixedTemplates: (v.fixedTemplates || []).map(f=>{
   const migratePoints=points=>syncControlPoints({type:'local',segments:Array.from({length:f.segmentCount},()=>segment()),points},true,true).points.map(({id,kind,name,segment,percent,referenceId,location,anchorRole,autoRole})=>({id,kind,name,segment,percent,...(anchorRole?{anchorRole}:{}),...(autoRole?{autoRole}:{}),...(referenceId!==undefined?{referenceId}:{}),...(location?{location}: {})}));
   return {...f,...(f.definition?{definition:migrateTemplate(f.definition)}:{}),points:migratePoints(f.points),...(f.layers?{layers:f.layers.map(l=>({...l,passes:l.passes.map(p=>({...p,points:migratePoints(p.points)}))}))}:{})};
 }) }; }

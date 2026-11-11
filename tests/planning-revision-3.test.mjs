@@ -98,26 +98,23 @@ test('面打断使用真实交点，删除和恢复设备时同时移动其工�
  assert.equal(restored.processDeviceProfiles[0].enabled,true);
 });
 
-test('立焊填充速度与起弧停留随工艺进入路径，停留只发生一次',()=>{
+test('旧填充设置和配方不会在新轨迹生成填充点位',()=>{
  const vertical='PF · 立向上焊';
  const weld={...source(),position:vertical,segments:[{...segment(0,100),position:vertical,pathPoints:[[0,0,0],[0,0,100]],referenceNormal:[1,0,0]}],
   endpointFacts:{start:{type:'三面交过焊孔',holeSize:6,offsetDirection:[1,0,0]}}};
  const settings={...config,wrapParameters:{fillEnabled:true,fillHoleSize:10,fillOffset:3}};
  const p={...recipe(),position:vertical};
  const id=p.processLayers[0].passes[0].id;
- const configured=updateProcessPass(p,id,{holeFill:{current:230,speed:250,time:1.25}});
- const [result]=planWorkspace([weld],[],[configured],settings);
- assert.deepEqual(result.processParameters.holeFill,{current:230,voltage:24,speed:250,time:1.25});
- const fill=result.strategyPlan.passes[0].points.filter(point=>point.kind==='holeFill');
- assert.deepEqual(fill.map(point=>point.position),[[3,0,0],[0,0,0]]);
- assert.deepEqual(fill.map(point=>[point.parameters.speed,point.parameters.time]),[[250,1.25],[250,undefined]]);
- const [legacy]=planWorkspace([weld],[],[p],settings);
- assert.deepEqual(legacy.strategyPlan.passes[0].points[0].parameters,{current:210,voltage:24,speed:400,time:.5});
- const [stationary]=planWorkspace([weld],[],[configured],{...settings,wrapParameters:{...settings.wrapParameters,fillOffset:0}});
- assert.equal(stationary.strategyPlan.passes[0].points.filter(point=>point.kind==='holeFill').length,1);
- assert.equal(stationary.strategyPlan.passes[0].points[0].parameters.time,1.25);
- const invalid=updateProcessPass(p,id,{holeFill:{speed:255,time:1.235}});
- assert.match(validateProcessEntry(invalid).join(' '),/过焊孔填充速度.*过焊孔填充起弧停留时间/);
+ const legacy=updateProcessPass(p,id,{crater:{enabled:true,distance:10},holeFill:{current:230,speed:250,time:1.25}});
+ const [result]=planWorkspace([weld],[],[legacy],settings);
+ const [pass]=result.strategyPlan.passes;
+ assert.equal(pass.points[0].kind,'start');
+ assert.deepEqual(pass.points[0].parameters,{current:210,voltage:24,time:.5});
+ assert.equal(pass.points.at(-1).kind,'end');
+ assert.ok(!pass.points.some(point=>['crater','holeFill'].includes(point.kind)));
+ assert.ok(!Object.hasOwn(pass,'crater'));
+ assert.ok(!Object.hasOwn(result.processParameters,'holeFill'));
+ assert.ok(!Object.hasOwn(result.processParameters,'crater'));
 });
 
 test('同一内角的转角路径使用一组工艺，编辑时保留外角参数',()=>{

@@ -1,8 +1,7 @@
+export const DEFAULT_MERGE_GAP=10;
 export const WORKPIECE_TYPES=['小组立','中组立','护板'];
 export const L_WRAP_DISTANCES=[['1/2','1/2板厚'],['2/3','2/3板厚']];
-export const INTERFERENCE_END_FIELDS=[['startDistance','起点变姿态距离','mm'],['endDistance','终点变姿态距离','mm']];
-export const INTERFERENCE_POSE_AXES=[['advance','前进角'],['work','工作角'],['rotation','旋转角']];
-export function interferenceEndValues(value={}){return {...value,...Object.fromEntries(INTERFERENCE_END_FIELDS.map(([key])=>[key,value[key]??''])),...Object.fromEntries(['startPose','endPose'].map(key=>[key,Object.fromEntries(INTERFERENCE_POSE_AXES.map(([axis])=>[axis,value[key]?.[axis]??'']))]))};}
+export const INTERFERENCE_END_FIELDS=[['Angle','姿态','°'],['Distance','距离','mm'],['LineOffset','线偏移','mm']];
 export const SAMPLING_AXES=[['advance','前进角',20,-45,45],['work','工作角',45,-40,50],['rotation','旋转角',0,-80,80]];
 export function samplingAvoidanceValues(value={}){return {...value,autoDeleteUnavoidable:value.autoDeleteUnavoidable??false,...Object.fromEntries(SAMPLING_AXES.map(([key,,,min,max])=>[key,{enabled:true,min,max,...value[key]}]))};}
 export function trackingParameterValues(value={}){return {laserEnabled:true,arcEnabled:true,minLineLength:160,minArcDiameter:160,...value};}
@@ -27,6 +26,7 @@ export function mergeAngleRange(value={}){
 export function mergeParameterErrors(value={}){
  const errors=[];
  if(value.lengthEnabled!==false&&filled(value.maxLength)&&(!Number.isFinite(value.maxLength)||value.maxLength<=0))errors.push('合并长度应为大于0的有效数值');
+ if(filled(value.gapThreshold)&&(!Number.isFinite(value.gapThreshold)||value.gapThreshold<0))errors.push('合并间隙阈值应为非负数');
  if(filled(value.passHoleSize)&&(!Number.isFinite(value.passHoleSize)||value.passHoleSize<0))errors.push('合并过焊孔尺寸应为非负数');
  if(hasRange(value)){
   const min=filled(value.angleMin),max=filled(value.angleMax);
@@ -46,7 +46,11 @@ export function geometryOptionsForPlanning(defaults,settings={}){
  if(merge.countEnabled!==false&&Number.isInteger(merge.count))options.maxMergeCount=merge.count;
  if(merge.lengthEnabled!==false&&Number.isFinite(merge.maxLength))options.maxMergeLength=merge.maxLength;
  if(merge.enabled!==undefined&&options.automaticMerge!==false)options.automaticMerge=merge.enabled;
- if(merge.continuousOnly)options.continuousOnly=true;
+ if(Number.isFinite(merge.gapThreshold)||settings.planningRevision===3){
+  options.maxMergeGap=Number.isFinite(merge.gapThreshold)?merge.gapThreshold:DEFAULT_MERGE_GAP;
+  options.mergeParams.最大合并距离=options.maxMergeGap;
+  options.mergeGapCheck=true;
+ }else if(merge.continuousOnly)options.continuousOnly=true;
  if(merge.position)options.mergePosition=merge.position;
  if(Number.isFinite(merge.passHoleSize)){options.mergePassHoleSize=merge.passHoleSize;if(merge.passHoleInclusive===false)options.mergePassHoleInclusive=false;options.mergeParams.最长通过距离=merge.passHoleSize;options.mergeParams.最小通过高度=merge.passHoleSize;}
  if(settings.wrapParameters){options.wrapParameters=structuredClone(settings.wrapParameters);options.wrapDistanceRatio=settings.wrapParameters.lDistanceRatio==='1/2'?.5:2/3;}
@@ -75,18 +79,12 @@ export function planningSettingsErrors(settings={}){
   if(!axis||typeof axis.enabled!=='boolean'){errors.push(`${label}采样设置无效`);continue;}
   if(settings.samplingAvoidance.enabled!==false&&axis.enabled){if(!Number.isFinite(axis.min)||!Number.isFinite(axis.max)||Math.abs(axis.min)>360||Math.abs(axis.max)>360)errors.push(`${label}采样范围应为-360–360°`);else if(axis.min>axis.max)errors.push(`${label}采样范围最小值不能大于最大值`);}
  }
- for(const [key,label,unit] of INTERFERENCE_END_FIELDS){
-  const value=settings.interferenceEndParameters?.[key];
+ for(const [end,side] of [['start','起点'],['end','终点']])for(const [field,label] of INTERFERENCE_END_FIELDS){
+  const value=settings.interferenceEndParameters?.[end+field];
   if(!filled(value))continue;
-  if(!Number.isFinite(value)){errors.push(`${label}请输入有效数值`);continue;}
-  if(unit==='mm'&&value<0)errors.push(`${label}应为非负数`);
-  if(unit==='°'&&(value < -360||value>360))errors.push(`${label}应为-360–360°`);
- }
- for(const [key,label] of [['startPose','起点姿态'],['endPose','终点姿态']]){
-  const pose=settings.interferenceEndParameters?.[key];
-  if(pose===undefined)continue;
-  if(!pose||typeof pose!=='object'||Array.isArray(pose)){errors.push(`${label}设置无效`);continue;}
-  for(const [axis,axisLabel] of INTERFERENCE_POSE_AXES){const value=pose[axis];if(filled(value)&&(!Number.isFinite(value)||value < -360||value>360))errors.push(`${label}${axisLabel}应为-360–360°`);}
+  if(!Number.isFinite(value)){errors.push(side+label+'请输入有效数值');continue;}
+  if(field==='Distance'&&value<0)errors.push(side+label+'应为非负数');
+  if(field==='Angle'&&Math.abs(value)>360)errors.push(side+label+'应为-360–360°');
  }
  const split=settings.splitParameters||{};
  if(split.autoDeleteUnavoidable!==undefined&&typeof split.autoDeleteUnavoidable!=='boolean')errors.push('自动删除无法避障焊缝开关无效');

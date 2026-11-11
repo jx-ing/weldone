@@ -27,8 +27,18 @@ export function processWeldForms(recipe) {
   return recipe.weldForms ?? [recipe.joint === '端接接头' ? '其他焊缝' : legacyWeldForm(recipe.joint)];
 }
 
+function withoutRetiredProcessPass({crater,holeFill,...pass}) {
+  return pass;
+}
+
+export function withoutRetiredProcessStages(recipe) {
+  const value=withoutRetiredProcessPass(recipe);
+  if(Array.isArray(value.processLayers))value.processLayers=value.processLayers.map(layer=>({...layer,passes:layer.passes.map(withoutRetiredProcessPass)}));
+  return value;
+}
+
 export function migrateProcessWeldForms(recipe) {
-  const {joint,joints,...value}=recipe;
+  const {joint,joints,...value}=withoutRetiredProcessStages(recipe);
   return {...value,weldForms:processWeldForms(recipe)};
 }
 

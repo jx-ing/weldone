@@ -381,3 +381,9 @@ Remove joint type from all application forms, filters, validation, matching, mer
 Hide the welding template library page and navigation. Keep the planning page's create and choose template buttons visible and show 暂不支持 for each click, without opening a picker or editor. Retain automatic matching with stored templates and access to the process parameter library.
 
 Follow the no-template-library requirements for planning settings and strategy planning. Keep geometry and precision calibration fields in the planning configuration, show tracking separately, and group merge and split under topology. Use a 350 mm default wrap gap, one decimal place for break thresholds, and a split setting for verified unavoidable intervals. Keep per-weld trajectory offsets and pose overrides separate from template definitions and recipes.
+
+Remove crater refill and vertical pass-hole filling from process recipes and strategy planning. Migrate saved workspaces, discard affected cached paths, and keep pass-hole geometry available to the other planning rules. Expose the automatic merge endpoint gap under 焊缝拓扑调整 with a 10 mm default.
+
+Expose the five mixed-weld scan distances under 精定位设置. Save them per project with existing precision settings.
+
+Show interference endpoints side by side, each with one posture angle (advance), distance and a signed line offset. Keep the existing vertical start transition distance below the two columns. Display white-background local diagrams beside the requested threshold, overlap, stagger and transition-distance fields.
