@@ -73,3 +73,12 @@
 @media(max-width:450px){.planning-endpoint-columns{gap:8px}.planning-endpoint-columns fieldset{padding:0 6px}.planning-settings .planning-endpoint-columns .planning-setting-row{grid-template-columns:1fr;gap:3px}}
 
 .planning-sampling-fields{border:0;padding:0;margin:0;min-width:0}.planning-settings-nav{overflow:auto}.planning-tracking-settings input[role=switch]:disabled{opacity:.4;cursor:not-allowed}
+
+.planning-number-group{border-top:1px solid #eee;padding:0 0 4px}
+.planning-number-group>legend{padding-right:10px}
+.planning-number-group-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 12px}
+.planning-settings .planning-number-group .planning-setting-row{grid-template-columns:1fr;gap:5px;margin:10px 0}
+.planning-number-group .planning-value input{font-size:13px}
+@media(max-width:420px){.planning-number-group-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.planning-settings .planning-sampling-axis input[role=switch]:disabled{opacity:.4;cursor:not-allowed}
+@media(max-width:650px){.planning-settings-layout .planning-settings{max-height:calc(100dvh - 360px)}}

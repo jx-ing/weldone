@@ -4,8 +4,8 @@ import {MIXED_SCAN_FIELDS,settingsDefaults,serializeSettings,SETTINGS_TABS,updat
 import {planningSettingsErrors,geometryOptionsForPlanning,samplingAvoidanceValues} from '../src/planningConfiguration.mjs';
 import {DEFAULT_GEOMETRY_OPTIONS,mergeFeatureWithinSize} from '../src/geometryProcessingModel.mjs';
 
-test('六类工艺规划设置可保存并兼容旧项目配置',()=>{
- assert.deepEqual(SETTINGS_TABS.map(v=>v[1]),["全局焊接设置","包角设置","端点干涉设置","精定位设置","跟踪设置","焊缝拓扑调整"]);
+test('工艺规划设置可保存并兼容旧项目配置',()=>{
+ assert.deepEqual(SETTINGS_TABS.map(v=>v[1]),["全局焊接设置","包角设置","端点干涉设置","精定位设置","跟踪设置","焊缝拓扑调整","视觉设置","采样避障设置","顺序与匹配设置"]);
  const baseline={intermittentParameters:{enabled:true},splitParameters:{enabled:true,length:100,gapThreshold:25},visionParameters:{twoFaceSpeed:123},samplingAvoidance:{enabled:false,step:7},custom:'保留'};
  const draft=settingsDefaults(baseline);draft.visionParameters.twoFaceSpeed=999;draft.wrapParameters.flatEnabled=false;
  const saved=serializeSettings(draft);
@@ -16,6 +16,28 @@ test('六类工艺规划设置可保存并兼容旧项目配置',()=>{
  assert.equal(saved.custom,'保留');
  assert.equal(saved.wrapParameters.flatEnabled,false);
  assert.deepEqual(baseline.visionParameters,{twoFaceSpeed:123});
+});
+test('从表单提交的参数按数值保存并传给几何处理，旧偏移仍可回退',()=>{
+ const draft=settingsDefaults({actionParameters:{liftHeight:125},precisionParameters:{laserPose:{x:-1}}});
+ assert.equal(draft.actionParameters.safeTransitionOffset.z,125);
+ Object.assign(draft.actionParameters,{lineStep:'7',arcStep:'3',edgeSearchDistance:'19'});
+ draft.actionParameters.safeTransitionOffset.y='55';
+ draft.precisionParameters.laserPose.advance='-24.5';
+ draft.precisionParameters.arcSweepSpeed='72.5';
+ draft.mergeParameters.countEnabled=true;
+ draft.mergeParameters.count='4';
+ draft.sequenceParameters={scanDirection:['-1','2','0']};
+ draft.localMatchDistance='86.5';
+ const saved=serializeSettings(draft);
+ assert.deepEqual(useCaseSettingsErrors(saved),[]);
+ const options=geometryOptionsForPlanning(DEFAULT_GEOMETRY_OPTIONS,saved);
+ assert.deepEqual(options.actionParameters.safeTransitionOffset,{x:0,y:55,z:125});
+ assert.deepEqual([options.actionParameters.lineStep,options.actionParameters.arcStep,options.actionParameters.edgeSearchDistance,options.maxMergeCount],[7,3,19,4]);
+ assert.deepEqual([saved.precisionParameters.laserPose.x,saved.precisionParameters.laserPose.advance,saved.precisionParameters.arcSweepSpeed],[-1,-24.5,72.5]);
+ assert.deepEqual(saved.sequenceParameters.scanDirection,[-1,2,0]);
+ assert.equal(saved.localMatchDistance,86.5);
+ draft.sequenceParameters.scanDirection=['','1',''];
+ assert.match(useCaseSettingsErrors(serializeSettings(draft)).join(''),/扫描方向/);
 });
 test('混合焊缝扫描五项按项目保存，保留旧配置的其他字段',()=>{
  const draft=settingsDefaults({precisionParameters:{mixedScan:{custom:42}}});

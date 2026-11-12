@@ -1,6 +1,7 @@
 import {DEFAULT_INTERFERENCE_ANGLE,DEFAULT_INTERFERENCE_DISTANCE,DEFAULT_MERGE_ANGLE_RANGE,DEFAULT_MERGE_GAP} from './planningConfiguration.mjs';
 
-export const SETTINGS_TABS=[['action','全局焊接设置'],['wrap','包角设置'],['interference','端点干涉设置'],['precision','精定位设置'],['tracking','跟踪设置'],['topology','焊缝拓扑调整']];
+export const SETTINGS_TABS=[['action','全局焊接设置'],['wrap','包角设置'],['interference','端点干涉设置'],['precision','精定位设置'],['tracking','跟踪设置'],['topology','焊缝拓扑调整'],['vision','视觉设置'],['sampling','采样避障设置'],['sequence','顺序与匹配设置']];
+export const OFFSET_AXES=['x','y','z'];
 export const POSE_AXES=[['advance','前进角'],['work','工作角'],['rotation','旋转角']];
 export const MIXED_SCAN_FIELDS=[
  ['arcPointDistance','Arc打点距离'],
@@ -12,7 +13,7 @@ export const MIXED_SCAN_FIELDS=[
 const empty=value=>value===undefined||value===null||value==='';
 export const asNumber=value=>empty(value)?null:Number(value);
 export const defaultNumber=(value,fallback)=>empty(value)?fallback:Number(value);
-const offset=(value,defaults)=>Object.fromEntries(['x','y','z'].map((key,index)=>[key,value?.[key]??defaults[index]]));
+const offset=(value,defaults)=>Object.fromEntries(OFFSET_AXES.map((key,index)=>[key,value?.[key]??defaults[index]]));
 export function withoutRetiredFillSettings(settings){
  const wrap=settings?.wrapParameters;
  if(!wrap)return settings;
@@ -40,11 +41,13 @@ export function serializeSettings(draft,capabilities={}){
  next.planningRevision=3;
  const action=next.actionParameters;
  action.legHeight=n(action.legHeight);
- action.poseStep=defaultNumber(action.poseStep,10);
+ for(const [key,fallback] of [['poseStep',10],['lineStep',5],['arcStep',2],['edgeSearchDistance',15],['liftHeight',100],['externalAxisLength',1500]])action[key]=defaultNumber(action[key],fallback);
+ for(const [key,defaults] of [['safeTransitionOffset',[0,50,action.liftHeight]],['safeApproachOffset',[0,20,40]]]){
+  for(const [index,axis] of OFFSET_AXES.entries())action[key][axis]=defaultNumber(action[key][axis],defaults[index]);
+ }
  action.overlapDistance=defaultNumber(action.overlapDistance,5);
  action.staggerDistance=defaultNumber(action.staggerDistance,20);
  for(const key of ['flatPose','verticalPose'])next.actionParameters[key]=Object.fromEntries(POSE_AXES.map(([axis])=>[axis,n(next.actionParameters[key][axis])]));
- next.actionParameters.liftHeight=defaultNumber(next.actionParameters.liftHeight,100);next.actionParameters.externalAxisLength=defaultNumber(next.actionParameters.externalAxisLength,1500);
  const w=next.wrapParameters;w.enabled=w.flatEnabled||w.verticalEnabled;w.independentLength=defaultNumber(w.independentLength,30);w.gapThreshold=defaultNumber(w.gapThreshold,350);for(const key of ['flatLPose','verticalLPose'])w[key]=Object.fromEntries(POSE_AXES.map(([axis])=>[axis,n(w[key][axis])]));w.passHoleThreshold=defaultNumber(w.passHoleThreshold,35);w.uPose=Object.fromEntries(POSE_AXES.map(([axis])=>[axis,n(w.uPose[axis])]));
  const m=next.mergeParameters;m.rulesVersion=3;m.angleMin=n(m.angleMin);m.angleMax=n(m.angleMax);m.count=n(m.count);m.maxLength=defaultNumber(m.maxLength,1500);m.passHoleSize=defaultNumber(m.passHoleSize,15);m.angleDefinition='included';m.position='flat-flat';delete m.continuousOnly;m.passHoleInclusive=false;delete m.angle;
  for(const key of ['gapThreshold','edgeThreshold'])next.splitParameters[key]=n(next.splitParameters[key]);next.splitParameters.rulesVersion=3;w.rulesVersion=3;next.trackingParameters.rulesVersion=2;
@@ -57,7 +60,19 @@ export function serializeSettings(draft,capabilities={}){
  for(const key of ['startDistance','endDistance'])next.interferenceEndParameters[key]=defaultNumber(next.interferenceEndParameters[key],DEFAULT_INTERFERENCE_DISTANCE);
  for(const key of ['sweepPose','photoPose'])next.visionParameters[key]=Object.fromEntries(POSE_AXES.map(([axis])=>[axis,n(next.visionParameters[key][axis])]));
  for(const key of ['twoFaceSpeed','threeFaceSpeed'])next.visionParameters[key]=n(next.visionParameters[key]);
- for(const [key] of MIXED_SCAN_FIELDS)next.precisionParameters.mixedScan[key]=n(next.precisionParameters.mixedScan[key]);
+ const precision=next.precisionParameters;
+ for(const [key,fallback] of [['lineSweepSpeed',150],['arcSweepSpeed',70]])precision[key]=defaultNumber(precision[key],fallback);
+ for(const key of ['laserPose','structuredLightPose']){
+  for(const axis of OFFSET_AXES)precision[key][axis]=defaultNumber(precision[key][axis],0);
+  for(const [axis] of POSE_AXES)precision[key][axis]=n(precision[key][axis]);
+ }
+ for(const [key] of MIXED_SCAN_FIELDS)precision.mixedScan[key]=n(precision.mixedScan[key]);
+ if(Array.isArray(next.sequenceParameters?.scanDirection)){
+  const direction=next.sequenceParameters.scanDirection.map(n);
+  if(direction.every(value=>value===null))delete next.sequenceParameters.scanDirection;
+  else next.sequenceParameters.scanDirection=direction;
+ }
+ if('localMatchDistance' in next)next.localMatchDistance=n(next.localMatchDistance);
  for(const key of ['minLineLength','minArcDiameter','minEdgeWidth'])next.trackingParameters[key]=n(next.trackingParameters[key]);
  next.samplingAvoidance.step=n(next.samplingAvoidance.step);for(const [key] of POSE_AXES)for(const bound of ['min','max'])next.samplingAvoidance[key][bound]=n(next.samplingAvoidance[key][bound]);
  return next;
@@ -79,13 +94,24 @@ export function useCaseSettingsErrors(settings,capabilities={}){
  const errors=[],decimal=value=>Number.isFinite(value)&&Math.abs(value*10-Math.round(value*10))<1e-8;
  const numeric=(value,label,{integer=false,positive=false,optional=false}={})=>{if(optional&&empty(value))return;if(!Number.isFinite(value)||(positive?value<=0:value<0)||(integer?!Number.isInteger(value):!decimal(value)))errors.push(`${label}须为${positive?'大于0':'大于等于0'}的${integer?'整数':'一位小数'}`);};
  const poseCheck=(value,label)=>{for(const [key,name] of POSE_AXES)if(!empty(value?.[key])&&(!Number.isFinite(value[key])||Math.abs(value[key])>360))errors.push(`${label}${name}须在-360–360°范围内`);};
- if(settings.actionParameters){const a=settings.actionParameters;if(a.legMode==='global'&&(!Number.isFinite(a.legHeight)||a.legHeight<=0||!Number.isInteger(a.legHeight*2)))errors.push('统一焊脚高度须大于0，步长0.5 mm');for(const [key,label] of [['poseStep','焊枪姿态变化步长'],['lineStep','直线步长'],['arcStep','圆弧步长'],['edgeSearchDistance','焊缝边缘检测距离'],['overlapDistance','起终点搭接距离'],['staggerDistance','起点错开距离']])numeric(a[key],label,{integer:true,positive:true,optional:true});poseCheck(a.flatPose,'平角焊标准姿态');poseCheck(a.verticalPose,'立角焊标准姿态');for(const [key,label] of [['safeTransitionOffset','安全过渡点'],['safeApproachOffset','安全接近点']])for(const axis of ['x','y','z'])numeric(a[key]?.[axis],label+axis.toUpperCase()+'偏移',{integer:true,optional:true});numeric(a.externalAxisLength,'外部轴联动长度',{integer:true,positive:true});}
+ if(settings.actionParameters){const a=settings.actionParameters;if(a.legMode==='global'&&(!Number.isFinite(a.legHeight)||a.legHeight<=0||!Number.isInteger(a.legHeight*2)))errors.push('统一焊脚高度须大于0，步长0.5 mm');for(const [key,label] of [['poseStep','焊枪姿态变化步长'],['lineStep','直线步长'],['arcStep','圆弧步长'],['edgeSearchDistance','焊缝边缘检测距离'],['overlapDistance','起终点搭接距离'],['staggerDistance','起点错开距离']])numeric(a[key],label,{integer:true,positive:true,optional:true});poseCheck(a.flatPose,'平角焊标准姿态');poseCheck(a.verticalPose,'立角焊标准姿态');for(const [key,label] of [['safeTransitionOffset','安全过渡点'],['safeApproachOffset','安全接近点']])for(const axis of ['x','y','z'])numeric(a[key]?.[axis],label+axis.toUpperCase()+'偏移',{integer:true,optional:true});numeric(a.externalAxisLength,'外部轴联动长度',{integer:true,positive:true});numeric(a.liftHeight,'收下枪高度',{integer:true,optional:true});}
  const w=settings.wrapParameters;if(w?.rulesVersion>=2){numeric(w.gapThreshold,'包角间隙阈值',{integer:true,positive:true,optional:true});poseCheck(w.flatLPose,'平角焊L形包角姿态');poseCheck(w.verticalLPose,'立焊L形包角姿态');numeric(w.independentLength,'独立焊缝长度',{positive:true});numeric(w.passHoleThreshold,'过焊孔包角阈值',{integer:true,positive:true});}
  const m=settings.mergeParameters;if(m?.rulesVersion>=2){numeric(m.passHoleSize,'合并过焊孔尺寸',{positive:true});if(m.lengthEnabled)numeric(m.maxLength,'合并长度',{positive:true});if(m.countEnabled){numeric(m.count,'合并数量',{integer:true,positive:true});if(m.count<2)errors.push('合并数量最小为2');}}
  const split=settings.splitParameters;if(split?.rulesVersion>=2)numeric(split.gapThreshold,'间隙打断阈值',{integer:split.rulesVersion===2,positive:true,optional:true});
  if(settings.interferenceEndParameters){const e=settings.interferenceEndParameters;numeric(e.startDistance,'起点变姿态距离');numeric(e.endDistance,'终点变姿态距离');numeric(e.verticalStartDistance,'立焊起点变姿态距离',{optional:true});}
  if(settings.visionParameters){const v=settings.visionParameters;poseCheck(v.sweepPose,'推扫标准姿态');poseCheck(v.photoPose,'定点拍照标准姿态');for(const [key,label] of [['twoFaceSpeed','两面交推扫速度'],['threeFaceSpeed','三面交推扫速度']])if(!empty(v[key])&&(!Number.isFinite(v[key])||v[key]<=0))errors.push(`${label}须大于0`);}
- for(const [key,label] of MIXED_SCAN_FIELDS){const value=settings.precisionParameters?.mixedScan?.[key];if(!empty(value)&&(!Number.isFinite(value)||value<0))errors.push(label+'须为非负数');}
+ const precision=settings.precisionParameters;
+ if(precision){
+  for(const [key,label] of [['laserPose','线激光标准姿态'],['structuredLightPose','结构光标准姿态']]){
+   poseCheck(precision[key],label);
+   for(const axis of OFFSET_AXES){const value=precision[key]?.[axis];if(!empty(value)&&!Number.isFinite(value))errors.push(label+axis.toUpperCase()+'须为有效数值');}
+  }
+  for(const [key,label] of [['lineSweepSpeed','直线推扫速度'],['arcSweepSpeed','圆弧推扫速度']])if(!empty(precision[key])&&(!Number.isFinite(precision[key])||precision[key]<=0))errors.push(label+'须大于0');
+ }
+ const direction=settings.sequenceParameters?.scanDirection;
+ if(direction!=null&&(!Array.isArray(direction)||direction.length!==3||!direction.every(Number.isFinite)||direction.every(value=>value===0)))errors.push('扫描方向须填写三个有限数值，且至少一轴非零');
+ if(!empty(settings.localMatchDistance)&&(!Number.isFinite(settings.localMatchDistance)||settings.localMatchDistance<=0))errors.push('局部模板匹配距离须大于0');
+ for(const [key,label] of MIXED_SCAN_FIELDS){const value=precision?.mixedScan?.[key];if(!empty(value)&&(!Number.isFinite(value)||value<0))errors.push(label+'须为非负数');}
  const t=settings.trackingParameters;if(t?.rulesVersion===2){if(t.laserEnabled)for(const [key,label] of [['minLineLength','最小直线长度'],['minArcDiameter','最小圆弧直径'],['minEdgeWidth','最小边缘宽度']])numeric(t[key],label);if(capabilities.laserTracking===false&&t.laserEnabled)errors.push('未配置激光跟踪相机，不能开启激光跟踪');if(capabilities.arcTracking===false&&t.arcEnabled)errors.push('未配置电弧跟踪，不能开启电弧跟踪');}
  const sampling=settings.samplingAvoidance;if(sampling){if(sampling.enabled!==undefined&&typeof sampling.enabled!=='boolean')errors.push('采样避障总开关无效');if(!empty(sampling.step)&&(!Number.isFinite(sampling.step)||sampling.step<=0))errors.push('采样步长须大于0');}
  return errors;
