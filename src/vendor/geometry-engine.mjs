@@ -6820,6 +6820,7 @@ function boundaryProjectionSpans(weld, boundary, distance6) {
         const first = at(interval2[0]);
         const last = at(interval2[1]);
         const uMin = residualDelta.lengthSq() > 1e-20 ? THREE11.MathUtils.clamp(-residual.dot(residualDelta) / residualDelta.lengthSq(), interval2[0], interval2[1]) : interval2[0];
+        const closest = at(uMin);
         const minDistance = residual.clone().addScaledVector(residualDelta, uMin).length();
         const [left, right] = first.s <= last.s ? [first, last] : [last, first];
         pieces.push({
@@ -6831,6 +6832,8 @@ function boundaryProjectionSpans(weld, boundary, distance6) {
           endBoundaryPoint: right.boundaryPoint,
           startDistance: left.distance,
           endDistance: right.distance,
+          minPoint: closest.point,
+          minBoundaryPoint: closest.boundaryPoint,
           minDistance
         });
       }
@@ -6847,7 +6850,11 @@ function mergeBoundarySpans(pieces) {
       merged.push({ ...span });
       continue;
     }
-    previous.minDistance = Math.min(previous.minDistance, span.minDistance);
+    if (span.minDistance < previous.minDistance) {
+      previous.minDistance = span.minDistance;
+      previous.minPoint = span.minPoint;
+      previous.minBoundaryPoint = span.minBoundaryPoint;
+    }
     if (span.endS > previous.endS) {
       previous.endS = span.endS;
       previous.endPoint = span.endPoint;
@@ -7421,7 +7428,7 @@ function rememberDistance(cache3, distance6, result) {
   if (cache3.size >= 8 && !cache3.has(distance6)) cache3.delete(cache3.keys().next().value);
   cache3.set(distance6, result);
 }
-function computeBoundaryOffsetSpans(weld, edgesData, distance6) {
+function computeBoundaryOffsetSpans(weld, edgesData, distance6, clipBoundary) {
   let byWeld = boundarySpanCache.get(edgesData);
   if (!byWeld) {
     byWeld = /* @__PURE__ */ new WeakMap();
@@ -7433,7 +7440,7 @@ function computeBoundaryOffsetSpans(weld, edgesData, distance6) {
     byWeld.set(weld, byDistance);
   }
   const cached = byDistance.get(distance6);
-  if (cached) return cached;
+  if (cached && !clipBoundary) return cached;
   const poly = weldPolyline(weld);
   const groups = /* @__PURE__ */ new Map();
   const relevant = /* @__PURE__ */ new Set([
@@ -7444,14 +7451,15 @@ function computeBoundaryOffsetSpans(weld, edgesData, distance6) {
     const key = `${edge.partId}|${edge.faceIndex}|${edge.wire === "inner" && edge.wireId ? edge.wireId : edge.boundaryId ?? `edge:${edge.edgeIndex}`}`;
     const plannedBoundary = boundaryPoints(edge, weld);
     if (nativeArcBoundaryOutsideOffset(weld, edge, plannedBoundary, distance6)) continue;
-    const spans = boundaryProjectionSpans(poly, plannedBoundary, distance6).filter((span) => boundarySpanInOffsetDirection(weld, edge, span));
+    const boundaries = clipBoundary ? clipBoundary(plannedBoundary) : [plannedBoundary];
+    const spans = boundaries.flatMap(points => boundaryProjectionSpans(poly, points, distance6)).filter((span) => boundarySpanInOffsetDirection(weld, edge, span));
     if (!spans.length) continue;
     const group = groups.get(key);
     if (group) group.spans.push(...spans);
     else groups.set(key, { edge, spans });
   }
   const result = [...groups.values()].map((group) => ({ ...group, spans: mergeBoundarySpans(group.spans) }));
-  rememberDistance(byDistance, distance6, result);
+  if (!clipBoundary) rememberDistance(byDistance, distance6, result);
   return result;
 }
 function computeAxialDetection(weld, edgesData) {
@@ -12180,6 +12188,7 @@ var DEFAULT_PROCESSED_GEOMETRY_PLAN_CONFIG = {
   endpointMinimumMm: 40,
   wrapDistanceRatio: 2 / 3,
   minimumWeldLength: 50,
+  retainPlateEndWelds: true,
   thicknessWeldThresholdMm: DEFAULT_THICKNESS_WELD_THRESHOLD_MM,
   mergeParams: { ...DEFAULT_MERGE_PARAMS },
   legSettings: { ...DEFAULT_GEOMETRY_LEG_SETTINGS },
@@ -12230,23 +12239,24 @@ function automaticMerges(data, welds, splits, config, endpointByWeld) {
   const lugKeys = retainedLugContourUnitKeys(data.weldsData, splits, config.minimumWeldLength);
   const deletedUnitKeys = /* @__PURE__ */ new Set();
   const retained = new Set();
+  const isRetainedTerminal = (weldId, index, sub) => {
+    if (!config.retainPlateEndWelds || !sub || sub.length >= config.minimumWeldLength) return false;
+    const endpoints = endpointByWeld?.get(weldId);
+    return isPlateEndUnit(sub, endpoints?.bySubWeld?.[index] ?? endpoints);
+  };
   for (const split of splits.values()) split.subWelds.forEach((sub4, index) => {
     const key = `${split.weldId}|${index}`;
     const independent = sub4.geometryProperties?.\u63A5\u5934\u5F62\u5F0F?.\u677F\u539A\u5F62\u6210\u72EC\u7ACB\u710A\u7F1D;
     if (!sub4.geometryObstruction && independent === true) return;
-    if (independent === false) {
+    if (independent === false || sub4.geometryObstruction || !sub4.geometryRetainTerminal && !lugKeys.has(key) && !isIntermittentSubWeld(sub4) && shouldHideShortWeld(sub4.length, split.weldId, true, roleIds, config.minimumWeldLength)) {
       deletedUnitKeys.add(key);
-      return;
-    }
-    if (sub4.geometryObstruction || !sub4.geometryRetainTerminal && !lugKeys.has(key) && !isIntermittentSubWeld(sub4) && shouldHideShortWeld(sub4.length, split.weldId, true, roleIds, config.minimumWeldLength)) {
-      deletedUnitKeys.add(key);
-      const endpoints = endpointByWeld?.get(split.weldId);
-      if (config.retainPlateEndWelds && isPlateEndUnit(sub4, endpoints?.bySubWeld?.[index] ?? endpoints)) retained.add(key);
+      if (isRetainedTerminal(split.weldId, index, sub4)) retained.add(key);
     }
   });
   const raw = computeMerges(splits, welds, data.partsData, config.mergeParams, deletedUnitKeys);
   const deletedGroupUnitKeys = /* @__PURE__ */ new Set();
   const kept = raw.groups.filter((group) => {
+    if (group.members.some(member => isRetainedTerminal(member.weldId, member.subIndex, splits.get(member.weldId)?.subWelds[member.subIndex]))) return true;
     if (!group.members.some((member) => lugKeys.has(member.key) || member.\u677F\u539A\u72EC\u7ACB === true || splits.get(member.weldId)?.subWelds[member.subIndex]?.geometryRetainTerminal || isIntermittentSubWeld(splits.get(member.weldId)?.subWelds[member.subIndex] ?? {})) && shouldHideShortGroup(group, true, roleIds, config.minimumWeldLength)) {
       group.members.forEach((member) => deletedGroupUnitKeys.add(member.key));
       return false;
@@ -12429,4 +12439,4 @@ export {
   processedGeometryPlanConfig
 };
 
-export { computeAxialDetection as measurePlanningAxial, computeBoundaryOffsetSpans as measurePlanningBoundaries };
+export { computeAxialDetection as measurePlanningAxial, computeBoundaryOffsetSpans as measurePlanningBoundaries, getPartGeometryIndex as planningPartGeometryIndex };

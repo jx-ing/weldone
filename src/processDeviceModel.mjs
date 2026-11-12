@@ -1,3 +1,4 @@
+import {DEVICE_TRACKING_MODES} from './deviceControlModel.mjs';
 import {WIRE_TYPES,WIRE_DIAMETERS,SHIELD_GASES,MATERIALS} from './processParameterModel.mjs';
 
 export const WELDER_BRAND_MODELS={'麦格米特':['Artsen pro 500 PR'],'林肯':['R450'],'松下':['YD-500GL5']};
@@ -5,11 +6,6 @@ export const ROBOT_BRAND_MODELS={Fanuc:['M-20iD/25']};
 export const WELDER_MODELS=['Fronius TPS500i','Lincoln PowerWave R450','Panasonic YD500DP','OTC Daihen FD-V8','Megmeet Artsen II'];
 export const ROBOT_MODELS=['KUKA KR10','ABB IRB1600','FANUC ARC Mate1200','YASKAWA MA1440','ESTUN ER10'];
 export const PRECISION_CAMERA_TYPES=[['laser','线激光'],['structuredLight','结构光']];
-export const DEVICE_TRACKING_MODES=[['arc','电弧跟踪'],['laser','激光跟踪']];
-export const newDeviceHardware=()=>({
- coarseCameraModel:'',trackingModes:[],
- precisionCameras:Object.fromEntries(PRECISION_CAMERA_TYPES.map(([key])=>[key,{enabled:false,model:''}]))
-});
 export function legacyPlanningDevice(profiles){
  const profile=Array.isArray(profiles)?profiles.find(item=>item.enabled):undefined;
  if(!profile?.hardware)return undefined;

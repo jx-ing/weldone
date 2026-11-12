@@ -1,0 +1,176 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {captureFrame,insideCapture,clipCapturePolyline} from '../src/templateCaptureRange.mjs';
+import {createTemplateNeighborhoodMeasurer} from '../src/templateNeighborhood.mjs';
+import {geometryRulesFromWeld,geometryRuleMismatches,updateGeometryRuleMeasurements,updateDistanceIntervals,savedGeometryRules} from '../src/templateGeometryRules.mjs';
+import {measureBaseplateEdges,measureBaseplateEndpoint} from '../src/templateBaseplateEdges.mjs';
+import {measureDistanceInterval} from '../src/templateDistanceProfile.mjs';
+import {newPlanningTemplate} from '../src/templateCoverModel.mjs';
+import {applyTemplateToWeld,matchTemplate} from '../src/templateModel.mjs';
+
+const range={along:4,across:4,above:2,below:7};
+const segment=(points,values={})=>({
+ geometry:'直线',position:'PB · 横角焊',length:10,pathPoints:points,sourceWeldId:'cad-weld',mainPartId:'main',subPartId:'sub',
+ ...values
+});
+const weld=(segments=[segment([[0,0,0],[10,0,0]])])=>({
+ id:'W001',enabled:true,model:'111.step',name:'测试焊缝',completeStart:true,completeEnd:true,leg:6,weldType:'角焊缝',
+ closure:'open',segments,cornerAngles:segments.length===2?[90]:[],position:'PB · 横角焊',
+ groove:{type:'无坡口',angle:0,depth:0},startHole:false,endHole:false
+});
+
+test('截取坐标系随焊缝方向和平移变化，线段按同一范围裁切',()=>{
+ const s=segment([[100,200,30],[100,210,30]]);
+ const frame=captureFrame([s],s.pathPoints,range);
+ assert(insideCapture(frame,[103,211,24]));
+ assert(!insideCapture(frame,[105,211,24]));
+ assert.deepEqual(clipCapturePolyline(frame,[[90,205,30],[110,205,30]]),[[[96,205,30],[104,205,30]]]);
+});
+
+function source(extra=[]){
+ const triangles=[
+  ['main',[[0,-2,-1],[10,-2,-1],[5,2,-1]]],
+  ['below',[[4.3,-.1,-6],[4.5,-.1,-6],[4.4,.2,-6]]],
+  ['to-side',[[2,3,-2],[6,3,-2],[4,5,-2]]],
+  ['before',[[-3,-2,-2],[-3,2,-2],[-3,0,2]]],
+  ...extra
+ ];
+ const parts=triangles.map(([id,points],index)=>({id,vertexOffset:index*3,vertexCount:3,solidCount:1,
+  bbox:{min:[0,1,2].map(i=>Math.min(...points.map(p=>p[i]))),max:[0,1,2].map(i=>Math.max(...points.map(p=>p[i])))}
+ }));
+ const mesh=new Float32Array(triangles.flatMap(([,points])=>points.flatMap(p=>[...p,0,0,1])));
+ const edges={edges:[{partId:'main',faceIndex:0,boundaryId:'edge',wire:'outer',points:[[0,3,0],[10,3,0]]}]};
+ const sourceWelds=[{id:'cad-weld',mainPartId:'main',mainFaceIndex:0,subPartId:'sub',subFaceIndex:0,segments:[{index:1}],properties:{}}];
+ return {parts,mesh,edges,sourceWelds};
+}
+
+test('范围同时约束段边缘、下方实体及端点间隙，未命中为不限',()=>{
+ const measure=createTemplateNeighborhoodMeasurer(source());
+ const target=weld();
+ const wide=measure(target,range);
+ assert.equal(wide.segments[0].edge.distance,3);
+ assert.equal(wide.segments[0].gap.distance,6);
+ assert.equal(wide.start.gap.distance,3);
+ assert.equal(wide.start.holeSize,0);
+ assert.equal(wide.end.gap,null);
+ assert.deepEqual(wide.start.edgeDistance,{from:[0,0,0],to:[0,3,0],distance:3,kind:'plate'});
+ assert.equal(wide.end.edgeDistance.distance,3);
+ const narrow={...range,along:2,across:2,below:5};
+ const none=measure(target,narrow);
+ assert.equal(none.segments[0].baseplate.nearest,null);
+ assert.deepEqual(none.segments[0].baseplate.spans,[]);
+ assert.equal(none.segments[0].gap,null);
+ assert.equal(none.start.gap,null);
+ const rules=geometryRulesFromWeld(target,range,wide);
+ const [saved]=savedGeometryRules(rules).segmentDistances;
+ assert.deepEqual(saved.baseplateEdge,{mode:'continuous',intervals:[{start:0,end:10,distance:{min:3,max:3}}]});
+ assert.equal(saved.solidGap.mode,'continuous');
+ assert.deepEqual(saved.solidGap.intervals.map(interval=>interval.distance),[{min:6,max:6}]);
+ assert.deepEqual(geometryRuleMismatches(rules,target,wide),[]);
+ assert.equal(geometryRuleMismatches(rules,target,none).length,5);
+});
+
+test('每段沿各自底板方向测实体间隙，分别计算最近点与连续区间',()=>{
+ const target=weld([segment([[0,0,0],[10,0,0]]),segment([[10,0,0],[10,10,0]])]);
+ const geometry=source([['second-solid',[[9,1,-2],[11,1,-2],[10,9,-4]]]]);
+ const measure=createTemplateNeighborhoodMeasurer(geometry);
+ const evidence=measure(target,range);
+ const [first,second]=evidence.segments.map(segment=>segment.solidGap);
+ assert.equal(first.nearest.distance,6);
+ assert.equal(second.nearest.distance,2);
+ const interval=measureDistanceInterval(second,2,8);
+ assert(Math.abs(interval.min-2.25)<1e-6&&Math.abs(interval.max-3.75)<1e-6);
+ const rules=geometryRulesFromWeld(target,range,evidence);
+ rules.segmentDistances[1].solidGap={mode:'nearest',nearest:{min:3,max:4}};
+ assert.deepEqual(geometryRuleMismatches(rules,target,evidence),['第 2 段间隙（模板 3–4 mm / 焊道 2 mm）']);
+ rules.segmentDistances[1].gapEnabled=false;
+ assert.deepEqual(geometryRuleMismatches(rules,target,evidence),[]);
+
+ const rotate=([x,y,z])=>[x,-z,y];
+ const offset=geometry.parts.find(part=>part.id==='below').vertexOffset*6;
+ const mesh=new Float32Array(geometry.mesh);
+ for(let i=offset;i<offset+18;i+=6)mesh.set(rotate(Array.from(mesh.slice(i,i+3))),i);
+ const part=geometry.parts.find(part=>part.id==='below');
+ const parts=[{...part,bbox:{min:[part.bbox.min[0],-part.bbox.max[2],part.bbox.min[1]],max:[part.bbox.max[0],-part.bbox.min[2],part.bbox.max[1]]}}];
+ const sourceWelds=geometry.sourceWelds.map(weld=>({...weld,properties:{焊缝段:[{主板面:{类型:'平面',法向:[0,-1,0]}}]}}));
+ const rotated=createTemplateNeighborhoodMeasurer({...geometry,mesh,parts,sourceWelds});
+ assert.equal(rotated(weld(),{...range,across:7}).segments[0].solidGap.nearest.distance,6);
+});
+
+test('模板只保留整条焊缝端点尺寸，分段范围使用模板自身的截取设置匹配',()=>{
+ const target=weld([
+  segment([[0,0,0],[10,0,0]],{endpointFacts:{start:{hasHole:false,gap:3},end:{holeSize:2,gap:1}}}),
+  segment([[10,0,0],[10,10,0]])
+ ]);
+ target.endpointFacts={start:{hasHole:false,type:'两面交'},end:{hasHole:false,type:'三面交'}};
+ const cover={kind:'weld-model-region',dataUrl:'data:image/png;base64,iVBORw0KGgo',width:640,height:400,model:'111.step',weldId:'W001',
+  bounds:{min:[-5,-5,-7],max:[15,15,3]},parts:[0]};
+ const measure=createTemplateNeighborhoodMeasurer(source());
+ const template=newPlanningTemplate('111.step',[target],target.id,cover,range,measure(target,range));
+ template.name='两段模板';
+ assert.equal(template.corners.length,1);
+ assert.equal(template.requirementsMatch.segmentDistances.length,2);
+ assert(template.segments.every(s=>!Object.hasOwn(s,'endpointFacts')));
+ assert.deepEqual(template.requirementsMatch.start.holeSize,{min:0,max:0});
+ assert.equal(matchTemplate(template,target,{measureTemplateNeighborhood:measure}).ok,true);
+ assert.equal(matchTemplate(template,target,{measureTemplateNeighborhood:(w,requested)=>measure(w,{...requested,below:2})}).ok,false);
+ const first=template.requirementsMatch.segmentDistances[0],start=template.requirementsMatch.start;
+ first.edgeDistanceEnabled=false;
+ first.gapEnabled=false;
+ start.holeSizeEnabled=false;
+ start.gapEnabled=false;
+ start.edgeDistanceEnabled=false;
+ // Disabled measurements retain their values, including edits outside the actual geometry.
+ start.holeSize={min:42,max:42};
+ start.edgeDistance={min:99,max:99};
+ const options={measureTemplateNeighborhood:(w,requested)=>measure(w,{...requested,below:2})};
+ assert.equal(matchTemplate(template,target,options).ok,true);
+ start.edgeDistanceEnabled=true;
+ assert.throws(()=>applyTemplateToWeld(target,template,options),error=>
+  error.reasons.length===1&&error.reasons[0]==='起点边缘距离（模板 99 mm / 焊道 3 mm）');
+});
+
+test('实时重算只更新自动测量条件并保持用户手动修改',()=>{
+ const measure=createTemplateNeighborhoodMeasurer(source()),target=weld();
+ const initial=geometryRulesFromWeld(target,range,measure(target,range));
+ const manual={...initial,segmentDistances:[{...initial.segmentDistances[0],baseplateEdge:{
+  ...initial.segmentDistances[0].baseplateEdge,mode:'nearest',nearest:{min:2,max:4}
+ }}]};
+ const nextRange={...range,along:2,across:2,below:5};
+ const recalculated=geometryRulesFromWeld(target,nextRange,measure(target,nextRange));
+ const updated=updateGeometryRuleMeasurements(manual,initial,recalculated);
+ assert.deepEqual(updated.captureRange,nextRange);
+ assert.deepEqual(savedGeometryRules(updated).segmentDistances,[{
+  baseplateEdge:{mode:'nearest',nearest:{min:2,max:4},closest:null},solidGap:{mode:'continuous',intervals:[]}
+ }]);
+ assert.equal(updated.start.gap,null);
+ assert.deepEqual(updated.start.holeSize,{min:0,max:0});
+});
+
+test('仅底板孔边和板边参与，连续距离计算两个边界之间切换时的最大距离',()=>{
+ const s=segment([[0,0,0],[10,0,0]]);
+ const edge=(partId,faceIndex,wire,points)=>({partId,faceIndex,wire,points});
+ const edges={edges:[
+  edge('main',0,'inner',[[0,1,0],[4,3,0]]),
+  edge('main',0,'outer',[[0,3,0],[4,1,0]]),
+  edge('main',0,'outer',[[6,3,0],[10,3,0]]),
+  edge('main',0,'outer',[[0,0,0],[10,0,0]]),
+  edge('main',1,'inner',[[0,.1,0],[10,.1,0]]),
+  edge('main',0,'unknown',[[0,.1,0],[10,.1,0]]),
+  edge('sub',0,'outer',[[0,.1,0],[10,.1,0]])
+ ]};
+ const profile=measureBaseplateEdges(s,source().sourceWelds[0],edges,captureFrame([s],s.pathPoints,range));
+ assert.equal(measureBaseplateEndpoint(s.pathPoints[0],source().sourceWelds[0],edges,captureFrame([s],s.pathPoints,range)).distance,0);
+ assert.deepEqual(profile.spans,[{start:0,end:4},{start:6,end:10}]);
+ assert.equal(profile.nearest.distance,1);
+ assert.equal(profile.nearest.kind,'hole');
+ const measured=measureDistanceInterval(profile,0,4,true);
+ assert.equal(measured.min,1);
+ assert(Math.abs(measured.max-2)<1e-6);
+ assert(measured.witnesses.some(hit=>hit.kind==='plate'));
+ assert.equal(measureDistanceInterval(profile,1,7),null);
+ assert.deepEqual(updateDistanceIntervals([{start:1,end:3},{start:7,end:9}],profile),[
+  {start:1,end:3,distance:{min:1.5,max:2}},
+  {start:7,end:9,distance:{min:3,max:3}}
+ ]);
+});

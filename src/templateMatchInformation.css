@@ -4,17 +4,39 @@
 @media(max-width:700px){.matching-field-grid.three{grid-template-columns:repeat(2,minmax(0,1fr))}.matching-editor-title{flex-wrap:wrap;gap:10px}.matching-editor-title>.matching-field{flex-basis:100%}.matching-editor-body{padding:16px}}
 
 .tpl-modal:has(.template-create-match){width:min(1190px,calc(100vw - 48px))}
-.template-create-match-grid{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:24px;align-items:start}
+.template-create-match-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:24px;align-items:start}
 .template-create-match-grid>section{min-width:0}
 .template-geometry-preview .tpl-model-editor{border:1px solid #e1e4e7;border-radius:4px}
 .template-geometry-preview .tpl-model-toolbar{justify-content:flex-end}
 .template-geometry-preview .tpl-model-viewport{height:clamp(240px,43vh,460px)}
 .template-geometry-summary{margin:8px 0 0;color:#666}
-.tpl-feature-marker{position:absolute;transform:translate(-50%,calc(-100% - 6px));padding:3px 7px;color:#153d55;background:#fff;border:1px solid #69a6c9;border-radius:3px;white-space:nowrap;visibility:hidden;box-shadow:0 1px 4px #0002}
-.tpl-feature-marker.start{color:#774019;border-color:#ef9c51}
-.tpl-feature-marker.edge{color:#3a5153;border-color:#839fa2}
 @media(max-width:900px){.template-create-match-grid{grid-template-columns:minmax(0,1fr);gap:16px}}
 
 .matching-range{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
 .matching-range .matching-number input{padding-inline:5px}
 .matching-range .matching-number small{padding-inline:3px}
+
+.template-create-features{min-width:0;display:grid;gap:18px}
+.template-create-features>section{min-width:0}
+.template-geometry-preview{position:sticky;top:0}
+.matching-feature-button{align-self:start;padding:1px 4px;margin-left:-4px;border:0;border-radius:3px;background:transparent;color:#555;text-align:left;font-size:12px}
+.matching-feature-button:hover,.matching-feature-button[aria-pressed=true]{color:#006d98;background:#e9f5fb}
+.matching-feature-button:focus-visible{outline:2px solid #007cad}
+.template-capture-button{margin-left:auto}
+.template-capture-settings p{margin:0 0 16px;color:#666;line-height:1.6}
+@media(max-width:900px){.template-create-match-grid{grid-template-columns:minmax(0,1fr)}.template-geometry-preview{position:static}}
+
+.template-capture-inline .tpl-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.template-capture-inline .tpl-field{min-width:0}
+.matching-measurement{color:#666;font-size:11px}
+.matching-distance{display:grid;align-content:start;gap:6px;min-width:0}
+.matching-enable{display:flex;align-items:center;gap:6px;width:fit-content;color:#595959;font-size:12px;cursor:pointer}
+.matching-enable input{margin:0}
+.matching-baseplate-edge{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:10px;margin-top:12px}
+.matching-baseplate-heading,.matching-edge-interval-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.matching-baseplate-heading select{height:28px;font-size:12px}
+.matching-edge-hint{color:#727272;font-size:11px;line-height:1.5}
+.matching-edge-interval{display:grid;gap:6px;padding:8px 10px;border:1px solid var(--line);border-radius:3px}
+.matching-edge-interval-heading{font-size:12px}
+.matching-edge-interval-heading .icon{padding:0 5px;font-size:16px}
+.matching-edge-add{justify-self:start;height:28px;font-size:12px}

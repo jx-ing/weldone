@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs/promises';import crypto from 'node:crypto';
 import {processDemoGeometry} from '../src/geometryProcessing.mjs';
-import {DEFAULT_GEOMETRY_OPTIONS,validExtractedWeld,installGeometryResult,restoreGeometryResult} from '../src/geometryProcessingModel.mjs';
+import {DEFAULT_GEOMETRY_OPTIONS,validExtractedWeld,installGeometryResult,removePlanningWelds,restoreGeometryResult} from '../src/geometryProcessingModel.mjs';
 import {DEFAULT_PROCESSED_GEOMETRY_PLAN_CONFIG} from '../src/vendor/geometry-engine.mjs';
 import {pathLength} from '../src/manualWeldModel.mjs';import {validWeldProcessParameters} from '../src/processParameterModel.mjs';
 const root=new URL('../',import.meta.url);
@@ -15,7 +15,7 @@ test('迁移规则与当前示例指纹一致，规范化依据及源文件完�
  for(const [k,v] of Object.entries(DEFAULT_GEOMETRY_OPTIONS).filter(([k])=>k!=='mergeGapCheck'))assert.deepEqual(v,DEFAULT_PROCESSED_GEOMETRY_PLAN_CONFIG[k]);assert.equal(DEFAULT_GEOMETRY_OPTIONS.mergeGapCheck,false);
 });
 test('真实几何完整处理得到105条焊道并保留未确认条件及实际路径',async()=>{
- result=await processDemoGeometry({...DEFAULT_GEOMETRY_OPTIONS,mergeGapCheck:true,splitParameters:{enabled:true,length:100},intermittentParameters:{enabled:true,weldLength:25,gapLength:15}});const s=result.summary;
+ result=await processDemoGeometry({...DEFAULT_GEOMETRY_OPTIONS,retainPlateEndWelds:false,mergeGapCheck:true,splitParameters:{enabled:true,length:100},intermittentParameters:{enabled:true,weldLength:25,gapLength:15}});const s=result.summary;
  assert.equal(s.cadCandidateCount,224);assert.equal(s.extractedWeldCount,210);assert.equal(s.subWeldCount,433);assert.equal(s.survivingUnitCount,114);assert.equal(s.mergedGroupCount,9);assert.equal(s.processedWeldCount,105);
  assert.ok(result.welds.every(w=>validExtractedWeld(w)&&validWeldProcessParameters(w)));assert.ok(result.welds.every(w=>w.weldType&&!Object.hasOwn(w,'joint')&&w.segments.every(segment=>!Object.hasOwn(segment,'joint'))));assert.equal(s.unknownPositionCount,13);
  for(const w of result.welds){assert.equal(w.current,null);assert.equal(w.voltage,null);assert.equal(w.speed,null);assert.ok(Math.abs(w.length-pathLength(w.segments.flatMap(s=>s.pathPoints)))<.001);}
@@ -27,8 +27,33 @@ test('安装和撤销几何结果不覆盖人工焊道或模板工艺库，重�
  const id=installed.welds[2].id;installed.welds[2].enabled=false;const again=installGeometryResult(installed,result);assert.equal(again.welds[2].id,id);assert.equal(again.welds[2].enabled,false);assert.deepEqual(restoreGeometryResult(again).welds,installed.welds);assert.deepEqual(restoreGeometryResult(installed).welds,[manual]);
 });
 
+test('多选删除生效于本地任务，重新提取时不恢复已删除的同一焊道',()=>{
+ const manual={id:'W001',source:'manual'},workspace=installGeometryResult({model:'111.step',welds:[manual],selected:'W001'},result);
+ const first=workspace.welds.find(weld=>weld.source==='extracted');
+ const next=removePlanningWelds(workspace,[manual.id,first.id]);
+ assert.equal(next.welds.length,workspace.welds.length-2);
+ assert.equal(next.selected,next.welds[0].id);
+ assert(next.rejectedGeometryWelds.some(weld=>weld.id===first.id&&weld.rejectionReason==='用户删除'));
+ const rerun=installGeometryResult(next,result);
+ assert(!rerun.welds.some(weld=>weld.processingKey===first.processingKey||weld.id===manual.id));
+ assert(!restoreGeometryResult(rerun).welds.some(weld=>weld.id===first.id));
+});
+
+test('导入 STEP 的提取结果按自身指纹安装，不继承示例焊道的排除编号',()=>{
+ const model='异形接头.step',sourceSha256='a'.repeat(64);
+ const workspace={model,stepModel:{sourceSha256},welds:[],selected:''};
+ const importResult={...result,sourceSha256,welds:result.welds.slice(0,2).map(weld=>({...weld,model,sourceSha256}))};
+ const extracted=installGeometryResult(workspace,importResult);
+ assert.equal(extracted.welds.length,2);
+ assert.equal(extracted.welds[0].id,'W10001');
+ assert(extracted.welds.every(weld=>validExtractedWeld(weld,workspace)));
+ assert.throws(()=>installGeometryResult(workspace,result),/指纹不一致/);
+ const removed=removePlanningWelds(extracted,['W10001']);
+ assert.deepEqual(installGeometryResult(removed,importResult).welds.map(weld=>weld.id),['W10002']);
+});
+
 test('真实模型按合并后的长度与数量上限分组，所有源段均保留',async()=>{
- const limited=await processDemoGeometry({...DEFAULT_GEOMETRY_OPTIONS,mergeGapCheck:true,maxMergeLength:1000,maxMergeCount:3});
+ const limited=await processDemoGeometry({...DEFAULT_GEOMETRY_OPTIONS,retainPlateEndWelds:false,mergeGapCheck:true,maxMergeLength:1000,maxMergeCount:3});
  assert.equal(limited.config.maxMergeLength,1000);assert.ok(limited.welds.every(validExtractedWeld));
  for(const weld of limited.welds)if(weld.sourceEvidence.unitKeys.length>1){assert.ok(weld.length<=1000+1e-9);assert.ok(weld.sourceEvidence.unitKeys.length<=3);}
  assert.deepEqual(limited.welds.flatMap(w=>w.sourceEvidence.unitKeys).sort(),result.welds.flatMap(w=>w.sourceEvidence.unitKeys).sort());
@@ -41,8 +66,8 @@ test('重新提取与撤销处理都保留人工合并和其原焊道记录',asy
 test('自动合并关闭间隙阈值后仍验证真实交点，不能相交的分组保留成员',async()=>{const r=await processDemoGeometry(DEFAULT_GEOMETRY_OPTIONS);assert.equal(r.config.mergeGapCheck,false);assert.ok(r.welds.every(validExtractedWeld));assert.equal(r.welds.some(w=>w.segments.some(s=>s.connectionGap)),false);assert.equal(r.summary.processedWeldCount,r.welds.length);assert.ok(r.summary.rejectedMergeGroupCount>0);assert.ok(r.welds.some(w=>w.sourceEvidence.rejectedMergeReason));assert.equal(JSON.stringify(r).includes('Infinity'),false);});
 
 test('规划提取保留板端短焊缝，并保持现有焊道编号和非焊缝排除记录',async()=>{
- const base=await processDemoGeometry({...DEFAULT_GEOMETRY_OPTIONS,planningRevision:3});
- const withTerminal=await processDemoGeometry({...DEFAULT_GEOMETRY_OPTIONS,planningRevision:3,retainPlateEndWelds:true});
+ const base=await processDemoGeometry({...DEFAULT_GEOMETRY_OPTIONS,planningRevision:3,retainPlateEndWelds:false});
+ const withTerminal=await processDemoGeometry({...DEFAULT_GEOMETRY_OPTIONS,planningRevision:3});
  const draft={model:'111.step',welds:[],selected:''};
  const previous=installGeometryResult(draft,base),updated=installGeometryResult(draft,withTerminal);
  const restored=updated.welds.filter(w=>w.sourceEvidence.retainedPlateEnd);

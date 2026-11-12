@@ -2,20 +2,46 @@ import {loadModelData,prepareProcessedGeometryData,computeAllSplitsAsync,compute
 import {DEMO_SOURCE_SHA256,convertGeometryPlan,validateGeometryOptions} from './geometryProcessingModel.mjs';
 import {roundWeldLeg} from './planningRequirements.mjs';
 import {withPlanningEdgeThresholds} from './planningEdgeThreshold.mjs';
+import {EXAMPLE_MODEL} from './manualWeldModel.mjs';
+import {loadStepMesh} from './stepModelStore.mjs';
+
 export async function processDemoGeometry(options,onProgress=()=>{}){
+  const base='/models/111-rules';
+  return processGeometry(options,onProgress,{base,model:EXAMPLE_MODEL,sourceSha256:DEMO_SOURCE_SHA256,canonical:true});
+}
+
+export async function processImportedStep(model,reference,options,onProgress){
+  const mesh=await loadStepMesh(model,reference);
+  if(!mesh.sourceFile){
+    const error=Error('此模型导入时未保留原始 STEP，请重新选择同一文件后再点击一键规划');
+    error.code='STEP_SOURCE_MISSING';
+    throw error;
+  }
+  onProgress({stage:'正在分析 STEP 实体与零件接触边界',percent:2});
+  const response=await fetch('/api/step-extraction',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:mesh.sourceFile});
+  const job=await response.json().catch(()=>null);
+  if(!response.ok||!job?.dataPath)throw Error(job?.error||'当前预览未启用本机 STEP 几何提取服务');
+  try{
+    return await processGeometry(options,onProgress,{base:job.dataPath,model,sourceSha256:reference.sourceSha256});
+  }finally{
+    await fetch(job.dataPath,{method:'DELETE'}).catch(()=>{});
+  }
+}
+
+async function processGeometry(options,onProgress,{base,model,sourceSha256,canonical}){
   const errors=validateGeometryOptions(options);if(errors.length)throw Error(errors.join('；'));
   onProgress({stage:'读取真实几何提取数据',percent:5});
-  const loaded=await loadModelData('/models/111-rules',undefined,{geometryOnly:true,thicknessWeldThresholdMm:options.thicknessWeldThresholdMm});
-  if(loaded.analysis?.sourceSha256!==DEMO_SOURCE_SHA256)throw Error('模型源文件指纹校验失败');
-  if(!loaded.edgesData?.edges?.length||!loaded.contactPairs?.size)throw Error('边界或零件接触数据缺失，请重新加载后处理');
-  // The native topology normalization is saved once with the extraction files.
-  // This retains the exact source rules while keeping floating-point shell
-  // boundary decisions identical across Node and browser JavaScript engines.
-  const response=await fetch('/models/111-rules/planning-input.json',{cache:'no-store'});
-  if(!response.ok)throw Error('几何归一化数据加载失败');
-  const canonical=await response.json();
-  if(canonical.sourceSha256!==DEMO_SOURCE_SHA256||canonical.geometryPlanRevision!==5||!Array.isArray(canonical.weldsData?.welds))throw Error('几何归一化数据与模型或规则版本不一致');
-  loaded.weldsData=canonical.weldsData;
+  const loaded=await loadModelData(base,undefined,{geometryOnly:true,thicknessWeldThresholdMm:options.thicknessWeldThresholdMm});
+  if(loaded.analysis?.sourceSha256!==sourceSha256)throw Error('模型源文件指纹校验失败');
+  if(!Array.isArray(loaded.edgesData?.edges)||!loaded.contactPairs)throw Error('边界或零件接触数据缺失，请重新加载后处理');
+  if(canonical){
+    // Preserve the demo's frozen native topology decisions across JS engines.
+    const response=await fetch(base+'/planning-input.json',{cache:'no-store'});
+    if(!response.ok)throw Error('几何归一化数据加载失败');
+    const input=await response.json();
+    if(input.sourceSha256!==sourceSha256||input.geometryPlanRevision!==5||!Array.isArray(input.weldsData?.welds))throw Error('几何归一化数据与模型或规则版本不一致');
+    loaded.weldsData=input.weldsData;
+  }
   const config={...processedGeometryPlanConfig(options),mergeGapCheck:options.mergeGapCheck===true,...(options.maxMergeCount!==undefined?{maxMergeCount:options.maxMergeCount}:{}),...(options.maxMergeLength!==undefined?{maxMergeLength:options.maxMergeLength}:{})},{data,splitWeldsData}=prepareProcessedGeometryData(loaded,config.legSettings,config.thicknessWeldThresholdMm);
   if(options.planningRevision===3){
     const action=options.actionParameters??{};
@@ -35,8 +61,11 @@ export async function processDemoGeometry(options,onProgress=()=>{}){
   const splits=await computeAllSplitsAsync([splitInput,data.mesh,data.partsData,data.edgesData,data.contactPairs,config.offset,config.extendThreshold,config.offsetThreshold],{budgetMs:50,onProgress:p=>onProgress({stage:`打断焊道 ${p.completed}/${p.total}`,percent:10+Math.round(p.completed/Math.max(1,p.total)*65)})});
   if(!splits)throw Error('焊道打断未完成');onProgress({stage:'保留板端焊缝并按规则合并',percent:80});
   const runtimeConfig=config.mergeGapCheck?config:{...config,mergeParams:{...config.mergeParams,最大合并距离:Infinity}};
-  const plan=computeProcessedGeometryPlan(data,splits,runtimeConfig),welds=convertGeometryPlan(data,plan,options);
+  const plan=computeProcessedGeometryPlan(data,splits,runtimeConfig),welds=convertGeometryPlan(data,plan,options,{model,sourceSha256});
   const merged=welds.filter(w=>w.sourceEvidence.unitKeys.length>1).length,rejected=new Set(welds.map(w=>w.sourceEvidence.rejectedMergeKey).filter(Boolean)).size;
   onProgress({stage:'处理完成',percent:100});
-  return {welds,sourceSha256:DEMO_SOURCE_SHA256,config,summary:{...plan.summary,sourceRuleMergedGroupCount:plan.summary.mergedGroupCount,mergedGroupCount:merged,automaticMergeGroupCount:merged,rejectedMergeGroupCount:rejected,processedWeldCount:welds.length,cornerCount:welds.reduce((sum,w)=>sum+w.cornerAngles.length,0),cadCandidateCount:loaded.analysis.summary.candidateWeldCount,referenceOnlyCount:loaded.analysis.summary.candidateWeldCount-data.weldsData.welds.length,unknownPositionCount:welds.filter(w=>w.position==='待确认').length,unconfirmedGrooveCount:welds.filter(w=>w.groove.type==='待确认'||w.groove.depth===null).length},extraction:{partCount:loaded.analysis.summary.partCount,method:loaded.analysis.method,sourceSha256:DEMO_SOURCE_SHA256,rawDataPath:'/models/111-rules/welds.json',analysisPath:'/models/111-rules/analysis.json'}};
+  return {welds,sourceSha256,config,summary:{...plan.summary,sourceRuleMergedGroupCount:plan.summary.mergedGroupCount,mergedGroupCount:merged,automaticMergeGroupCount:merged,rejectedMergeGroupCount:rejected,processedWeldCount:welds.length,cornerCount:welds.reduce((sum,w)=>sum+w.cornerAngles.length,0),cadCandidateCount:loaded.analysis.summary.candidateWeldCount,referenceOnlyCount:loaded.analysis.summary.candidateWeldCount-data.weldsData.welds.length,unknownPositionCount:welds.filter(w=>w.position==='待确认').length,unconfirmedGrooveCount:welds.filter(w=>w.groove.type==='待确认'||w.groove.depth===null).length},
+    extraction:{partCount:loaded.analysis.summary.partCount,method:loaded.analysis.method,sourceSha256,
+      ...(canonical?{rawDataPath:base+'/welds.json',analysisPath:base+'/analysis.json'}:{})},
+    ...(!canonical?{neighborhood:{parts:loaded.partsData.parts,mesh:loaded.mesh,edges:loaded.edgesData,sourceWelds:loaded.weldsData.welds}}:{})};
 }

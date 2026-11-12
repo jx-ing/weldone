@@ -1,7 +1,7 @@
 import {MAX_PLANNING_WELDS,weldForm} from './planningRequirements.mjs';
 import {sameGroove} from './grooveModel.mjs';
 import {connectSegmentIntersections,mergeCornerAngles} from './mergeIntersectionGeometry.mjs';
-import {distance,EXAMPLE_MODEL} from './manualWeldModel.mjs';
+import {distance} from './manualWeldModel.mjs';
 function boundarySegment(w,end,previous){const list=w.segments.filter(s=>!s.connectionGap),segment=structuredClone(end?list.at(-1):list[0]);if(previous?!end:!!end)segment.pathPoints.reverse();return segment;}
 const endpoint=(w,e)=>e?w.segments.at(-1).pathPoints.at(-1):w.segments[0].pathPoints[0];
 export function mergeWeldPreview(welds,ids,maxGap=.001,settings){
@@ -10,7 +10,7 @@ export function mergeWeldPreview(welds,ids,maxGap=.001,settings){
   if(ids.length<2||new Set(ids).size!==ids.length)return {ok:false,errors:['请至少选择两条不同焊道']};
   if(ids.length>30)return {ok:false,errors:['一次最多合并30条焊道']};
   if(selected.some(w=>!w||!w.enabled||w.mergedInto||w.splitInto))return {ok:false,errors:['仅可合并当前启用且未被合并的焊道']};
-  if(selected.some(w=>w.model!==EXAMPLE_MODEL||!w.segments?.length||w.segments.some(s=>!s.pathPoints?.length)))return {ok:false,errors:['所选焊道必须来自同一模型并具有真实路径']};
+  if(selected.some(w=>!w.model||w.model!==selected[0].model||!w.segments?.length||w.segments.some(s=>!s.pathPoints?.length)))return {ok:false,errors:['所选焊道必须来自同一模型并具有真实路径']};
   if(selected.some(w=>w.closure==='closed'))errors.push('闭合焊道不能再与其他焊道串接');
   const requiresTemplate=selected.some(w=>w.leg!==selected[0].leg||w.position!==selected[0].position||weldForm(w)!==weldForm(selected[0]));
   if(!modern&&selected.some(w=>w.leg!==selected[0].leg))errors.push('所选焊道焊脚不一致');

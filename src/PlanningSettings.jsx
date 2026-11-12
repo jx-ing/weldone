@@ -85,13 +85,13 @@ export default function PlanningSettings({settings={},capabilities={},onSave,onC
   {field('mergeParameters','verticalContactGap','立焊焊缝相接最小间隙',{placeholder:'默认0'})}
   <fieldset className="planning-setting-fields planning-subgroup">
    <legend>自由板端合并</legend>
-   <Switch label="平角焊合并（L/U形包角）" value={wrap.flatEnabled} onChange={value=>change('wrapParameters','flatEnabled',value)}/>
+   <Switch label="平角焊合并" value={wrap.flatEnabled} onChange={value=>change('wrapParameters','flatEnabled',value)}/>
    <fieldset className="planning-setting-fields" disabled={!wrap.flatEnabled}>
     {field('wrapParameters','independentLength','独立焊缝长度',{min:.1,placeholder:'默认30'})}
     {field('wrapParameters','passHoleThreshold','过焊孔阈值',{min:1,integer:true,diagram:'/assets/wrap-pass-hole-threshold.png'})}
     {field('wrapParameters','outerClearance','外角最小空间',{placeholder:'默认0'})}
    </fieldset>
-   <Switch label="立焊合并（立焊上包角）" value={wrap.verticalEnabled} onChange={value=>change('wrapParameters','verticalEnabled',value)}/>
+   <Switch label="立焊合并" value={wrap.verticalEnabled} onChange={value=>change('wrapParameters','verticalEnabled',value)}/>
   </fieldset>
   <fieldset className="planning-setting-fields planning-subgroup">
    <legend>相接板端合并（转角）</legend>

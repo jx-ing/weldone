@@ -1,5 +1,6 @@
+import {migrateDeviceControl} from './deviceControlModel.mjs';
 import {legacyPlanningDevice} from './processDeviceModel.mjs';
-import {geometryRuleErrors,geometryRuleMismatches,shortSegmentRange,SHORT_SEGMENT_MM,endpointType,normalizeEndpointFacts} from './templateGeometryRules.mjs';
+import {geometryRuleErrors,geometryRuleMismatches,needsGeometryMeasurements,shortSegmentRange,SHORT_SEGMENT_MM,endpointType,normalizeEndpointFacts} from './templateGeometryRules.mjs';
 import {GROOVE_TYPES,grooveType,grooveValue,validGroove} from './grooveModel.mjs';
 import {normalizeLegacyMergeGaps} from './mergeIntersectionGeometry.mjs';
 import {directedWeld} from './weldDirectionGeometry.mjs';
@@ -205,12 +206,14 @@ export function migrateDraft(v) {
   if(Array.isArray(v.manualSplitHistory))history.manualSplitHistory=v.manualSplitHistory.map(entry=>({...entry,original:migrateWeld(entry.original)}));
   if(Array.isArray(v.deletedProcessDevices))history.deletedProcessDevices=v.deletedProcessDevices.map(entry=>({...entry,entries:entry.entries.map(migrateProcessWeldForms)}));
   const settings={};
-  if(v.planningDevice===undefined){const device=legacyPlanningDevice(v.processDeviceProfiles);if(device)settings.planningDevice=device;}
+  const {planningDevice,...workspace}=v;
+  const legacyDevice=planningDevice??legacyPlanningDevice(v.processDeviceProfiles);
+  if(legacyDevice&&v.deviceControl===undefined)settings.deviceControl=migrateDeviceControl(legacyDevice,v.deviceCapabilities);
   if(v.planningSettings)settings.planningSettings=withoutRetiredFillSettings(v.planningSettings);
   if(v.projectPlanning)settings.projectPlanning=Object.fromEntries(Object.entries(v.projectPlanning).map(([name,profile])=>[
     name,profile.planningSettings?{...profile,planningSettings:withoutRetiredFillSettings(profile.planningSettings)}:profile
   ]));
-  return { ...v, ...history, ...settings, processLibrary:(v.processLibrary??[]).map(migrateProcessWeldForms), processDeviceProfiles:v.processDeviceProfiles??[], welds: v.welds?.map(migrateWeld).map(w => v.model === '肋板组件 A' ? { ...w, completeStart:w.completeStart??true,completeEnd:w.completeEnd??true,closure:w.closure??'open',segments:w.segments??[segment(w)],cornerAngles:w.cornerAngles??[],groove:w.groove??{type:'无坡口',angle:0,depth:0},startHole:w.startHole??false,endHole:w.endHole??false } : normalizeLegacyMergeGaps(w)), templates: v.templates.map(migrateTemplate), fixedTemplates: (v.fixedTemplates || []).map(f=>{
+  return { ...workspace, ...history, ...settings, processLibrary:(v.processLibrary??[]).map(migrateProcessWeldForms), processDeviceProfiles:v.processDeviceProfiles??[], welds: v.welds?.map(migrateWeld).map(w => v.model === '肋板组件 A' ? { ...w, completeStart:w.completeStart??true,completeEnd:w.completeEnd??true,closure:w.closure??'open',segments:w.segments??[segment(w)],cornerAngles:w.cornerAngles??[],groove:w.groove??{type:'无坡口',angle:0,depth:0},startHole:w.startHole??false,endHole:w.endHole??false } : normalizeLegacyMergeGaps(w)), templates: v.templates.map(migrateTemplate), fixedTemplates: (v.fixedTemplates || []).map(f=>{
   const migratePoints=points=>syncControlPoints({type:'local',segments:Array.from({length:f.segmentCount},()=>segment()),points},true,true).points.map(({id,kind,name,segment,percent,referenceId,location,anchorRole,autoRole})=>({id,kind,name,segment,percent,...(anchorRole?{anchorRole}:{}),...(autoRole?{autoRole}:{}),...(referenceId!==undefined?{referenceId}:{}),...(location?{location}: {})}));
   return {...f,...(f.definition?{definition:migrateTemplate(f.definition)}:{}),points:migratePoints(f.points),...(f.layers?{layers:f.layers.map(l=>({...l,passes:l.passes.map(p=>({...p,points:migratePoints(p.points)}))}))}:{})};
 }) }; }
@@ -318,7 +321,14 @@ export function matchTemplate(t, target, options={}) {
   const shortOnly=options.planningRevision===3||!!t.requirementsMatch||t.shortSegmentMatch===true;
   const hasShortRanges=!!t.requirementsMatch||t.shortSegmentMatch===true;
   t=templateForMatching(t);
-  const reasons = t.requirementsMatch?geometryRuleMismatches(t.requirementsMatch,target):[], n = t.segments?.length, value=v=>v===undefined||v===null||v===''?'未提供':String(v);
+  const rules=t.requirementsMatch;
+  let neighborhood=null,measurementError;
+  if(needsGeometryMeasurements(rules)){
+    try{neighborhood=options.measureTemplateNeighborhood?.(target,rules.captureRange);}
+    catch(error){measurementError=error.message;}
+  }
+  const reasons = rules?geometryRuleMismatches(rules,target,neighborhood):[], n = t.segments?.length, value=v=>v===undefined||v===null||v===''?'未提供':String(v);
+  if(measurementError&&reasons.length)reasons.unshift('局部几何测量失败：'+measurementError);
   const compare=(label,expected,actual,unit='')=>reasons.push(`${label}不一致（模板 ${value(expected)}${unit} / 焊道 ${value(actual)}${unit}）`);
   if((target.closure||'open')!==t.closure)compare('开放／闭合属性',t.closure==='closed'?'闭合':'开放',target.closure==='closed'?'闭合':'开放');
   if (t.type === 'whole' && (!target.completeStart || !target.completeEnd)) reasons.push(`焊缝模板要求完整的起点、终点（缺少${[!target.completeStart?'完整起点':'',!target.completeEnd?'完整终点':''].filter(Boolean).join('、')}）`);
@@ -353,7 +363,7 @@ export function matchTemplate(t, target, options={}) {
 }
 export function applyTemplateToWeld(w, t, options={}) {
   const target = targetFromWeld(w), match = matchTemplate(t, target, options);
-  if (!match.ok) throw new Error(match.reasons.join('；'));
+  if (!match.ok) throw Object.assign(new Error(match.reasons.join('；')),{reasons:match.reasons});
   const previewTarget={...target,segments:target.segments.map((s,i)=>({...s,shape:s.shape||t.segments[i].shape})),corners:t.corners};
   const path=previewPath(previewTarget.segments,'xy',t.corners,t.closure);
   const layers=t.layers.map(layer=>({...structuredClone(layer),passes:layer.passes.map(pass=>({...structuredClone(pass),controlPoints:pass.points.map(p=>{

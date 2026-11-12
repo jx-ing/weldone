@@ -1,7 +1,7 @@
 import {initializeLocalControlPoints} from './templatePointAnchors.mjs';
 import {cornerSide} from './templateCornerAngles.mjs';
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { ArrowLeft,Info, Folder, Plus, Pencil, Trash2, X, Save, Route } from 'lucide-react';
+import { ArrowLeft,Info, Folder, Plus, Pencil, Trash2, X, Save, Route, Settings } from 'lucide-react';
 import { independentWeldTemplate, withoutLocalLengthBounds, segmentMinLength,segmentMaxLength,reconcileTemplateGeometry, validateTemplate, validateFixed, reuseLayout, uid } from './templateModel.mjs';
 import {fixedTemplateDraft,fixedTemplateRecord} from './fixedTemplateModel.mjs';
 import './templates.css';
@@ -10,10 +10,14 @@ import './processParameters.css';
 import './templateProjects.css';
 import {templateProjectName,templateProjectGroups,createTemplateProject,selectTemplateProject,renameTemplateProject,deleteTemplateProject} from './templateProjects.mjs';
 import MatchConditions from './TemplateMatchConditions';
-import TemplateMatchInformation,{GeometryMatchFields} from './TemplateMatchInformation';
+import TemplateMatchInformation,{GeometryMatchFields,TemplateSegmentMatchFields,TemplateCornerMatchFields} from './TemplateMatchInformation';
 import MultiPassEditor from './TemplateMultiPassEditor';
 import TemplateWorkbench from './TemplateWorkbench';
 import TemplateGeometryPreview from './TemplateGeometryPreview';
+import TemplateCaptureSettings,{TemplateCaptureRangeFields} from './TemplateCaptureSettings';
+import {validTemplateCaptureRange} from './templateCaptureRange.mjs';
+import {templateMatchParameters} from './templateMatchingParameters.mjs';
+import {geometryRuleErrors,geometryRulesFromWeld,savedGeometryRules,updateGeometryRuleMeasurements} from './templateGeometryRules.mjs';
 import EditorPage,{EditorExitNotice} from './EditorPage';
 import {validTemplateCover} from './templateCoverModel.mjs';
 import {hasTemplateModelPath} from './templateModelEditing.mjs';
@@ -32,8 +36,28 @@ export function Modal({ title, children, onClose, wide = false, closeLabel = '�
   return <div className="tpl-overlay"><section className={`tpl-modal ${wide ? 'wide' : ''}`} tabIndex={-1} ref={ref} data-template-modal role="dialog" aria-modal="true" aria-label={title}><header><strong>{title}</strong><button type="button" className="icon" aria-label={closeLabel} onClick={onClose}><X size={18}/></button></header>{children}</section></div>;
 }
 
-export function TemplateEditor({initial,processLibrary=[],fixedOnly=false,isNew,backLabel,onSave,onClose}) {
+export function TemplateEditor({initial,processLibrary=[],fixedOnly=false,isNew,backLabel,onSave,onClose,neighborhoodEvidence,neighborhoodSource,measureNeighborhood}) {
   const [draft,setDraft]=useState(()=>{const t=initial.type==='local'?reconcileTemplateGeometry(initializeLocalControlPoints(structuredClone(initial))):structuredClone(initial);delete t.operationPosition;if(t.type==='local'&&!fixedOnly){const p=processLibrary.find(p=>p.id===t.baseProcessId);if(p)t.leg=p.leg;}return t;}),[tab,setTab]=useState(initial.type==='whole'&&!fixedOnly?'points':'match'),[errors,setErrors]=useState([]),[discard,setDiscard]=useState(false);
+  const [feature,setFeature]=useState(null),[evidence,setEvidence]=useState(neighborhoodEvidence);
+  const [captureInput,setCaptureInput]=useState(initial.requirementsMatch?.captureRange);
+  const automaticRules=useRef(initial.requirementsMatch);
+  const [captureError,setCaptureError]=useState('');
+  function changeCaptureRange(range){
+    setCaptureInput(range);
+    if(!validTemplateCaptureRange(range)){
+      setCaptureError('请输入有效截取范围。');
+      return;
+    }
+    try{
+      const nextEvidence=measureNeighborhood?.(neighborhoodSource,range);
+      const next=geometryRulesFromWeld(neighborhoodSource,range,nextEvidence),previous=automaticRules.current;
+      automaticRules.current=next;
+      setEvidence(nextEvidence);
+      setCaptureError('');
+      setErrors([]);
+      setDraft(current=>({...current,requirementsMatch:updateGeometryRuleMeasurements(current.requirementsMatch,previous,next,nextEvidence)}));
+    }catch(error){setCaptureError(error.message);}
+  }
   const liveDraft=useRef(draft),exitAction=useRef(onClose);liveDraft.current=draft;
   const pristine=useRef(JSON.stringify(draft)),modelCapture=useRef(),scroll=useRef(),tabId=useId();
   const detail=draft.type==='whole'&&!fixedOnly,passCount=draft.layers.reduce((n,l)=>n+l.passes.length,0),pointCount=draft.layers.reduce((n,l)=>n+l.passes.reduce((sum,p)=>sum+p.points.length,0),0);
@@ -41,10 +65,13 @@ export function TemplateEditor({initial,processLibrary=[],fixedOnly=false,isNew,
   useEffect(()=>{if(scroll.current)scroll.current.scrollTop=0;},[activeTab]);
   function close(){exitAction.current=onClose;if(JSON.stringify(draft)!==pristine.current)setDiscard(true);else onClose();}
   useEffect(()=>{const navigate=event=>{if(JSON.stringify(liveDraft.current)===pristine.current)return;event.preventDefault();exitAction.current=event.detail.navigate;setDiscard(true);};const unload=event=>{if(JSON.stringify(liveDraft.current)!==pristine.current){event.preventDefault();event.returnValue='';}};window.addEventListener('template-library-navigate',navigate);window.addEventListener('beforeunload',unload);return()=>{window.removeEventListener('template-library-navigate',navigate);window.removeEventListener('beforeunload',unload);};},[]);
-  function save(e){e.preventDefault();const value=withoutLocalLengthBounds({...draft,...(!fixedOnly&&draft.type==='local'?{localConditionsVersion:1}:{}),enabled:draft.enabled!==false,segments:draft.segments.map(s=>detail?{...s}:{...s,minLength:segmentMinLength(draft,s),maxLength:segmentMaxLength(draft,s)}),corners:draft.corners.map(c=>detail?{...c}:{...c,angleSide:cornerSide(c)}),name:draft.name.trim(),position:draft.segments[0].position});if(value.sourceWeld&&JSON.stringify(value.segments)!==JSON.stringify(JSON.parse(pristine.current).segments)){if(!modelCapture.current){setErrors(['请等待三维焊缝域模型加载完成后保存']);return;}try{value.cover=modelCapture.current({id:value.sourceWeld.id,leg:value.leg,segments:value.segments});}catch(error){setErrors([error.message]);return;}}const record=fixedOnly?fixedTemplateRecord(value):independentWeldTemplate(value);const baseIssues=!fixedOnly&&draft.type==='local'?localProcessBindingIssues(value,processLibrary):[];const issues=fixedOnly?validateFixed(record):[...baseIssues,...(isNew&&value.type==='whole'&&(value.createdFrom!=='process-planning'||!validTemplateCover(value.cover,value.sourceWeld))?['新建模板必须来自工艺规划中选中的焊缝及其模型截图']:[]),...validateTemplate(value)];if(issues.length){setErrors([...new Set(issues)]);return;}const failure=onSave(record);if(failure)setErrors([failure]);}
+  function save(e){e.preventDefault();if(captureError)return;const value=withoutLocalLengthBounds({...draft,...(!fixedOnly&&draft.type==='local'?{localConditionsVersion:1}:{}),enabled:draft.enabled!==false,segments:draft.segments.map(s=>detail?{...s}:{...s,minLength:segmentMinLength(draft,s),maxLength:segmentMaxLength(draft,s)}),corners:draft.corners.map(c=>detail?{...c}:{...c,angleSide:cornerSide(c)}),name:draft.name.trim(),position:draft.segments[0].position});const original=JSON.parse(pristine.current);if(value.sourceWeld&&(JSON.stringify(value.segments)!==JSON.stringify(original.segments)||JSON.stringify(value.requirementsMatch?.captureRange)!==JSON.stringify(original.requirementsMatch?.captureRange))){if(!modelCapture.current){setErrors(['请等待三维焊缝域模型加载完成后保存']);return;}try{value.cover=modelCapture.current({id:value.sourceWeld.id,leg:value.leg,segments:value.segments});}catch(error){setErrors([error.message]);return;}}const record=fixedOnly?fixedTemplateRecord(value):independentWeldTemplate({...value,...(value.requirementsMatch?{requirementsMatch:savedGeometryRules(value.requirementsMatch)}:{})});const baseIssues=!fixedOnly&&draft.type==='local'?localProcessBindingIssues(value,processLibrary):[];const issues=fixedOnly?validateFixed(record):[...baseIssues,...(isNew&&value.type==='whole'&&(value.createdFrom!=='process-planning'||!validTemplateCover(value.cover,value.sourceWeld))?['新建模板必须来自工艺规划中选中的焊缝及其模型截图']:[]),...validateTemplate(value),...geometryRuleErrors(value)];if(issues.length){setErrors([...new Set(issues)]);return;}const failure=onSave(record);if(failure)setErrors([failure]);}
   const set=values=>{setDraft(d=>reconcileTemplateGeometry({...d,...values}));setErrors([]);};
   const Frame=isNew?Modal:EditorPage;
   if(detail&&isNew){
+    const parameters=templateMatchParameters(draft);
+    const changeParameters=values=>setDraft(previous=>({...previous,matchParameters:{...templateMatchParameters(previous),...values}}));
+    const changeRules=values=>setDraft(previous=>({...previous,requirementsMatch:{...previous.requirementsMatch,...values}}));
     return <Modal title="新建焊缝模板" onClose={close}>
       {discard&&<EditorExitNotice onContinue={()=>setDiscard(false)} onDiscard={()=>{setDiscard(false);exitAction.current();}}/>}
       <form className="template-match-editor template-create-match" onSubmit={save}>
@@ -54,13 +81,25 @@ export function TemplateEditor({initial,processLibrary=[],fixedOnly=false,isNew,
             <span>{draft.sourceWeld?.id} · 焊脚 {draft.leg} mm · {draft.segments.length} 段</span>
           </div>
           <div className="template-create-match-grid">
-          {hasTemplateModelPath(initial)&&<TemplateGeometryPreview template={initial}/>}
-          {draft.requirementsMatch&&<GeometryMatchFields title="焊缝邻域几何匹配特征" rules={draft.requirementsMatch} holeFlags={{start:draft.startHole,end:draft.endHole}}
-            changeRules={values=>setDraft(previous=>({...previous,requirementsMatch:{...previous.requirementsMatch,...values}}))}/>}
+          {hasTemplateModelPath(initial)&&<TemplateGeometryPreview template={draft} evidence={evidence} feature={feature}
+            onCaptureReady={capture=>{modelCapture.current=capture;}}>
+            {captureInput&&<fieldset className="matching-segment template-capture-inline">
+             <legend>局部模型截取范围</legend>
+             <TemplateCaptureRangeFields value={captureInput} onChange={changeCaptureRange}/>
+             {captureError&&<p role="alert" className="matching-editor-error">{captureError}</p>}
+            </fieldset>}
+          </TemplateGeometryPreview>}
+          <div className="template-create-features">
+           <TemplateSegmentMatchFields template={initial} parameters={parameters} rules={draft.requirementsMatch}
+            change={changeParameters} changeRules={changeRules} evidence={evidence} selected={feature} onSelect={setFeature}/>
+           <TemplateCornerMatchFields template={initial} parameters={parameters} change={changeParameters} selected={feature} onSelect={setFeature}/>
+           {draft.requirementsMatch&&<GeometryMatchFields rules={draft.requirementsMatch} holeFlags={{start:draft.startHole,end:draft.endHole}}
+            changeRules={changeRules} evidence={evidence} selected={feature} onSelect={setFeature}/>}
+          </div>
           </div>
           {errors.length>0&&<div className="tpl-errors" role="alert">{errors.map(error=><p key={error}>{error}</p>)}</div>}
         </div>
-        <footer><Button onClick={close}>取消</Button><button type="submit" className="btn primary"><Save size={15}/>保存模板</button></footer>
+        <footer><Button onClick={close}>取消</Button><button type="submit" className="btn primary" disabled={!!captureError}><Save size={15}/>保存模板</button></footer>
       </form>
     </Modal>;
   }
@@ -82,9 +121,9 @@ export function TemplateEditor({initial,processLibrary=[],fixedOnly=false,isNew,
   </Frame>;
 }
 
-export default function TemplateLibrary({templates,onUpdate,notify,onEditingChange,onGoPlanning,processLibrary=[],project='本地项目',projectNames}) {
+export default function TemplateLibrary({templates,onUpdate,notify,onEditingChange,onGoPlanning,processLibrary=[],project='本地项目',projectNames,captureRange,measureNeighborhood}) {
  const [query,setQuery]=useState(''),[appliedQuery,setAppliedQuery]=useState(''),[selectedProject,setSelectedProject]=useState(()=>templateProjectName({},project)),[page,setPage]=useState(1),[editor,setEditor]=useState(null),[remove,setRemove]=useState(null);
- const [matchingTemplate,setMatchingTemplate]=useState(null);
+ const [matchingTemplate,setMatchingTemplate]=useState(null),[captureSettings,setCaptureSettings]=useState(false);
  const [projectDialog,setProjectDialog]=useState(null),[projectValue,setProjectValue]=useState(''),[projectError,setProjectError]=useState('');
  useEffect(()=>{onEditingChange?.(!!editor&&!editor.isNew);return()=>onEditingChange?.(false);},[!!editor,editor?.isNew,onEditingChange]);
  const projects=templateProjectGroups(templates,project,projectNames),activeProject=projects.some(p=>p.name===selectedProject)?selectedProject:projects[0]?.name||'';
@@ -101,13 +140,20 @@ export default function TemplateLibrary({templates,onUpdate,notify,onEditingChan
  if(editor&&!editor.isNew)return <div className="tpl-editor-host">{editorView}</div>;
  return <section className="tpl-library process-library" aria-label="焊接模板库列表">
  <aside className="process-sidebar tpl-project-sidebar" aria-label="项目列表"><div className="process-sidebar-heading"><img src="/assets/process-library/menu.svg" alt=""/><span>项目</span><button type="button" className="icon" aria-label="新建项目" title="新建项目" onClick={()=>openProject('create')}><Plus size={15}/></button></div>{projects.map(p=><div key={p.name} className={'tpl-project-row'+(p.name===activeProject?' active':'')}><button type="button" className="tpl-project-select" aria-pressed={p.name===activeProject} aria-label={'项目 '+p.name} title={p.name} onClick={()=>selectProject(p.name)}><Folder size={16}/><span>{p.name}</span><small>{p.count}</small></button><div className="tpl-project-actions"><button type="button" className="icon" aria-label={'重命名项目 '+p.name} title="重命名" onClick={()=>openProject('rename',p.name)}><Pencil size={12}/></button><button type="button" className="icon" aria-label={'删除项目 '+p.name} title="删除项目" onClick={()=>openProject('delete',p.name)}><Trash2 size={12}/></button></div></div>)}</aside>
- <div className="process-library-main tpl-project-main"><div className="process-breadcrumb"><span>焊接模板库</span><span>/</span><strong title={activeProject}>{activeProject||'暂无项目'}</strong></div>
+ <div className="process-library-main tpl-project-main"><div className="process-breadcrumb"><span>焊接模板库</span><span>/</span><strong title={activeProject}>{activeProject||'暂无项目'}</strong><button type="button" className="icon template-capture-button" aria-label="焊接模板库设置" title="焊接模板库设置" onClick={()=>setCaptureSettings(true)}><Settings size={17}/></button></div>
  <form className="process-filters" onSubmit={e=>{e.preventDefault();setAppliedQuery(query);setPage(1);}}><label>模板名称<input aria-label="搜索模板" placeholder="请输入模板名称" value={query} onChange={e=>setQuery(e.target.value)}/></label><button type="submit" className="process-query">查询</button><button type="button" className="process-query" onClick={reset}>重置</button></form>
  <div className="tpl-project-card-scroll"><div className="tpl-cards">{pageRows.map(t=><article className="tpl-card" key={t.id} aria-label={t.name}><div className="tpl-card-top"><span className="tpl-card-icon"><Route size={22}/></span><h3 title={t.name}>{t.name}</h3><button className="icon" aria-label={'删除 '+t.name} onClick={()=>setRemove({id:t.id,name:t.name})}><Trash2 size={15}/></button></div>{validTemplateCover(t.cover,t.sourceWeld)?<img className="tpl-model-cover" src={t.cover.dataUrl} alt={`${t.name} · 焊缝域模型封面`}/>:<div className="tpl-model-cover-empty">暂无焊缝域截图</div>}<footer><Button icon={Pencil} aria-label={'编辑模板 '+t.name} onClick={()=>setEditor({initial:t,isNew:false})}>编辑</Button><Button className="btn template-match-action" aria-label={'匹配信息 '+t.name} onClick={()=>setMatchingTemplate(t.id)}>匹配信息</Button><label className="tpl-enable"><input type="checkbox" aria-label={'启用模板 '+t.name} checked={t.enabled!==false} onChange={e=>persist({templates:templates.map(item=>item.id===t.id?{...item,enabled:e.target.checked}:item)},e.target.checked?'模板已启用':'模板已停用，不参与匹配')}/>启用</label></footer></article>)}</div>
  {!visible.length&&<div className="tpl-empty"><h3>{!activeProject?'暂无项目':projectTemplates.length?'未找到匹配的模板':'当前项目暂无焊缝模板'}</h3>{!activeProject?<Button onClick={()=>openProject('create')}>新建项目</Button>:projectTemplates.length?<Button onClick={reset}>重置查询</Button>:<><p>请在工艺规划中选择焊缝后创建模板</p><Button onClick={onGoPlanning}>前往工艺规划</Button></>}</div>}</div>
+ {captureSettings&&<Modal title="焊接模板库设置" onClose={()=>setCaptureSettings(false)}>
+  <TemplateCaptureSettings value={captureRange} onCancel={()=>setCaptureSettings(false)} onSave={templateCaptureRange=>{
+   const error=persist({templateCaptureRange},'已保存局部模型截取范围');
+   if(!error)setCaptureSettings(false);
+   return error;
+  }}/>
+ </Modal>}
  <nav className="process-pagination" aria-label="模板分页"><button aria-label="上一页" disabled={currentPage===1} onClick={()=>setPage(currentPage-1)}><img src="/assets/process-library/previous.svg" alt=""/></button>{Array.from({length:Math.min(5,pageCount)},(_,i)=>firstPage+i).map(n=><button key={n} className={currentPage===n?'active':''} aria-current={currentPage===n?'page':undefined} onClick={()=>setPage(n)}>{n}</button>)}<button aria-label="下一页" disabled={currentPage===pageCount} onClick={()=>setPage(currentPage+1)}><img src="/assets/process-library/next.svg" alt=""/></button></nav></div>
 
- {matchingTemplate&&<Modal title="焊接模板匹配参数" onClose={()=>setMatchingTemplate(null)}><TemplateMatchInformation templates={templates.filter(t=>t.id===matchingTemplate)} onCancel={()=>setMatchingTemplate(null)} onSave={changed=>{if(!changed.length){setMatchingTemplate(null);return '';}const byId=new Map(changed.map(t=>[t.id,t])),error=persist({templates:templates.map(t=>byId.get(t.id)||t)},'模板匹配参数已保存至本机');if(!error)setMatchingTemplate(null);return error;}}/></Modal>}
+ {matchingTemplate&&<Modal title="焊接模板匹配参数" onClose={()=>setMatchingTemplate(null)}><TemplateMatchInformation measureNeighborhood={measureNeighborhood} templates={templates.filter(t=>t.id===matchingTemplate)} onCancel={()=>setMatchingTemplate(null)} onSave={changed=>{if(!changed.length){setMatchingTemplate(null);return '';}const byId=new Map(changed.map(t=>[t.id,t])),error=persist({templates:templates.map(t=>byId.get(t.id)||t)},'模板匹配参数已保存至本机');if(!error)setMatchingTemplate(null);return error;}}/></Modal>}
  {projectDialog&&<Modal title={projectDialog.type==='create'?'新建项目':projectDialog.type==='rename'?'重命名项目':'删除项目'} onClose={()=>setProjectDialog(null)}>{projectDialog.type==='delete'?<><div className="tpl-confirm-body">{projects.find(p=>p.name===projectDialog.name)?.count?`项目“${projectDialog.name}”包含 ${projects.find(p=>p.name===projectDialog.name).count} 个模板，是否自动清空模板并删除项目？`:`确定删除空项目“${projectDialog.name}”？`}</div>{projectError&&<div className="tpl-errors" role="alert">{projectError}</div>}<footer><Button onClick={()=>setProjectDialog(null)}>取消</Button><Button primary onClick={removeProject}>{projects.find(p=>p.name===projectDialog.name)?.count?'清空模板并删除':'确认删除项目'}</Button></footer></>:<form onSubmit={saveProject}><div className="tpl-confirm-body"><Field label="项目名称"><input aria-label="项目名称" required maxLength={80} autoFocus value={projectValue} onChange={e=>{setProjectValue(e.target.value);setProjectError('');}} placeholder="请输入项目名称"/></Field></div>{projectError&&<div className="tpl-errors" role="alert">{projectError}</div>}<footer><Button onClick={()=>setProjectDialog(null)}>取消</Button><button type="submit" className="btn primary">{projectDialog.type==='create'?'新建':'保存'}</button></footer></form>}</Modal>}
  {remove&&<Modal title="删除焊缝模板" onClose={()=>setRemove(null)}><div className="tpl-confirm-body">确定删除“{remove.name}”？已应用到焊道的点位副本会保留。</div><footer><Button onClick={()=>setRemove(null)}>取消</Button><Button primary onClick={()=>{const error=persist({templates:templates.filter(t=>t.id!==remove.id)},'模板已删除并保存');if(!error)setRemove(null);}}>确认删除</Button></footer></Modal>}</section>;
 }

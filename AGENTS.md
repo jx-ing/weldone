@@ -1,6 +1,6 @@
 # Prototype Instructions
 
-The application now exposes only three module screens, in this order: 工艺规划, 焊接模板库, 工艺参数库. Keep the shared navigation identical across these modules and reject navigation to removed module names. Retain all existing saved planning, template and process data and the dialogs needed by these three workflows.
+The application now exposes five module screens, in this order: 工艺规划, 焊接模板库, 工艺参数库, 设备控制, 生产统计. Keep the shared navigation identical across these modules and reject navigation to removed module names. Retain all existing saved planning, template and process data and the dialogs needed by these five workflows.
 
 Run the local server yourself and open the preview in the browser available to this environment. Do not give the user server-start instructions when you can run it.
 
@@ -378,7 +378,7 @@ Remove permission management, its navigation entry, mode storage, and password v
 
 Remove joint type from all application forms, filters, validation, matching, merge eligibility and template names. Weld form remains an independent field. Legacy joint metadata is read only for weld-form migration or underlying CAD geometry interpretation.
 
-Hide the welding template library page and navigation. Keep the planning page's create and choose template buttons visible and show 暂不支持 for each click, without opening a picker or editor. Retain automatic matching with stored templates and access to the process parameter library.
+Show the welding template library between 工艺规划 and 工艺参数库. Restore creating a template from the selected weld and choosing a saved template from weld attributes. Keep saved projects, templates, and the existing automatic matching order.
 
 Follow the no-template-library requirements for planning settings and strategy planning. Keep geometry and precision calibration fields in the planning configuration, show tracking separately, and group merge and split under topology. Use a 350 mm default wrap gap, one decimal place for break thresholds, and a split setting for verified unavoidable intervals. Keep per-weld trajectory offsets and pose overrides separate from template definitions and recipes.
 
@@ -389,3 +389,33 @@ Expose the five mixed-weld scan distances under 精定位设置. Save them per p
 Show interference endpoints side by side, each with one posture angle (advance), distance and a signed line offset. Keep the existing vertical start transition distance below the two columns. Display white-background local diagrams beside the requested threshold, overlap, stagger and transition-distance fields.
 
 Use one signed corner-point offset per inner/outer corner. Show the offset, speed, distances and power parameters on the same pass row. Retire legacy XYZ values since they do not encode the new signed corner offset. Hide work face, executing robot and creation prompts in weld attributes. Mark unmatched cards with a warning icon and show green list indicators for current process or template matches.
+
+Expose all project-level planning business parameters from the planning parameter inventory. Use existing project defaults, save and validation paths. Keep hardware availability and runtime metadata outside the planning settings form. Keep the automatic deletion switch under weld splitting.
+
+Use 全局工艺参数, 拓扑调整, 路径, 跟踪设置 and 测量参数设置 in planning settings. Keep separate flat and vertical leg defaults. Share the free-edge merge switches with their wrap path controls, and keep project-level corner settings as fallbacks for individual process passes. Expose template creation and selection from the planning toolbar and the selected weld attributes.
+
+In 工艺规划设置, 路径设置 expands to six pages in order: 基础路径设置, 包角路径设置, 转角路径生成, 端点姿态调整, 碰撞检测, 安全点生成. Switch pages within the same unsaved project draft.
+
+The weld tree follows 焊缝 → 层 → 道 → 点位. Add layers from the weld and points from the layer. The first layer holds one pass. Each new layer starts with one pass, and subsequent passes derive their endpoints directly from the first pass of the first layer. Edit point positions, poses and process overrides and layer/pass offsets in 焊接规划. Exclude strategy-generated point nodes. Whole-template creation shows the source neighborhood model with measured geometry annotations beside the matching fields. Keep layer and point editing in the saved template editor. Expose only 两面交 and 三面交 as endpoint types, and keep split reasons as processing metadata.
+
+Under 测量参数设置, group 精定位设置 into 线激光精定位设置 and 结构光精定位设置. The existing mixedScan values belong to line laser. Structured light has independent mixed-weld scan values. Keep the two sensor groups separate in the project draft.
+
+设备控制 and 工艺参数库的设备信息配置 use separate records. The device control screen configures one welding robot, one coarse camera and one precision camera. Robot tracking support is multi-select, and the precision camera brand selects structured light (伟景) or line laser (英莱线激光). The device control record supplies planning capabilities. The old planning device dialog is retired. The active process-library profile determines process recipe ownership. Hide unsupported planning tracking and precision sections, retaining project values. Remove the legacy 视觉设置 block from measurement settings.
+
+Allow local .step and .stp files in 导入模型. Decode them in a browser worker, store the model by file fingerprint, and restore the corresponding planning workspace when switching models. Keep the exact demo extraction scoped to the bundled 111.step fingerprint. In that extraction, retain verified plate-end short welds and keep explicit non-weld exclusions.
+
+Show 0 mm for endpoints confirmed to have no pass hole. Show endpoint gap distances to one decimal place and match new ranges at that precision. In 焊接规划, edit layer/pass and point values inline using the existing 应用 action. Show point coordinates, pose and process values with adjacent offset inputs.
+
+Use the template library's saved weld-relative capture range for both the source model crop and geometric searches. Snapshot the range in each new template so its conditions remain comparable. Keep start and end hole and gap measurements at the whole-weld level. Store edge and downward solid clearance per segment. The new template preview highlights the selected feature without text labels.
+
+Keep template selection in the weld inspector. Use 一键规划 for extraction and planning. Offer 导入 PF 文件 and 导出任务 on the planning toolbar. The task file round-trips the local planning workspace and leaves device connection settings local to the browser. The restored 生产统计 uses the prior 产量统计／耗材统计 layout and the existing execution-record schema.
+
+一键规划 runs extraction first and passes the resulting welds directly into template and process matching and path generation. Show both phases and save the completed workspace together. For imported STEP files, keep the original file in the browser's local model store. Use the existing native OCP extractor through the loopback Vite service and validate its source fingerprint before installing the result. Older cached imports that lack the original file require reimporting once. Keep the 111.step canonical extraction and per-model weld history.
+
+The new weld-template dialog can adjust its own weld-relative model capture range and immediately refresh the 3D crop, the measured values and selected highlights. Store the current range and matching cover with the template. Measure segment edge distance only to the baseplate face's hole and outer boundaries. Default to one continuous interval with editable start and end stations in mm along each segment. Users may add or remove intervals or use the nearest point instead. Match using the saved mode and capture range.
+
+Measure each segment's solid clearance independently toward its baseplate, excluding the two parts that form the weld. Use the same nearest-point and continuous interval modes as segment edge distance. Measure start and end distances to the nearest clipped baseplate boundary. Each segment edge and solid clearance and each endpoint hole size, gap and edge distance can be included in matching independently. Manual template selection lists each mismatch and the expected and measured values. Preserve geometrically verified short free plate-end welds across the demo and imported STEP extraction paths, including when the thickness rule would otherwise remove them.
+
+Production statistics shares the application's neutral panels, standard buttons and orange active states. Robot details show an editable effective working range and omit welder model and consumable type. The arc and laser tracking checkboxes are independent, with no select-all action. The weld inspector omits the create-template, disable and delete links. Keep template creation in the planning toolbar. The structure tree offers confirmed multi-delete in place of its merge button. Manual merge remains accessible in the model tools.
+
+In 新建焊缝模板, adjust the capture range live. Recompute measured distances and refresh the local model and saved cover. Keep manual matching overrides and use the template-specific range without overwriting the library default.

@@ -7,10 +7,12 @@ export const stepModelKey=workspace=>workspace.stepModel?.sourceSha256??'built-i
 
 function openStore(){
  return new Promise((resolve,reject)=>{
-  const request=indexedDB.open('weldone.step-models',1);
+  const request=indexedDB.open('weldone.step-models',2);
   request.onupgradeneeded=()=>{
-   request.result.createObjectStore('models',{keyPath:'sourceSha256'});
-   request.result.createObjectStore('workspaces');
+   const db=request.result;
+   if(!db.objectStoreNames.contains('models'))db.createObjectStore('models',{keyPath:'sourceSha256'});
+   if(!db.objectStoreNames.contains('workspaces'))db.createObjectStore('workspaces');
+   db.createObjectStore('neighborhoods');
   };
   request.onsuccess=()=>resolve(request.result);
   request.onerror=()=>reject(request.error);
@@ -30,6 +32,8 @@ async function access(store,mode,action){
 }
 
 export const cacheStepMesh=model=>access('models','readwrite',store=>store.put(model));
+export const cacheStepNeighborhood=(sha,geometry)=>access('neighborhoods','readwrite',store=>store.put(geometry,sha));
+export const loadStepNeighborhood=sha=>access('neighborhoods','readonly',store=>store.get(sha));
 
 export async function loadStepMesh(name,reference){
  if(reference){
@@ -46,8 +50,8 @@ export async function loadStepMesh(name,reference){
 export async function switchStepWorkspace(current,model,stepModel){
  const target={model,...(stepModel?{stepModel}:{})};
  const from=stepModelKey(current),to=stepModelKey(target);
- if(from===to)return {...current,...target};
- const outgoing=Object.fromEntries(modelFields.filter(key=>key in current).map(key=>[key,current[key]]));
+ if(from===to)return current;
+ const outgoing={model:current.model,...Object.fromEntries(modelFields.filter(key=>key in current).map(key=>[key,current[key]]))};
  await access('workspaces','readwrite',store=>store.put(outgoing,from));
  const incoming=await access('workspaces','readonly',store=>store.get(to));
  const next={...current,...target};

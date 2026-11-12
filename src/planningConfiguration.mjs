@@ -71,7 +71,7 @@ export function geometryOptionsForPlanning(defaults,settings={}){
   delete options.mergePosition;
  }
  if(settings.wrapParameters){options.wrapParameters=structuredClone(settings.wrapParameters);options.wrapDistanceRatio=settings.wrapParameters.lDistanceRatio==='1/2'?.5:2/3;}
- if(settings.planningRevision===3){options.planningRevision=3;options.retainPlateEndWelds=true;}
+ if(settings.planningRevision===3)options.planningRevision=3;
  if(settings.splitParameters||settings.planningRevision===3){
   const {enabled,length,...thresholds}=structuredClone(settings.splitParameters??{});
   options.splitParameters={...(settings.planningRevision===3?{edgeThreshold:null}:{}),...thresholds};

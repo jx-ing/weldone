@@ -52,6 +52,7 @@
 .planning-model-editor p{font-size:11px;line-height:1.7;color:#888;margin:8px 0}.planning-model-editor>.planning-value{margin-top:9px}.planning-model-editor>.btn{margin-top:10px;font-size:12px}
 .planning-merge-selected{color:#555;font-size:11px;max-height:58px;overflow:auto;overflow-wrap:anywhere;line-height:1.8}
 .planning-tool-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}.planning-tool-footer .btn{font-size:12px;padding:4px 8px;min-height:28px}
+.delete-weld-list{max-height:120px;overflow:auto;color:#595959;font-size:13px}
 .planning-model-editor p.planning-tool-error{color:#cf5a27}
 @media(max-width:1150px){.planning-model-actions{left:50px}.planning-model-actions>button{padding:7px;font-size:11px}}
 
@@ -102,8 +103,5 @@
  .planning-settings-layout{grid-template-rows:auto minmax(0,1fr)}
 }
 
-.planning-device-form{--ps:1px;display:grid;gap:14px}
-.planning-device-form .form-label{margin:0}
-.planning-device-form .process-device-hardware{margin:0;min-width:0}
 
 .step-import-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}

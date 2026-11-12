@@ -1,3 +1,4 @@
+import {deviceControlCapabilities} from './deviceControlModel.mjs';
 import {DEFAULT_INTERFERENCE_DISTANCE} from './planningConfiguration.mjs';
 
 export const MAX_PLANNING_WELDS = 2500;
@@ -67,6 +68,7 @@ export function planningContext(workspace) {
     deviceCapabilities.laserPrecision=hardware.precisionCameras.laser?.enabled===true;
     deviceCapabilities.structuredLightPrecision=hardware.precisionCameras.structuredLight?.enabled===true;
   }
+  if(workspace.deviceControl)Object.assign(deviceCapabilities,deviceControlCapabilities(workspace.deviceControl));
   return {...workspace.planningSettings,planningRevision:3,deviceCapabilities,activeDevice};
 }
 

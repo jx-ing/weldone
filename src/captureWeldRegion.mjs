@@ -1,13 +1,15 @@
+import {weldCapturePlanes} from './weldCapturePlanes.mjs';
 import * as THREE from 'three';
 import {Line2} from 'three/examples/jsm/lines/Line2.js';
 import {LineGeometry} from 'three/examples/jsm/lines/LineGeometry.js';
 import {LineMaterial} from 'three/examples/jsm/lines/LineMaterial.js';
 import {weldRegionBounds} from './templateCoverModel.mjs';
 
-export function captureWeldRegion({renderer,camera,body,edges,model,weld,modelName}){
- const width=640,height=400,region=weldRegionBounds(weld,model.origin,Math.max(...model.size));
+export function captureWeldRegion({renderer,camera,body,edges,model,weld,modelName,range}){
+ const width=640,height=400,region=weldRegionBounds(weld,model.origin,Math.max(...model.size),range);
  const box=new THREE.Box3(new THREE.Vector3(...region.world.min),new THREE.Vector3(...region.world.max));
- const planes=[new THREE.Plane(new THREE.Vector3(1,0,0),-box.min.x),new THREE.Plane(new THREE.Vector3(-1,0,0),box.max.x),new THREE.Plane(new THREE.Vector3(0,1,0),-box.min.y),new THREE.Plane(new THREE.Vector3(0,-1,0),box.max.y),new THREE.Plane(new THREE.Vector3(0,0,1),-box.min.z),new THREE.Plane(new THREE.Vector3(0,0,-1),box.max.z)];
+ const world=p=>new THREE.Vector3(p[0]-model.origin[0],p[2]-model.origin[2],model.origin[1]-p[1]);
+ const planes=weldCapturePlanes(region,world);
  const scene=new THREE.Scene(),materials=[],geometries=[],parts=[];
  const addClipped=object=>{const copy=object.clone();copy.material=object.material.clone();copy.material.clippingPlanes=planes;copy.material.clipIntersection=false;copy.material.transparent=false;copy.material.opacity=1;copy.material.depthWrite=true;materials.push(copy.material);scene.add(copy);};
  body.children.forEach((part,index)=>{if(new THREE.Box3().setFromObject(part).intersectsBox(box)){addClipped(part);parts.push(index);}});

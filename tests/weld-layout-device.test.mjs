@@ -10,12 +10,16 @@ test('规划设备能力独立于工艺库设备，旧相机配置可迁移',()=
   trackingModes:['laser'],precisionCameras:{laser:{enabled:true},structuredLight:{enabled:false}}
  }};
  const migrated=migrateDraft({templates:[],processDeviceProfiles:[profile]});
- assert.equal(migrated.planningDevice.welderModel,'库设备');
- const planningDevice={...migrated.planningDevice,welderModel:'规划设备',trackingModes:['arc']};
- const context=planningContext({...migrated,planningDevice});
+ assert.equal(migrated.deviceControl.robot.welderModel,'库设备');
+ assert.equal(migrated.deviceControl.precisionCamera.brand,'yinglai');
+ assert.equal(Object.hasOwn(migrated,'planningDevice'),false);
+ const deviceControl={...migrated.deviceControl,robot:{...migrated.deviceControl.robot,welderModel:'规划设备',trackingModes:['arc']}};
+ const context=planningContext({...migrated,deviceControl});
  assert.equal(context.activeDevice.applicability.welderModel,'库设备');
  assert.equal(context.deviceCapabilities.arcTracking,true);
  assert.equal(context.deviceCapabilities.laserTracking,false);
+ assert.equal(context.deviceCapabilities.laserPrecision,true);
+ assert.equal(context.deviceCapabilities.structuredLightPrecision,false);
  assert.deepEqual(profile.hardware.trackingModes,['laser']);
 });
 
@@ -50,5 +54,5 @@ test('无过焊孔取 0 mm，端点间隙使用与匹配一致的一位小数',(
  assert.deepEqual(rules.end.gap,{min:2.5,max:2.5});
  assert.deepEqual(rules.end.holeSize,{min:6,max:6});
  assert.deepEqual(geometryRuleMismatches(rules,weld),[]);
- assert.deepEqual(geometryRuleMismatches(rules,{...weld,endpointFacts:{...weld.endpointFacts,end:{...weld.endpointFacts.end,gap:2.44}}}),['终点间隙距离不在模板匹配范围内']);
+ assert.deepEqual(geometryRuleMismatches(rules,{...weld,endpointFacts:{...weld.endpointFacts,end:{...weld.endpointFacts.end,gap:2.44}}}),['终点间隙距离（模板 2.5 mm / 焊道 2.4 mm）']);
 });

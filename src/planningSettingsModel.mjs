@@ -22,7 +22,8 @@ export function withoutRetiredFillSettings(settings){
 }
 const pose=value=>Object.fromEntries(POSE_AXES.map(([key])=>[key,value?.[key]??null]));
 export function settingsDefaults(raw={},capabilities={}){
- const {intermittentParameters,...settings}=structuredClone(withoutRetiredFillSettings(raw));
+ const {measureTemplateNeighborhood,...configuration}=withoutRetiredFillSettings(raw);
+ const {intermittentParameters,...settings}=structuredClone(configuration);
  const {enabled,length,...split}=settings.splitParameters||{};
  const motion=settings.actionParameters||{},wrap=settings.wrapParameters||{},merge=settings.mergeParameters||{},vision=settings.visionParameters||{},precision=settings.precisionParameters||{},tracking=settings.trackingParameters||{},sampling=settings.samplingAvoidance||{};
  const {startPose,endPose,...ends}=settings.interferenceEndParameters||{};
