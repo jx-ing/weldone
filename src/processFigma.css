@@ -211,3 +211,12 @@
 .process-device-empty{color:#bfbfbf;font-size:calc(14 * var(--ps));padding:calc(16 * var(--ps)) calc(8 * var(--ps))}
 .process-device-empty-content{margin:auto;color:#bfbfbf;font-size:calc(14 * var(--ps))}
 @media(max-width:700px){.process-device-scope .tpl-modal.wide{min-width:0;width:calc(100vw - 24px)}.process-device-workspace{grid-template-columns:30% minmax(0,1fr)}.process-device-fields{width:calc(100% - 110px);margin-left:100px}.process-device-content>header{padding-left:12px}.process-device-list{padding-left:4px;padding-right:4px}.process-device-sidebar>header{padding-left:8px;padding-right:8px}}
+
+.planning-device-dialog{--ps:clamp(.64px,.0520833vw,1px)}
+.process-device-hardware{border:0;padding:0;margin:0 0 calc(24 * var(--ps));min-width:0}
+.process-device-hardware legend{color:#333;font-size:calc(14 * var(--ps));margin-bottom:calc(8 * var(--ps));padding:0}
+.process-device-camera{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:10px;align-items:center;margin:7px 0}
+.process-device-camera label,.process-device-tracking label{display:flex;align-items:center;gap:6px;font-size:calc(14 * var(--ps))}
+.process-device-camera input[type=text]{min-width:0;width:100%;height:calc(32 * var(--ps));border:1px solid #d9d9d9;border-radius:2px;padding:0 8px}
+.process-device-camera input:disabled{background:#f5f5f5}.process-device-hardware input[type=checkbox]{accent-color:#fa8c16}
+.process-device-tracking{display:flex;flex-wrap:wrap;gap:12px}

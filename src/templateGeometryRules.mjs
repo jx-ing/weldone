@@ -1,8 +1,28 @@
 import {roundWeldLeg, weldForm} from './planningRequirements.mjs';
 
 export const SHORT_SEGMENT_MM = 30;
-export const ENDPOINT_TYPES = ['两面交','三面交','两面交过焊孔','三面交过焊孔','间隙打断','长度打断','对称打断','过焊孔打断','避障打断','边缘打断'];
+export const ENDPOINT_TYPES = ['两面交','三面交'];
 export const ENDPOINT_DIMENSIONS = [['holeSize','过焊孔尺寸'],['gap','间隙距离']];
+
+export function endpointType(facts){
+  const junction=facts?.junctionType;
+  if(ENDPOINT_TYPES.includes(junction))return junction;
+  const type=facts?.type;
+  return ENDPOINT_TYPES.find(value=>type===value||type===value+'过焊孔')??'';
+}
+
+export function normalizeEndpointFacts(facts){
+  if(!facts)return facts;
+  const normalize=endpoint=>{
+    if(!endpoint)return endpoint;
+    const type=endpointType(endpoint)||null;
+    const breakReason=endpoint.breakReason??(endpoint.type?.endsWith?.('打断')?endpoint.type:null);
+    const legacyHole=type&&endpoint.type===type+'过焊孔';
+    return {...endpoint,type,...(type?{junctionType:type}:{}),...(breakReason?{breakReason}:{}),
+      ...(legacyHole&&endpoint.hasHole===undefined?{hasHole:true}:{})};
+  };
+  return {...facts,start:normalize(facts.start),end:normalize(facts.end)};
+}
 
 function exactRange(value) {
   return Number.isFinite(value) && value >= 0 ? {min:value,max:value} : null;
@@ -10,7 +30,7 @@ function exactRange(value) {
 
 export function geometryRulesFromWeld(weld) {
   const endpoint = value => ({
-    type:value?.type ?? '',
+    type:endpointType(value),
     ...Object.fromEntries(ENDPOINT_DIMENSIONS.map(([key])=>[key,exactRange(value?.[key])]))
   });
   return {
@@ -64,7 +84,8 @@ export function geometryRuleMismatches(rules,weld) {
   for (const [key,label] of [['start','起点'],['end','终点']]) {
     const actual = weld.endpointFacts?.[key] ?? {};
     const expected = rules[key] ?? {};
-    if (expected.type && actual.type !== expected.type) reasons.push(label+'特征不一致');
+    const type=endpointType(expected);
+    if (type && endpointType(actual) !== type) reasons.push(label+'特征不一致');
     for (const [dimension,name] of ENDPOINT_DIMENSIONS) check(expected[dimension],actual[dimension],label+name);
   }
   return reasons;
@@ -72,7 +93,7 @@ export function geometryRuleMismatches(rules,weld) {
 
 export function defaultPlanningTemplateName(weld) {
   const position = String(weld.position ?? '').split(' · ').at(-1).replace('横角焊','平角焊');
-  return [`${roundWeldLeg(weld.leg)}mm`,position,weld.endpointFacts?.start?.type ?? '起点待确认',weld.endpointFacts?.end?.type ?? '终点待确认'].join('-');
+  return [`${roundWeldLeg(weld.leg)}mm`,position,endpointType(weld.endpointFacts?.start) || '起点待确认',endpointType(weld.endpointFacts?.end) || '终点待确认'].join('-');
 }
 
 export function templateGeometryKey(template) {

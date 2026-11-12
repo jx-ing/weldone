@@ -2,11 +2,11 @@ import React,{useEffect,useId,useRef,useState} from 'react';
 import {FileOutput,Info,ChevronDown,TriangleAlert} from 'lucide-react';
 import {POSITIONS} from './templateModel.mjs';
 import {weldForm} from './planningRequirements.mjs';
+import {endpointType} from './templateGeometryRules.mjs';
 import {grooveType,grooveValue,GROOVE_TYPES,grooveFieldsFor} from './grooveModel.mjs';
 import {processPositionLabel} from './processLibraryView.mjs';
 import {WELD_TYPES,patchWeldGroup,patchWeldSegment,patchWeldGroove,segmentName} from './weldAttributeModel.mjs';
-import WeldPlanningPointList from './WeldPlanningPointList';
-import {weldPlanningPointGroups} from './weldPlanningPoints.mjs';
+import WeldPlanningPointDetails from './WeldPlanningPointDetails';
 import './weldAttributes.css';
 
 const tabs=[['information','焊缝信息'],['welding','焊接规划'],['scanning','扫描规划']];
@@ -28,10 +28,11 @@ function MatchCard({label,value,onChoose,onCreate,createDisabled,createHint}){
 
 export default function WeldAttributes(props){
  const {weld:w,templates,processLibrary,decision,onPatch,onSave,onCancel}=props,id=useId(),panel=useRef();
- const [tab,setTab]=useState('information'),[segmentIndex,setSegmentIndex]=useState(0);
+ const [tab,setTab]=useState(props.planningSelection?'welding':'information'),[segmentIndex,setSegmentIndex]=useState(0);
+ useEffect(()=>{if(props.planningSelection)setTab('welding');},[props.planningSelection]);
  useEffect(()=>{props.onPlanningViewChange?.(tab==='welding');return()=>props.onPlanningViewChange?.(false);},[tab,props.onPlanningViewChange]);
  useEffect(()=>{setSegmentIndex(0);},[w.id]);
- useEffect(()=>{const body=panel.current?.querySelector('.wa-scroll');if(body)body.scrollTop=0;},[tab,w.id]);
+ useEffect(()=>{const body=panel.current?.querySelector('.wa-scroll');if(body)body.scrollTop=0;},[tab,w.id,props.planningSelection]);
  const index=Math.min(segmentIndex,Math.max(0,w.segments.length-1)),segment=w.segments[index],groove=w.groove||{type:'无坡口',angle:0,depth:0},inactive=grooveType(groove.type)==='无坡口';
  const template=templates.find(t=>t.id===w.templateId)||templates.find(t=>t.name===w.template),process=processLibrary.find(p=>p.id===w.processId);
  const setGroup=(key,value)=>onPatch('segments',patchWeldGroup(w,key,value)),setSegment=(key,value)=>onPatch('segments',patchWeldSegment(w,index,key,value)),setGroove=(key,value)=>onPatch('groove',patchWeldGroove(w,key,value));
@@ -80,10 +81,10 @@ export default function WeldAttributes(props){
     <Row label="焊缝长度"><span className="wa-readonly wa-length"><span>{Number.isFinite(w.length)?Number(w.length.toFixed(1)):'—'}</span><small>mm</small></span></Row>
     <Row label="焊缝跟踪"><Toggle label="焊缝跟踪" value={segment?.tracking??w.tracking??'无跟踪'} onChange={value=>setSegment('tracking',value)} values={[[ '无跟踪','无'],['激光跟踪','激光跟踪'],['电弧跟踪','电弧跟踪']]}/></Row>
     <Row label="坡口类型"><Options label="焊道坡口类型" required placeholder={GROOVE_TYPES.includes(grooveType(groove.type))?'请选择':'请选择支持的坡口类型'} value={GROOVE_TYPES.includes(grooveType(groove.type))?grooveType(groove.type):''} onChange={value=>setGroove('type',value)} values={GROOVE_TYPES.map(value=>[value,value.replace(' ','')])}/></Row>
-    {segment?.endpointFacts&&<details className="wa-geometry-details"><summary>焊缝段几何信息</summary><dl><dt>几何轮廓</dt><dd>{segment.geometry} · {w.closure==='closed'?'闭合':'开放'}</dd><dt>焊缝段长度</dt><dd>{Number(segment.length.toFixed(1))} mm</dd><dt>板厚</dt><dd>{segment.plateThickness?.主板厚度??'—'} / {segment.plateThickness?.副板厚度??'—'} mm</dd><dt>与下一段转角</dt><dd>{Number.isFinite(w.cornerAngles?.[index])?w.cornerAngles[index]+'°':'—'}</dd><dt>主副板夹角</dt><dd>{Number.isFinite(segment.jointAngle)?segment.jointAngle+'°':'—'}</dd><dt>焊缝边缘距离</dt><dd>{Number.isFinite(segment.edgeDistance)?segment.edgeDistance.toFixed(1)+' mm':'—'}</dd>{[['start','起点'],['end','终点']].map(([key,label])=>{const facts=segment.endpointFacts[key];return <React.Fragment key={key}><dt>{label}特征</dt><dd>{facts?.type??'—'}</dd><dt>{label}过焊孔尺寸</dt><dd>{Number.isFinite(facts?.holeSize)?facts.holeSize.toFixed(1)+' mm':'—'}</dd><dt>{label}间隙距离</dt><dd>{Number.isFinite(facts?.gap)?facts.gap.toFixed(1)+' mm':'—'}</dd><dt>{label}到主板端部距离</dt><dd>{Number.isFinite(facts?.mainEdgeDistance)?facts.mainEdgeDistance.toFixed(1)+' mm':'—'}</dd></React.Fragment>;})}</dl></details>}
+    {segment?.endpointFacts&&<details className="wa-geometry-details"><summary>焊缝段几何信息</summary><dl><dt>几何轮廓</dt><dd>{segment.geometry} · {w.closure==='closed'?'闭合':'开放'}</dd><dt>焊缝段长度</dt><dd>{Number(segment.length.toFixed(1))} mm</dd><dt>板厚</dt><dd>{segment.plateThickness?.主板厚度??'—'} / {segment.plateThickness?.副板厚度??'—'} mm</dd><dt>与下一段转角</dt><dd>{Number.isFinite(w.cornerAngles?.[index])?w.cornerAngles[index]+'°':'—'}</dd><dt>主副板夹角</dt><dd>{Number.isFinite(segment.jointAngle)?segment.jointAngle+'°':'—'}</dd><dt>焊缝边缘距离</dt><dd>{Number.isFinite(segment.edgeDistance)?segment.edgeDistance.toFixed(1)+' mm':'—'}</dd>{[['start','起点'],['end','终点']].map(([key,label])=>{const facts=segment.endpointFacts[key];return <React.Fragment key={key}><dt>{label}类型</dt><dd>{endpointType(facts)||'—'}</dd><dt>{label}过焊孔尺寸</dt><dd>{Number.isFinite(facts?.holeSize)?facts.holeSize.toFixed(1)+' mm':'—'}</dd><dt>{label}间隙距离</dt><dd>{Number.isFinite(facts?.gap)?facts.gap.toFixed(1)+' mm':'—'}</dd><dt>{label}到主板端部距离</dt><dd>{Number.isFinite(facts?.mainEdgeDistance)?facts.mainEdgeDistance.toFixed(1)+' mm':'—'}</dd></React.Fragment>;})}</dl></details>}
     <h4 className="wa-groove-heading">坡口尺寸<Info size={11}/></h4>
     <div className="wa-groove-grid">{grooveFieldsFor(groove.type).map(([key,label,unit,max])=><label key={key}><span>{label}</span><NumberField label={'焊道'+label} min={0} max={max} disabled={inactive} value={key==='rootFace'?(groove.rootFace??0):grooveValue(groove,key)} onChange={value=>setGroove(key,value)}/></label>)}</div>
-   </div>:tab==='welding'?<WeldPlanningPointList groups={props.planningPointGroups||weldPlanningPointGroups(w,props.decision,templates,processLibrary)} selectedId={props.selectedPlanningPointId} onSelect={props.onPlanningPointSelect} onAdjust={adjustPoint}/>:<div className="wa-scan-settings">
+   </div>:tab==='welding'?<WeldPlanningPointDetails point={props.planningPoint} group={props.planningPointGroup} layerOnly={props.planningSelection?.type==='layer'} onAdjust={adjustPoint}/>:<div className="wa-scan-settings">
     <h3 className="wa-section-heading">扫描配置</h3>
     <Row label="精测量方式"><Options label="精测量方式" value={precisionMethod} values={precisionMethods} onChange={precisionMethod=>updateScan({precisionMethod})}/></Row>
     {precisionMethod==='separateEnds'?<>

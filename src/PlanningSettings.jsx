@@ -1,4 +1,5 @@
-import React,{useState} from 'react';
+import React,{useId,useState} from 'react';
+import {ChevronDown} from 'lucide-react';
 import WeldTrackingSettings from './WeldTrackingSettings';
 import {DEFAULT_INTERFERENCE_ANGLE,DEFAULT_INTERFERENCE_DISTANCE,INTERFERENCE_END_FIELDS,mergeIncludedAngleRange,planningSettingsErrors} from './planningConfiguration.mjs';
 import {MIXED_SCAN_FIELDS,POSE_AXES,OFFSET_AXES,settingsDefaults,serializeSettings,SETTINGS_TABS,useCaseSettingsErrors} from './planningSettingsModel.mjs';
@@ -15,9 +16,29 @@ const angleFields=POSE_AXES.map(([key,label])=>[key,label,{unit:'°',min:-360,ma
 const offsetFields=OFFSET_AXES.map(axis=>[axis,axis.toUpperCase(),{integer:true}]);
 const calibrationFields=[...offsetFields.map(([axis,label])=>[axis,label,{min:null,step:'any'}]),...angleFields];
 
+const pathSections=[
+ ['path-basic','基础路径设置'],
+ ['path-wrap','包角路径设置'],
+ ['path-corner','转角路径生成'],
+ ['path-endpoints','端点姿态调整'],
+ ['path-collision','碰撞检测'],
+ ['path-safe-points','安全点生成'],
+];
+
 export default function PlanningSettings({settings={},capabilities={},onSave,onCancel}){
  const [tab,setTab]=useState(SETTINGS_TABS[0][0]),[error,setError]=useState('');
- const [draft,setDraft]=useState(()=>{const next=settingsDefaults({...settings,topologyVersion:1},capabilities),range=mergeIncludedAngleRange(settings.mergeParameters);for(const key of ['angleMin','angleMax'])if(range[key]!=='')next.mergeParameters[key]=range[key];return next;});
+ const [pathExpanded,setPathExpanded]=useState(false);
+ const pathMenuId=useId();
+ const activePath=pathSections.find(([key])=>key===tab);
+ const selectSection=key=>{setTab(key);setError('');};
+ const togglePath=()=>{
+  if(!pathExpanded&&!activePath)selectSection(pathSections[0][0]);
+  setPathExpanded(!pathExpanded);
+ };
+ const showLaser=capabilities.laserPrecision!==false,showStructure=capabilities.structuredLightPrecision!==false;
+ const showTracking=capabilities.laserTracking!==false||capabilities.arcTracking!==false;
+ const visibleTabs=SETTINGS_TABS.filter(([key])=>(key!=='tracking'||showTracking)&&(key!=='measurement'||showLaser||showStructure));
+ const [draft,setDraft]=useState(()=>{const next=settingsDefaults({...settings,topologyVersion:1}),range=mergeIncludedAngleRange(settings.mergeParameters);for(const key of ['angleMin','angleMax'])if(range[key]!=='')next.mergeParameters[key]=range[key];return next;});
  const change=(group,key,value)=>{setDraft(previous=>({...previous,[group]:{...previous[group],[key]:value}}));setError('');};
  const action=draft.actionParameters,wrap=draft.wrapParameters,merge=draft.mergeParameters;
  const changeLeg=(kind,key,value)=>change('actionParameters','defaultLegs',{
@@ -25,8 +46,29 @@ export default function PlanningSettings({settings={},capabilities={},onSave,onC
  });
  const field=(group,key,label,props={})=><NumberField label={label} value={draft[group][key]} onChange={value=>change(group,key,value)} {...props}/>;
  const group=(section,key,label,fields)=><NumberGroup label={label} value={draft[section][key]} onChange={value=>change(section,key,value)} fields={fields}/>;
- function save(event){event.preventDefault();const next=serializeSettings(draft,capabilities);const issues=[...planningSettingsErrors(next),...useCaseSettingsErrors(next,capabilities)];if(issues.length){setError([...new Set(issues)].join('；'));return;}setError(onSave(next)||'');}
- return <form className="planning-settings-form" noValidate onSubmit={save}><div className="planning-settings-layout"><nav className="planning-settings-nav" aria-label="工艺规划设置分类">{SETTINGS_TABS.map(([key,label])=><button type="button" key={key} className={tab===key?'active':''} aria-current={tab===key?'page':undefined} onClick={()=>{setTab(key);setError('');}}>{label}</button>)}</nav><div className="dialog-body planning-settings" key={tab}>
+ const mixedScan=(key,label)=><fieldset className="planning-setting-fields planning-number-group">
+  <legend>{label}混合焊缝扫描配置</legend>
+  {MIXED_SCAN_FIELDS.map(([fieldName,name])=><NumberField key={fieldName} label={name} inputLabel={label+name} step="any"
+   value={draft.precisionParameters[key][fieldName]}
+   onChange={value=>change('precisionParameters',key,{...draft.precisionParameters[key],[fieldName]:value})}/>)}
+ </fieldset>;
+ function save(event){event.preventDefault();const next=serializeSettings(draft),effective=settingsDefaults(next,capabilities);const issues=[...planningSettingsErrors(effective),...useCaseSettingsErrors(effective,capabilities)];if(issues.length){setError([...new Set(issues)].join('；'));return;}setError(onSave(next)||'');}
+ return <form className="planning-settings-form" noValidate onSubmit={save}>
+  <div className="planning-settings-layout">
+   <nav className="planning-settings-nav" aria-label="工艺规划设置分类">
+    {visibleTabs.map(([key,label])=>key==='path'?
+     <div className="planning-path-nav" key={key}>
+      <button type="button" className={'planning-path-toggle'+(activePath?' has-current':'')} aria-expanded={pathExpanded} aria-controls={pathMenuId} onClick={togglePath}>
+       <span>{label}</span><ChevronDown size={15} aria-hidden="true"/>
+      </button>
+      <div className="planning-path-children" id={pathMenuId} hidden={!pathExpanded}>
+       {pathSections.map(([section,name])=><button type="button" key={section} className={tab===section?'active':''} aria-current={tab===section?'page':undefined} onClick={()=>selectSection(section)}>{name}</button>)}
+      </div>
+     </div>:
+     <button type="button" key={key} className={tab===key?'active':''} aria-current={tab===key?'page':undefined} onClick={()=>selectSection(key)}>{label}</button>
+    )}
+   </nav>
+   <div className="dialog-body planning-settings" key={tab}>
  {tab==='action'&&<section aria-label="全局工艺参数">
   <h3>全局工艺参数</h3>
   {[['flat','平角焊'],['vertical','立焊']].map(([kind,label])=>{
@@ -67,62 +109,78 @@ export default function PlanningSettings({settings={},capabilities={},onSave,onC
   <h3 className="planning-section-heading">打断</h3>
   {field('splitParameters','gapThreshold','间隙打断阈值',{placeholder:'根据实际焊枪大小填写',diagram:'/assets/weld-gap-threshold.png'})}
  </section>}
- {tab==='path'&&<section aria-label="路径">
-  <h3>基础路径生成</h3>
-  {group('actionParameters','flatPose','平角焊标准焊接姿态',angleFields)}
-  {group('actionParameters','verticalPose','立焊标准焊接姿态',angleFields)}
-  {field('actionParameters','lineStep','直线步长',{integer:true,min:1,placeholder:'默认5'})}
-  {field('actionParameters','arcStep','圆弧步长',{integer:true,min:1,placeholder:'默认2'})}
-  <h3 className="planning-section-heading">包角路径生成</h3>
-  <fieldset className="planning-setting-fields planning-subgroup" disabled={!wrap.flatEnabled}>
-   <legend>平角焊包角</legend>
-   {group('wrapParameters','flatLPose','L形包角控制姿态',angleFields)}
-   <label className="planning-setting-row"><span>L形包角距离</span><select aria-label="L形包角距离" value={wrap.lDistanceRatio} onChange={event=>change('wrapParameters','lDistanceRatio',event.target.value)}><option value="1/2">1/2板厚</option><option value="2/3">2/3板厚</option></select></label>
-   <img className="planning-wrap-distance-diagram" src="/assets/l-wrap-distance.png" alt="L形包角距离示意图" width={572} height={750}/>
-   {group('wrapParameters','uPose','U形包角控制姿态',angleFields)}
-  </fieldset>
-  <fieldset className="planning-setting-fields planning-subgroup" disabled={!wrap.verticalEnabled}>
-   <legend>立焊上包角</legend>
-   {group('wrapParameters','verticalLPose','立焊上包角控制姿态',angleFields)}
-   {field('wrapParameters','verticalDistance','立焊上包角距离',{min:.1,placeholder:'留空沿用板厚比例'})}
-  </fieldset>
-  <h3 className="planning-section-heading">转角路径生成</h3>
-  {field('cornerPathParameters','before','默认转角前距离',{placeholder:'默认30'})}
-  {field('cornerPathParameters','after','默认转角后距离',{placeholder:'默认30'})}
-  {field('cornerPathParameters','offset','默认转角点偏移',{min:null,step:'any',placeholder:'默认0'})}
-  <h3 className="planning-section-heading">端点姿态调整</h3>
-  <div className="planning-endpoint-columns">{[['start','平角焊起点'],['end','平角焊终点']].map(([side,heading])=><fieldset key={side}>
-   <legend>{heading}</legend>
-   {INTERFERENCE_END_FIELDS.map(([key,label,unit])=>{
-    const angle=key==='Angle',distance=key==='Distance';
-    const name=angle?'前进角姿态':label;
-    return <NumberField key={key} label={name} inputLabel={heading+name} value={draft.interferenceEndParameters[side+key]}
-     onChange={value=>change('interferenceEndParameters',side+key,value)} unit={unit} min={angle?-360:distance?0:null}
-     max={angle?360:undefined} step={distance?.1:'any'}
-     diagram={'/assets/flat-interference-'+side+'-'+key.toLowerCase()+'.png'}
-     placeholder={'默认'+(angle?DEFAULT_INTERFERENCE_ANGLE:distance?DEFAULT_INTERFERENCE_DISTANCE:0)}/>;
-   })}
-  </fieldset>)}</div>
-  {field('interferenceEndParameters','verticalStartDistance','立焊起点变姿态距离',{placeholder:'默认20',diagram:'/assets/vertical-start-transition-v2.png'})}
-  <h3 className="planning-section-heading">碰撞检测</h3>
-  <Switch label="碰撞打断" value={draft.splitParameters.autoDeleteUnavoidable} onChange={value=>change('splitParameters','autoDeleteUnavoidable',value)}/>
-  <h3 className="planning-section-heading">安全点生成</h3>
-  {group('actionParameters','safeTransitionOffset','安全过渡点偏移',offsetFields)}
-  {group('actionParameters','safeApproachOffset','安全接近点偏移',offsetFields)}
+ {activePath&&<section aria-label={activePath[1]}>
+  <h3>{activePath[1]}</h3>
+  {tab==='path-basic'&&<>
+   {group('actionParameters','flatPose','平角焊标准焊接姿态',angleFields)}
+   {group('actionParameters','verticalPose','立焊标准焊接姿态',angleFields)}
+   {field('actionParameters','lineStep','直线步长',{integer:true,min:1,placeholder:'默认5'})}
+   {field('actionParameters','arcStep','圆弧步长',{integer:true,min:1,placeholder:'默认2'})}
+  </>}
+  {tab==='path-wrap'&&<>
+   <fieldset className="planning-setting-fields planning-subgroup" disabled={!wrap.flatEnabled}>
+    <legend>平角焊包角</legend>
+    {group('wrapParameters','flatLPose','L形包角控制姿态',angleFields)}
+    <label className="planning-setting-row"><span>L形包角距离</span><select aria-label="L形包角距离" value={wrap.lDistanceRatio} onChange={event=>change('wrapParameters','lDistanceRatio',event.target.value)}><option value="1/2">1/2板厚</option><option value="2/3">2/3板厚</option></select></label>
+    <img className="planning-wrap-distance-diagram" src="/assets/l-wrap-distance.png" alt="L形包角距离示意图" width={572} height={750}/>
+    {group('wrapParameters','uPose','U形包角控制姿态',angleFields)}
+   </fieldset>
+   <fieldset className="planning-setting-fields planning-subgroup" disabled={!wrap.verticalEnabled}>
+    <legend>立焊上包角</legend>
+    {group('wrapParameters','verticalLPose','立焊上包角控制姿态',angleFields)}
+    {field('wrapParameters','verticalDistance','立焊上包角距离',{min:.1,placeholder:'留空沿用板厚比例'})}
+   </fieldset>
+  </>}
+  {tab==='path-corner'&&<>
+   {field('cornerPathParameters','before','默认转角前距离',{placeholder:'默认30'})}
+   {field('cornerPathParameters','after','默认转角后距离',{placeholder:'默认30'})}
+   {field('cornerPathParameters','offset','默认转角点偏移',{min:null,step:'any',placeholder:'默认0'})}
+  </>}
+  {tab==='path-endpoints'&&<>
+   <div className="planning-endpoint-columns">{[['start','平角焊起点'],['end','平角焊终点']].map(([side,heading])=><fieldset key={side}>
+    <legend>{heading}</legend>
+    {INTERFERENCE_END_FIELDS.map(([key,label,unit])=>{
+     const angle=key==='Angle',distance=key==='Distance';
+     const name=angle?'前进角姿态':label;
+     return <NumberField key={key} label={name} inputLabel={heading+name} value={draft.interferenceEndParameters[side+key]}
+      onChange={value=>change('interferenceEndParameters',side+key,value)} unit={unit} min={angle?-360:distance?0:null}
+      max={angle?360:undefined} step={distance?.1:'any'}
+      diagram={'/assets/flat-interference-'+side+'-'+key.toLowerCase()+'.png'}
+      placeholder={'默认'+(angle?DEFAULT_INTERFERENCE_ANGLE:distance?DEFAULT_INTERFERENCE_DISTANCE:0)}/>;
+    })}
+   </fieldset>)}</div>
+   {field('interferenceEndParameters','verticalStartDistance','立焊起点变姿态距离',{placeholder:'默认20',diagram:'/assets/vertical-start-transition-v2.png'})}
+  </>}
+  {tab==='path-collision'&&<>
+   <Switch label="碰撞打断" value={draft.splitParameters.autoDeleteUnavoidable} onChange={value=>change('splitParameters','autoDeleteUnavoidable',value)}/>
+  </>}
+  {tab==='path-safe-points'&&<>
+   {group('actionParameters','safeTransitionOffset','安全过渡点偏移',offsetFields)}
+   {group('actionParameters','safeApproachOffset','安全接近点偏移',offsetFields)}
+  </>}
  </section>}
  {tab==='measurement'&&<>
- <section aria-label="混合焊缝扫描配置"><h3>混合焊缝扫描配置</h3>{MIXED_SCAN_FIELDS.map(([key,label])=><NumberField key={key} label={label} step="any" value={draft.precisionParameters.mixedScan[key]} onChange={value=>change('precisionParameters','mixedScan',{...draft.precisionParameters.mixedScan,[key]:value})}/>)}
-  {group('precisionParameters','laserPose','线激光标准姿态',calibrationFields)}
-  {group('precisionParameters','structuredLightPose','结构光标准姿态',calibrationFields)}
-  {field('precisionParameters','lineSweepSpeed','直线推扫速度',{unit:'mm/min',step:'any',placeholder:'默认150'})}
-  {field('precisionParameters','arcSweepSpeed','圆弧推扫速度',{unit:'mm/min',step:'any',placeholder:'默认70'})}
+ <section aria-label="精定位设置">
+  <h3>精定位设置</h3>
+  {showLaser&&<fieldset className="planning-setting-fields planning-subgroup">
+   <legend>线激光精定位设置</legend>
+   {group('precisionParameters','laserPose','线激光标准姿态',calibrationFields)}
+   {field('precisionParameters','lineSweepSpeed','直线推扫动作速度',{unit:'mm/min',step:'any',placeholder:'默认150'})}
+   {field('precisionParameters','arcSweepSpeed','圆弧推扫动作速度',{unit:'mm/min',step:'any',placeholder:'默认70'})}
+   {mixedScan('mixedScan','线激光')}
+  </fieldset>}
+  {showStructure&&<fieldset className="planning-setting-fields planning-subgroup">
+   <legend>结构光精定位设置</legend>
+   {group('precisionParameters','structuredLightPose','结构光标准姿态',calibrationFields)}
+   {mixedScan('structuredLightMixedScan','结构光')}
+  </fieldset>}
  </section>
- <section aria-label="视觉设置"><h3>视觉设置</h3>
+ {showLaser&&<section aria-label="视觉设置"><h3>视觉设置</h3>
   {group('visionParameters','sweepPose','推扫标准姿态',angleFields)}
   {group('visionParameters','photoPose','定点拍照标准姿态',angleFields)}
   {field('visionParameters','twoFaceSpeed','两面交推扫速度',{unit:'mm/min',step:'any',placeholder:'按项目填写'})}
   {field('visionParameters','threeFaceSpeed','三面交推扫速度',{unit:'mm/min',step:'any',placeholder:'按项目填写'})}
- </section>
+ </section>}
  </>}
  {tab==='tracking'&&<section aria-label="跟踪设置"><h3>跟踪设置</h3><WeldTrackingSettings showHeading={false} capabilities={capabilities} value={draft.trackingParameters} onChange={value=>setDraft(previous=>({...previous,trackingParameters:value}))}/></section>}
  </div></div>{error&&<p role="alert" className="tpl-errors planning-settings-error">{error}</p>}<footer><button type="button" className="btn" onClick={onCancel}>取消</button><button type="submit" className="btn primary">保存</button></footer></form>;

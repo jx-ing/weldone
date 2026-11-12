@@ -29,7 +29,7 @@ export function excludeVerifiedCollision(weld,settings,nextId){
  let start=0;
  for(const [from,to] of ranges){if(from-start>=.1)kept.push([start,from]);start=Math.max(start,to);}
  if(weld.length-start>=.1)kept.push([start,weld.length]);
- const cut={type:'避障打断',breakReason:'避障打断'};
+ const cut={type:null,breakReason:'避障打断'};
  return kept.map(([from,to])=>{
   const segments=sliceWeldSegments(weld,from,to);
   return {...weld,id:nextId(),name:weld.name+' · 避障打断',processingKey:weld.processingKey+':avoid:'+from+':'+to,closure:'open',segments,length:segments.reduce((sum,s)=>sum+s.length,0),cornerAngles:mergeCornerAngles(segments),intermittentRanges:undefined,
@@ -50,7 +50,7 @@ export function strategyGeometryRows(rows,rawSettings){
   for(const part of excludeVerifiedCollision(weld,settings,nextId)){
    const indices=part.segments.slice(1).flatMap((segment,index)=>weldArc(part.segments[index])&&weldArc(segment)&&Math.abs((part.cornerAngles?.[index]??180)-180)>.01?[index+1]:[]);
    if(!indices.length){expanded.push({weld:part,decision:{...decision,plannedSegments:part.segments}});continue;}
-   const breakType={type:'长度打断',breakReason:'长度打断'};
+   const breakType={type:null,breakReason:'长度打断'};
    const boundaries=[0,...indices,part.segments.length];
    for(const [index,start] of boundaries.slice(0,-1).entries()){
     const end=boundaries[index+1],segments=part.segments.slice(start,end);

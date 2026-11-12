@@ -5,7 +5,7 @@ import {planningSettingsErrors,geometryOptionsForPlanning,samplingAvoidanceValue
 import {DEFAULT_GEOMETRY_OPTIONS,convertGeometryPlan,mergeFeatureWithinSize} from '../src/geometryProcessingModel.mjs';
 
 test('工艺规划设置可保存并兼容旧项目配置',()=>{
- assert.deepEqual(SETTINGS_TABS.map(v=>v[1]),["全局工艺参数","拓扑调整","路径","跟踪设置","测量参数设置"]);
+ assert.deepEqual(SETTINGS_TABS.map(v=>v[1]),["全局工艺参数","拓扑调整","路径设置","跟踪设置","测量参数设置"]);
  const baseline={intermittentParameters:{enabled:true},splitParameters:{enabled:true,length:100,gapThreshold:25},visionParameters:{twoFaceSpeed:123},samplingAvoidance:{enabled:false,step:7},custom:'保留'};
  const draft=settingsDefaults(baseline);draft.visionParameters.twoFaceSpeed=999;draft.wrapParameters.flatEnabled=false;
  const saved=serializeSettings(draft);
@@ -42,10 +42,12 @@ test('从表单提交的参数按数值保存并传给几何处理，旧偏移�
 test('混合焊缝扫描五项按项目保存，保留旧配置的其他字段',()=>{
  const draft=settingsDefaults({precisionParameters:{mixedScan:{custom:42}}});
  const scan=draft.precisionParameters.mixedScan;
+ draft.precisionParameters.structuredLightMixedScan.scanDistance='9.25';
  for(const [index,[key]] of MIXED_SCAN_FIELDS.entries())scan[key]=String(index+0.5);
  const settings=serializeSettings(draft);
  assert.deepEqual(settings.precisionParameters.mixedScan,{custom:42,arcPointDistance:.5,linePointDistance:1.5,endClearance:2.5,minWeldLength:3.5,scanDistance:4.5});
  assert.deepEqual(useCaseSettingsErrors(settings),[]);
+ assert.equal(settings.precisionParameters.structuredLightMixedScan.scanDistance,9.25);
  const workspace={project:'项目A',planningSettings:{},welds:[]};
  const updated=updateProjectPlanning(workspace,{planningSettings:settings});
  assert.deepEqual(updated.projectPlanning['项目A'].planningSettings.precisionParameters.mixedScan,settings.precisionParameters.mixedScan);

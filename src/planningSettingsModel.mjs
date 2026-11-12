@@ -1,6 +1,6 @@
 import {DEFAULT_INTERFERENCE_ANGLE,DEFAULT_INTERFERENCE_DISTANCE,DEFAULT_MERGE_ANGLE_RANGE,DEFAULT_MERGE_GAP} from './planningConfiguration.mjs';
 
-export const SETTINGS_TABS=[['action','全局工艺参数'],['topology','拓扑调整'],['path','路径'],['tracking','跟踪设置'],['measurement','测量参数设置']];
+export const SETTINGS_TABS=[['action','全局工艺参数'],['topology','拓扑调整'],['path','路径设置'],['tracking','跟踪设置'],['measurement','测量参数设置']];
 export const OFFSET_AXES=['x','y','z'];
 export const POSE_AXES=[['advance','前进角'],['work','工作角'],['rotation','旋转角']];
 export const MIXED_SCAN_FIELDS=[
@@ -31,7 +31,7 @@ export function settingsDefaults(raw={},capabilities={}){
   mergeParameters:{...merge,gapThreshold:defaultNumber(merge.gapThreshold,DEFAULT_MERGE_GAP),enabled:merge.enabled??true,countEnabled:merge.countEnabled??Number.isInteger(merge.count),count:merge.count??2,lengthEnabled:merge.lengthEnabled??!empty(merge.maxLength),maxLength:defaultNumber(merge.maxLength,1500),passHoleSize:defaultNumber(merge.passHoleSize,15),angleMin:merge.angleMin??DEFAULT_MERGE_ANGLE_RANGE.angleMin,angleMax:merge.angleMax??DEFAULT_MERGE_ANGLE_RANGE.angleMax},
   splitParameters:{...split,gapThreshold:split.gapThreshold??null,edgeThreshold:split.edgeThreshold??null,autoDeleteUnavoidable:split.autoDeleteUnavoidable??sampling.autoDeleteUnavoidable??false},
   interferenceEndParameters:{...ends,verticalStartDistance:ends.verticalStartDistance??20,startDistance:defaultNumber(ends.startDistance,DEFAULT_INTERFERENCE_DISTANCE),endDistance:defaultNumber(ends.endDistance,DEFAULT_INTERFERENCE_DISTANCE),startAngle:defaultNumber(startPose?.advance??ends.startAngle,DEFAULT_INTERFERENCE_ANGLE),endAngle:defaultNumber(endPose?.advance??ends.endAngle,DEFAULT_INTERFERENCE_ANGLE),startLineOffset:ends.startLineOffset??0,endLineOffset:ends.endLineOffset??0},
-  precisionParameters:{...precision,laserPose:{...offset(precision.laserPose,[0,0,0]),...pose(precision.laserPose)},structuredLightPose:{...offset(precision.structuredLightPose,[0,0,0]),...pose(precision.structuredLightPose)},lineSweepSpeed:precision.lineSweepSpeed??150,arcSweepSpeed:precision.arcSweepSpeed??70,mixedScan:{...precision.mixedScan}},
+  precisionParameters:{...precision,laserPose:{...offset(precision.laserPose,[0,0,0]),...pose(precision.laserPose)},structuredLightPose:{...offset(precision.structuredLightPose,[0,0,0]),...pose(precision.structuredLightPose)},lineSweepSpeed:precision.lineSweepSpeed??150,arcSweepSpeed:precision.arcSweepSpeed??70,mixedScan:{...precision.mixedScan},structuredLightMixedScan:{...precision.structuredLightMixedScan}},
   visionParameters:{...vision,sweepPose:pose(vision.sweepPose),photoPose:pose(vision.photoPose),twoFaceSpeed:vision.twoFaceSpeed??null,threeFaceSpeed:vision.threeFaceSpeed??null},
   trackingParameters:{...tracking,laserEnabled:capabilities.laserTracking===false?false:tracking.laserEnabled??true,arcEnabled:capabilities.arcTracking===false?false:tracking.arcEnabled??true,minLineLength:tracking.minLineLength??160,minArcDiameter:tracking.minArcDiameter??160,minEdgeWidth:tracking.minEdgeWidth??10},
   samplingAvoidance:{...sampling,enabled:sampling.enabled??true,step:sampling.step??null,autoDeleteUnavoidable:sampling.autoDeleteUnavoidable??false,...Object.fromEntries([['advance',-45,45],['work',-40,50],['rotation',-80,80]].map(([key,min,max])=>[key,{enabled:true,min,max,...sampling[key]}]))}};
@@ -75,7 +75,9 @@ export function serializeSettings(draft,capabilities={}){
   for(const axis of OFFSET_AXES)precision[key][axis]=defaultNumber(precision[key][axis],0);
   for(const [axis] of POSE_AXES)precision[key][axis]=n(precision[key][axis]);
  }
- for(const [key] of MIXED_SCAN_FIELDS)precision.mixedScan[key]=n(precision.mixedScan[key]);
+ for(const group of ['mixedScan','structuredLightMixedScan']){
+  for(const [key] of MIXED_SCAN_FIELDS)precision[group][key]=n(precision[group][key]);
+ }
  if(Array.isArray(next.sequenceParameters?.scanDirection)){
   const direction=next.sequenceParameters.scanDirection.map(n);
   if(direction.every(value=>value===null))delete next.sequenceParameters.scanDirection;
@@ -147,7 +149,12 @@ export function useCaseSettingsErrors(settings,capabilities={}){
  const direction=settings.sequenceParameters?.scanDirection;
  if(direction!=null&&(!Array.isArray(direction)||direction.length!==3||!direction.every(Number.isFinite)||direction.every(value=>value===0)))errors.push('扫描方向须填写三个有限数值，且至少一轴非零');
  if(!empty(settings.localMatchDistance)&&(!Number.isFinite(settings.localMatchDistance)||settings.localMatchDistance<=0))errors.push('局部模板匹配距离须大于0');
- for(const [key,label] of MIXED_SCAN_FIELDS){const value=precision?.mixedScan?.[key];if(!empty(value)&&(!Number.isFinite(value)||value<0))errors.push(label+'须为非负数');}
+ for(const [group,sensor] of [['mixedScan','线激光'],['structuredLightMixedScan','结构光']]){
+  for(const [key,label] of MIXED_SCAN_FIELDS){
+   const value=precision?.[group]?.[key];
+   if(!empty(value)&&(!Number.isFinite(value)||value<0))errors.push(sensor+label+'须为非负数');
+  }
+ }
  const t=settings.trackingParameters;if(t?.rulesVersion===2){if(t.laserEnabled)for(const [key,label] of [['minLineLength','最小直线长度'],['minArcDiameter','最小圆弧直径'],['minEdgeWidth','最小边缘宽度']])numeric(t[key],label);if(capabilities.laserTracking===false&&t.laserEnabled)errors.push('未配置激光跟踪相机，不能开启激光跟踪');if(capabilities.arcTracking===false&&t.arcEnabled)errors.push('未配置电弧跟踪，不能开启电弧跟踪');}
  const sampling=settings.samplingAvoidance;if(sampling){if(sampling.enabled!==undefined&&typeof sampling.enabled!=='boolean')errors.push('采样避障总开关无效');if(!empty(sampling.step)&&(!Number.isFinite(sampling.step)||sampling.step<=0))errors.push('采样步长须大于0');}
  return errors;

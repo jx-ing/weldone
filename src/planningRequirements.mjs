@@ -56,12 +56,18 @@ export function withoutLegacyJoint(value) {
 }
 
 export function planningContext(workspace) {
-  return {
-    ...workspace.planningSettings,
-    planningRevision:3,
-    deviceCapabilities:workspace.deviceCapabilities ?? {},
-    activeDevice:workspace.processDeviceProfiles?.find(profile => profile.enabled) ?? null
-  };
+  const activeDevice=workspace.processDeviceProfiles?.find(profile=>profile.enabled)??null;
+  const hardware=activeDevice?.hardware;
+  const deviceCapabilities={...workspace.deviceCapabilities};
+  if(hardware?.trackingModes){
+    deviceCapabilities.laserTracking=hardware.trackingModes.includes('laser');
+    deviceCapabilities.arcTracking=hardware.trackingModes.includes('arc');
+  }
+  if(hardware?.precisionCameras){
+    deviceCapabilities.laserPrecision=hardware.precisionCameras.laser?.enabled===true;
+    deviceCapabilities.structuredLightPrecision=hardware.precisionCameras.structuredLight?.enabled===true;
+  }
+  return {...workspace.planningSettings,planningRevision:3,deviceCapabilities,activeDevice};
 }
 
 const deviceFields = ['welderModel','robotModel','material','wireType','wireDiameter','gas'];

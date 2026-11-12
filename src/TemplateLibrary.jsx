@@ -10,7 +10,7 @@ import './processParameters.css';
 import './templateProjects.css';
 import {templateProjectName,templateProjectGroups,createTemplateProject,selectTemplateProject,renameTemplateProject,deleteTemplateProject} from './templateProjects.mjs';
 import MatchConditions from './TemplateMatchConditions';
-import TemplateMatchInformation from './TemplateMatchInformation';
+import TemplateMatchInformation,{GeometryMatchFields} from './TemplateMatchInformation';
 import MultiPassEditor from './TemplateMultiPassEditor';
 import TemplateWorkbench from './TemplateWorkbench';
 import EditorPage,{EditorExitNotice} from './EditorPage';
@@ -34,7 +34,7 @@ export function Modal({ title, children, onClose, wide = false, closeLabel = '�
 export function TemplateEditor({initial,processLibrary=[],fixedOnly=false,isNew,backLabel,onSave,onClose}) {
   const [draft,setDraft]=useState(()=>{const t=initial.type==='local'?reconcileTemplateGeometry(initializeLocalControlPoints(structuredClone(initial))):structuredClone(initial);delete t.operationPosition;if(t.type==='local'&&!fixedOnly){const p=processLibrary.find(p=>p.id===t.baseProcessId);if(p)t.leg=p.leg;}return t;}),[tab,setTab]=useState(initial.type==='whole'&&!fixedOnly?'points':'match'),[errors,setErrors]=useState([]),[discard,setDiscard]=useState(false);
   const liveDraft=useRef(draft),exitAction=useRef(onClose);liveDraft.current=draft;
-  const pristine=useRef(JSON.stringify(draft)),modelCapture=useRef(),nameInput=useRef(),scroll=useRef(),tabId=useId();
+  const pristine=useRef(JSON.stringify(draft)),modelCapture=useRef(),scroll=useRef(),tabId=useId();
   const detail=draft.type==='whole'&&!fixedOnly,passCount=draft.layers.reduce((n,l)=>n+l.passes.length,0),pointCount=draft.layers.reduce((n,l)=>n+l.passes.reduce((sum,p)=>sum+p.points.length,0),0);
   const activeTab=detail?'points':tab,editorTabs=detail?[['points','参数']]:[['match','属性'],['points','参数']];
   useEffect(()=>{if(scroll.current)scroll.current.scrollTop=0;},[activeTab]);
@@ -43,13 +43,30 @@ export function TemplateEditor({initial,processLibrary=[],fixedOnly=false,isNew,
   function save(e){e.preventDefault();const value=withoutLocalLengthBounds({...draft,...(!fixedOnly&&draft.type==='local'?{localConditionsVersion:1}:{}),enabled:draft.enabled!==false,segments:draft.segments.map(s=>detail?{...s}:{...s,minLength:segmentMinLength(draft,s),maxLength:segmentMaxLength(draft,s)}),corners:draft.corners.map(c=>detail?{...c}:{...c,angleSide:cornerSide(c)}),name:draft.name.trim(),position:draft.segments[0].position});if(value.sourceWeld&&JSON.stringify(value.segments)!==JSON.stringify(JSON.parse(pristine.current).segments)){if(!modelCapture.current){setErrors(['请等待三维焊缝域模型加载完成后保存']);return;}try{value.cover=modelCapture.current({id:value.sourceWeld.id,leg:value.leg,segments:value.segments});}catch(error){setErrors([error.message]);return;}}const record=fixedOnly?fixedTemplateRecord(value):independentWeldTemplate(value);const baseIssues=!fixedOnly&&draft.type==='local'?localProcessBindingIssues(value,processLibrary):[];const issues=fixedOnly?validateFixed(record):[...baseIssues,...(isNew&&value.type==='whole'&&(value.createdFrom!=='process-planning'||!validTemplateCover(value.cover,value.sourceWeld))?['新建模板必须来自工艺规划中选中的焊缝及其模型截图']:[]),...validateTemplate(value)];if(issues.length){setErrors([...new Set(issues)]);return;}const failure=onSave(record);if(failure)setErrors([failure]);}
   const set=values=>{setDraft(d=>reconcileTemplateGeometry({...d,...values}));setErrors([]);};
   const Frame=isNew?Modal:EditorPage;
+  if(detail&&isNew){
+    return <Modal title="新建焊缝模板" onClose={close}>
+      {discard&&<EditorExitNotice onContinue={()=>setDiscard(false)} onDiscard={()=>{setDiscard(false);exitAction.current();}}/>}
+      <form className="template-match-editor" onSubmit={save}>
+        <div className="matching-editor-body">
+          <div className="matching-editor-title">
+            <Field label="模板名称"><input aria-label="模板名称" required maxLength={80} value={draft.name} onChange={event=>{setDraft(previous=>({...previous,name:event.target.value}));setErrors([]);}}/></Field>
+            <span>{draft.sourceWeld?.id} · 焊脚 {draft.leg} mm · {draft.segments.length} 段</span>
+          </div>
+          {draft.requirementsMatch&&<GeometryMatchFields title="焊缝邻域几何匹配特征" rules={draft.requirementsMatch}
+            changeRules={values=>setDraft(previous=>({...previous,requirementsMatch:{...previous.requirementsMatch,...values}}))}/>}
+          {errors.length>0&&<div className="tpl-errors" role="alert">{errors.map(error=><p key={error}>{error}</p>)}</div>}
+        </div>
+        <footer><Button onClick={close}>取消</Button><button type="submit" className="btn primary"><Save size={15}/>保存模板</button></footer>
+      </form>
+    </Modal>;
+  }
   if(detail){
     const workspace=<form onSubmit={save} className="tw-editor" onKeyDown={event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();event.currentTarget.requestSubmit();}}}>
       <header className="tw-editor-header"><button type="button" className="btn tw-back" onClick={close}><ArrowLeft size={15}/>{isNew?'取消新建':backLabel||'返回列表'}</button><div className="tw-template-name"><input aria-label="模板名称" required maxLength={80} placeholder="请输入模板名称" value={draft.name} onChange={event=>{setDraft({...draft,name:event.target.value});setErrors([]);}}/><Pencil size={15}/></div><details className="tw-template-summary"><summary>{draft.closure==='closed'?'闭合':'开放'} · 焊脚 {draft.leg} mm · {draft.segments.length} 段 · {draft.layers.length} 层 {passCount} 道<Info size={13}/></summary><dl><dt>模板类型</dt><dd>焊缝模板</dd><dt>转角数量</dt><dd>{draft.cornerCount}</dd><dt>坡口类型</dt><dd>{draft.groove.type}</dd><dt>工艺点数</dt><dd>{pointCount}</dd></dl></details><span className="tw-save-state">{JSON.stringify(draft)===pristine.current?'已保存':'未保存修改'}</span><button type="submit" className="btn primary"><Save size={15}/>保存模板</button></header>
       <TemplateWorkbench template={draft} onChange={next=>{setDraft(next);setErrors([]);}}/>
       {errors.length>0&&<div className="tpl-errors tw-errors" role="alert">{errors.map(error=><p key={error}>{error}</p>)}</div>}
     </form>;
-    return isNew?<Modal wide title="新建焊缝模板" onClose={close}>{discard&&<EditorExitNotice onContinue={()=>setDiscard(false)} onDiscard={()=>{setDiscard(false);exitAction.current();}}/>} {workspace}</Modal>:<section className="tw-editor-page" aria-label="编辑焊缝模板">{discard&&<EditorExitNotice onContinue={()=>setDiscard(false)} onDiscard={()=>{setDiscard(false);exitAction.current();}}/>} {workspace}</section>;
+    return <section className="tw-editor-page" aria-label="编辑焊缝模板">{discard&&<EditorExitNotice onContinue={()=>setDiscard(false)} onDiscard={()=>{setDiscard(false);exitAction.current();}}/>} {workspace}</section>;
   }
   return <Frame wide onClose={close} title={`${isNew?'新建':'编辑'}${fixedOnly?'固定':'局部'}模板`} onBack={close} backLabel={backLabel}>
     {discard&&<EditorExitNotice onContinue={()=>setDiscard(false)} onDiscard={()=>{setDiscard(false);exitAction.current();}}/>}

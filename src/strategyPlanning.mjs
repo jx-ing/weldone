@@ -78,13 +78,15 @@ function cornerValues(pass, side) {
 }
 
 export function plannedTracking(weld, rawSettings) {
-  const settings = settingsDefaults(rawSettings);
-  return {
-    ...weld,
-    segments:weld.segments?.map(segment => ({
-      ...segment, tracking:segment.tracking ?? weld.tracking ?? trackingChoice(segment, settings.trackingParameters, rawSettings.deviceCapabilities)
-    }))
-  };
+  const capabilities=rawSettings.deviceCapabilities??{};
+  const settings=settingsDefaults(rawSettings,capabilities);
+  return {...weld,segments:weld.segments?.map(segment=>{
+    const configured=segment.tracking??weld.tracking;
+    const unavailable=configured==='激光跟踪'&&capabilities.laserTracking===false||
+      configured==='电弧跟踪'&&capabilities.arcTracking===false;
+    const tracking=!unavailable&&configured!=null?configured:trackingChoice(segment,settings.trackingParameters,capabilities);
+    return {...segment,tracking};
+  })};
 }
 
 export function generateStrategyPlan(weld, process, rawSettings) {

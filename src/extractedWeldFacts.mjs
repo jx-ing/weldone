@@ -21,7 +21,7 @@ export function extractedEndpointFacts(member, endpoint, plan) {
   return {
     junctionType, hasHole, holeSize, breakReason,
     ...(info?.kind?{boundaryKind:info.kind}:{}),
-    type:breakReason ?? (junctionType ? junctionType + (hasHole?'过焊孔':'') : null),
+    type:junctionType,
     gap:dimension(info?.thirdPartClearance?.distance ?? info?.axialClearanceMm),
     plateThickness:dimension(info?.thicknessMm),
     offsetDirection:vec(measured?.offsetDir),

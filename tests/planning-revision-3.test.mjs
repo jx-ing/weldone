@@ -68,7 +68,8 @@ test('只有已验证的避障失败区间会被拆除',()=>{
  assert.deepEqual(excludeVerifiedCollision(failed,settings,()=>String(++n)),[failed]);
  const parts=excludeVerifiedCollision({...failed,collisionResult:{...failed.collisionResult,verified:true}},settings,()=>String(++n));
  assert.deepEqual(parts.map(value=>value.length),[40,40]);
- assert.equal(parts[0].endpointFacts.end.type,'避障打断');
+ assert.equal(parts[0].endpointFacts.end.type,null);
+ assert.equal(parts[0].endpointFacts.end.breakReason,'避障打断');
 });
 
 test('U 形包角只连接两条具有同一板件和成对边缘证据的焊缝',()=>{

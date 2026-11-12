@@ -1,4 +1,4 @@
-import {geometryRuleErrors,geometryRuleMismatches,shortSegmentRange,SHORT_SEGMENT_MM} from './templateGeometryRules.mjs';
+import {geometryRuleErrors,geometryRuleMismatches,shortSegmentRange,SHORT_SEGMENT_MM,endpointType,normalizeEndpointFacts} from './templateGeometryRules.mjs';
 import {GROOVE_TYPES,grooveType,grooveValue,validGroove} from './grooveModel.mjs';
 import {normalizeLegacyMergeGaps} from './mergeIntersectionGeometry.mjs';
 import {directedWeld} from './weldDirectionGeometry.mjs';
@@ -121,7 +121,11 @@ export function newWholeTemplateFromWeld(model,welds,weldId,copy) {
 function withoutTemplateJoint(template){
   const value=withoutLegacyJoint(template);
   if(value.baseProcessSnapshot)value.baseProcessSnapshot=migrateProcessWeldForms(value.baseProcessSnapshot);
-  if(Array.isArray(value.segments))value.segments=value.segments.map(withoutLegacyJoint);
+  if(Array.isArray(value.segments))value.segments=value.segments.map(migrateWeldSegment);
+  if(value.requirementsMatch){
+    const {start,end,...rules}=value.requirementsMatch;
+    value.requirementsMatch={...rules,start:{...start,type:endpointType(start)},end:{...end,type:endpointType(end)}};
+  }
   if(Array.isArray(value.matchParameters?.segments)){
     value.matchParameters={...withoutLegacyJoint(value.matchParameters),segments:value.matchParameters.segments.map(withoutLegacyJoint)};
   }
@@ -163,9 +167,15 @@ function migrateStrategyPlan(weld){
   }
   weld.strategyPlan={...plan,passes:plan.passes.map(({crater,...pass})=>pass)};
 }
+function migrateWeldSegment(segment){
+  const value=withoutLegacyJoint(segment);
+  if(value.endpointFacts)value.endpointFacts=normalizeEndpointFacts(value.endpointFacts);
+  return value;
+}
 function migrateWeld(weld){
   const value={...withoutLegacyJoint(weld),weldType:weldForm(weld)};
-  if(weld.segments)value.segments=weld.segments.map(withoutLegacyJoint);
+  if(weld.endpointFacts)value.endpointFacts=normalizeEndpointFacts(weld.endpointFacts);
+  if(weld.segments)value.segments=weld.segments.map(migrateWeldSegment);
   if(Array.isArray(weld.mergeHistory?.originals))value.mergeHistory={...weld.mergeHistory,originals:weld.mergeHistory.originals.map(migrateWeld)};
   migrateStrategyPlan(value);
   if(weld.processParameters)value.processParameters=migrateProcessWeldForms(weld.processParameters);
@@ -179,7 +189,8 @@ function migrateWeld(weld){
     const previous=weld.attributeOverrides;
     const overrides=withoutLegacyJoint(previous);
     if(previous.joint!==undefined)overrides.weldType=value.weldType;
-    if(previous.segments)overrides.segments=previous.segments.map(withoutLegacyJoint);
+    if(previous.endpointFacts)overrides.endpointFacts=normalizeEndpointFacts(previous.endpointFacts);
+    if(previous.segments)overrides.segments=previous.segments.map(migrateWeldSegment);
     value.attributeOverrides=overrides;
   }
   return value;
