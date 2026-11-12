@@ -4,18 +4,31 @@ import {editOptionalProcessValues} from './processParameterEditing.mjs';
 import {processNumberAttributes} from './processNumberRules.mjs';
 
 const show=value=>value==null||value===''?'--':value;
-function Heading({label,diagram}){
+function Heading({label,diagram,description}){
  const match=label.match(/^(.*?)\s*(\(.*\))$/);
- return match?<>{match[1]}<small>{match[2]}</small>{diagram&&<img className="process-corner-offset-diagram" src={diagram} alt="转角点偏移示意图"/>}</>:label;
+ return match?<>{match[1]}<small>{match[2]}</small>{diagram&&<img className="process-corner-diagram" src={diagram} alt={description}/>}</>:label;
 }
 
-export default function ProcessPointParameterTable({rows,kind,editing,onChange,onDistanceChange,onSpeedChange,onOffsetChange,modern=false}){
+export default function ProcessPointParameterTable({rows,kind,position,editing,onChange,onDistanceChange,onSpeedChange,onOffsetChange,modern=false}){
  const {label}=PROCESS_POINT_GROUPS[kind];
  const corner=kind==='inner'?'内角':'外角';
- const headings=['焊道','层数','拐角前距离 (mm)','拐角后距离 (mm)','转角速度 (cm/min)','转角点偏移 (mm)','电流 (A)','电压/修正值 (V)','动作时间 (s)','机器人工艺号'];
+ const flat=position==='PB';
+ const vertical=['PF','PG'].includes(position);
+ const offsetDiagram=flat
+  ? ['/assets/process-library/flat-'+kind+'-corner-offset.png','平角焊'+corner+'转角点偏移示意图']
+  : vertical&&kind==='outer'
+   ? ['/assets/process-library/vertical-outer-corner-offset.png','立焊外角转角点偏移示意图']
+   : ['/assets/corner-point-offset.png','转角点偏移示意图'];
+ const headings=[
+  ['焊道'],['层数'],
+  ['拐角前距离 (mm)',flat?'/assets/process-library/corner-distance-before.png':undefined,'转角前距离示意图'],
+  ['拐角后距离 (mm)',flat?'/assets/process-library/corner-distance-after.png':undefined,'转角后距离示意图'],
+  ['转角速度 (cm/min)'],['转角点偏移 (mm)',...offsetDiagram],
+  ['电流 (A)'],['电压/修正值 (V)'],['动作时间 (s)'],['机器人工艺号']
+ ];
  return <div className="process-parameter-scroll">
   <table className="process-parameter-table process-point-parameter-table" aria-label={label}>
-   <thead><tr>{headings.map(heading=><th key={heading} scope="col"><Heading label={heading} diagram={heading.startsWith('转角点偏移')?'/assets/corner-point-offset.png':undefined}/></th>)}</tr></thead>
+   <thead><tr>{headings.map(([heading,diagram,description])=><th key={heading} scope="col"><Heading label={heading} diagram={diagram} description={description}/></th>)}</tr></thead>
    <tbody>{rows.map(({pass,layerIndex},index)=>{
     const name=`P${index+1} ${corner}`;
     const point=sharedCornerPoint(pass,kind);
