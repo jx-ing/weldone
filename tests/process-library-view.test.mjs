@@ -23,3 +23,13 @@ test('查询以匹配条件优先，支持坡口尺寸与层道数',()=>{
  assert.deepEqual(queryProcesses(rows,'fillet',{name:'无此名称'}),[]);
  assert.deepEqual(queryProcesses(rows,'fillet',{groove:'V 形',depth:'4'}),[]);
 });
+
+test('焊缝形式筛选可跨分类，与位置及焊脚组合，并匹配多形式工艺',()=>{
+ const shared={...entries[0],id:'both',weldForms:['角焊缝','搭接焊缝']};
+ const rows=[...entries,shared];
+ assert.deepEqual(queryProcesses(rows,'fillet',{weldForm:'lap'}).map(p=>p.id),['4','both']);
+ assert.deepEqual(queryProcesses(rows,'fillet',{weldForm:'lap',position:'PB · 横角焊',leg:'8'}).map(p=>p.id),['both']);
+ assert.deepEqual(queryProcesses(rows,'lap',{weldForm:'fillet'}).map(p=>p.id),['1','2','both']);
+ assert.deepEqual(queryProcesses(rows,'fillet',{weldForm:'other'}).map(p=>p.id),['3','5']);
+ assert.deepEqual(queryProcesses(rows,'fillet',{weldForm:''}).map(p=>p.id),['1','2','both']);
+});
