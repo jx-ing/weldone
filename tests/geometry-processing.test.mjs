@@ -39,3 +39,15 @@ test('重新提取与撤销处理都保留人工合并和其原焊道记录',asy
 });
 
 test('自动合并关闭间隙阈值后仍验证真实交点，不能相交的分组保留成员',async()=>{const r=await processDemoGeometry(DEFAULT_GEOMETRY_OPTIONS);assert.equal(r.config.mergeGapCheck,false);assert.ok(r.welds.every(validExtractedWeld));assert.equal(r.welds.some(w=>w.segments.some(s=>s.connectionGap)),false);assert.equal(r.summary.processedWeldCount,r.welds.length);assert.ok(r.summary.rejectedMergeGroupCount>0);assert.ok(r.welds.some(w=>w.sourceEvidence.rejectedMergeReason));assert.equal(JSON.stringify(r).includes('Infinity'),false);});
+
+test('规划提取保留板端短焊缝，并保持现有焊道编号和非焊缝排除记录',async()=>{
+ const base=await processDemoGeometry({...DEFAULT_GEOMETRY_OPTIONS,planningRevision:3});
+ const withTerminal=await processDemoGeometry({...DEFAULT_GEOMETRY_OPTIONS,planningRevision:3,retainPlateEndWelds:true});
+ const draft={model:'111.step',welds:[],selected:''};
+ const previous=installGeometryResult(draft,base),updated=installGeometryResult(draft,withTerminal);
+ const restored=updated.welds.filter(w=>w.sourceEvidence.retainedPlateEnd);
+ assert.ok(restored.some(w=>w.processingKey==='unit:W0005|0'&&w.length===12));
+ assert.ok(restored.every(w=>w.length<DEFAULT_GEOMETRY_OPTIONS.minimumWeldLength));
+ assert.deepEqual(updated.welds.filter(w=>!w.sourceEvidence.retainedPlateEnd).map(w=>[w.id,w.processingKey]),previous.welds.map(w=>[w.id,w.processingKey]));
+ assert.deepEqual(updated.rejectedGeometryWelds.map(w=>w.id),previous.rejectedGeometryWelds.map(w=>w.id));
+});

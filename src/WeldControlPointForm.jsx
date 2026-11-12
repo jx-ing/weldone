@@ -5,13 +5,15 @@ import {weldControlPointError} from './weldPlanningPoints.mjs';
 const xyzFields=[['x','X 偏移'],['y','Y 偏移'],['z','Z 偏移']];
 const angleFields=[['advance','前进角'],['work','工作角'],['rotation','旋转角']];
 
-export default function WeldControlPointForm({anchors,groups,initialGroup,existing,onSave,onCancel}){
+export default function WeldControlPointForm({groups,initialGroup,existing,onSave,onCancel}){
  const [draft,setDraft]=useState(()=>{
   let index=1;
   while(existing.some(item=>item.name==='控制点'+index))index++;
-  return {...point('control',1,0,'控制点'+index),referenceId:anchors[0]?.id??'',groupId:initialGroup??groups[0]?.id??''};
+  return {...point('control',1,0,'控制点'+index),referenceId:groups.find(group=>group.id===initialGroup)?.points[0]?.raw.id??groups[0]?.points[0]?.raw.id??'',groupId:initialGroup??groups[0]?.id??''};
  });
  const [error,setError]=useState('');
+ const group=groups.find(group=>group.id===draft.groupId);
+ const anchors=(group?.points??[]).filter(p=>p.source==='weld').map(p=>({...p,id:p.raw.id}));
  const change=(key,value)=>{setDraft(previous=>({...previous,[key]:value}));setError('');};
  const number=(key,label,unit,value,onChange,limits={})=><label className="tpl-field" key={key}>
   <span>{label}</span><span className="tpl-number"><input aria-label={label} type="number" step="any" value={value??''}
@@ -27,7 +29,7 @@ export default function WeldControlPointForm({anchors,groups,initialGroup,existi
   <div className="dialog-body">
    <div className="tpl-form-grid">
     <label className="tpl-field"><span>点位名称</span><input aria-label="点位名称" required maxLength={40} value={draft.name} onChange={event=>change('name',event.target.value)}/></label>
-    <label className="tpl-field"><span>所属层道</span><select aria-label="所属层道" value={draft.groupId} onChange={event=>change('groupId',event.target.value)}>
+    <label className="tpl-field"><span>所属层道</span><select aria-label="所属层道" value={draft.groupId} onChange={event=>{const group=groups.find(item=>item.id===event.target.value);setDraft(previous=>({...previous,groupId:group.id,referenceId:group.points[0]?.raw.id??''}));setError('');}}>
      {groups.map(group=><option key={group.id} value={group.id}>{group.layerId?[group.templateName,group.layerName,group.passName].filter(Boolean).join(' / '):'焊缝点位'}</option>)}
     </select></label>
     <label className="tpl-field"><span>基准点</span><select aria-label="基准点" required value={draft.referenceId} onChange={event=>change('referenceId',event.target.value)}>
@@ -49,6 +51,6 @@ export default function WeldControlPointForm({anchors,groups,initialGroup,existi
    },{min}))}</div>
    {error&&<p role="alert" className="tpl-errors">{error}</p>}
   </div>
-  <footer><button type="button" className="btn" onClick={onCancel}>取消</button><button type="submit" className="btn primary">添加点位</button></footer>
+  <footer>{onCancel&&<button type="button" className="btn" onClick={onCancel}>取消</button>}<button type="submit" className="btn primary">添加点位</button></footer>
  </form>;
 }

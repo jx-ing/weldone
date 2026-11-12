@@ -50,7 +50,7 @@ export function weldPlanningPointGroups(weld,decision,templates=[],processLibrar
   let applied;try{applied=applyTemplateToWeld(target,template,options);}catch{continue;}
   applied.layers.forEach((layer,layerIndex)=>layer.passes.forEach((pass,passIndex)=>{
    const groupId=`${weld.id}:${key}:${template.id}:${layer.id}:${pass.id}`;
-   groups.push({id:groupId,name:`${template.name} · 第${layerIndex+1}层 / 第${passIndex+1}道`,templateName:template.name,layerId:weld.id+':'+key+':'+template.id+':'+layer.id,layerName:layer.name,passName:pass.name,layerHeight:layer.height,passOffset:pass.offset,points:pass.controlPoints.map(point=>{const position=xyz(point.position);return editablePoint({...point,id:groupId+':'+point.id,originalId:point.id,source:'template',templateName:template.name,layerIndex,passIndex,segment:segmentIndices?segmentIndices[(point.actualSegment||point.segment)-1]+1:point.originalSegment||point.actualSegment||point.segment,position:validPosition(position)?position:null},[key,template.id,layer.id,pass.id,point.id],weld);})});
+   groups.push({id:groupId,name:`${template.name} · 第${layerIndex+1}层 / 第${passIndex+1}道`,templateName:template.name,layerId:weld.id+':'+key+':'+template.id+':'+layer.id,layerName:layer.name,passName:pass.name,layerHeight:layer.height,passOffset:pass.offset,definition:pass.points,localSegments:segmentIndices,points:pass.controlPoints.map(point=>{const position=xyz(point.position);return editablePoint({...point,id:groupId+':'+point.id,originalId:point.id,source:'template',templateName:template.name,layerIndex,passIndex,segment:segmentIndices?segmentIndices[(point.actualSegment||point.segment)-1]+1:point.originalSegment||point.actualSegment||point.segment,position:validPosition(position)?position:null},[key,template.id,layer.id,pass.id,point.id],weld);})});
   }));
  }
  return groups;
@@ -58,10 +58,12 @@ export function weldPlanningPointGroups(weld,decision,templates=[],processLibrar
 
 export function weldControlPointError(point,anchors){
  if(!point.name?.trim()||point.name.trim().length>40)return '请输入不超过 40 个字符的点位名称';
- if(!anchors.some(anchor=>anchor.id===point.referenceId&&validPosition(anchor.position)))return '请选择有模型坐标的基准点';
+ if(point.kind==='control'&&!anchors.some(anchor=>anchor.id===point.referenceId&&validPosition(anchor.position)))return '请选择有模型坐标的基准点';
  if(!axes.every(axis=>Number.isFinite(point.offset?.[axis])))return '请输入有效的 XYZ 偏移';
  if(!poseAxes.every(axis=>Number.isFinite(point.angles?.[axis])&&Math.abs(point.angles[axis])<=360))return '姿态角度须在 −360° 至 360° 之间';
- if(!TRACKING.includes(point.tracking))return '请选择有效的跟踪方式';
+ if(!(point.tracking===''&&['start','end'].includes(point.kind))&&!TRACKING.includes(point.tracking))return '请选择有效的跟踪方式';
+ if(point.poseOffset!==undefined&&(!point.poseOffset||!poseAxes.every(axis=>Number.isFinite(point.poseOffset[axis])&&Math.abs(point.poseOffset[axis])<=360)))return '请输入有效的姿态偏移';
+ if(point.processOffset!==undefined&&(!point.processOffset||typeof point.processOffset!=='object'||Array.isArray(point.processOffset)||Object.entries(point.processOffset).some(([key,value])=>!Object.hasOwn(OVERRIDES,key)||!Number.isFinite(value))))return '请输入有效的工艺偏移';
  if(Object.entries(point.overrides??{}).some(([key,value])=>!Object.hasOwn(OVERRIDES,key)||!Number.isFinite(value)||value<OVERRIDES[key][2]))return '请输入有效的工艺覆盖值';
  return '';
 }

@@ -10,6 +10,12 @@ export const newDeviceHardware=()=>({
  coarseCameraModel:'',trackingModes:[],
  precisionCameras:Object.fromEntries(PRECISION_CAMERA_TYPES.map(([key])=>[key,{enabled:false,model:''}]))
 });
+export function legacyPlanningDevice(profiles){
+ const profile=Array.isArray(profiles)?profiles.find(item=>item.enabled):undefined;
+ if(!profile?.hardware)return undefined;
+ const {robotModel,welderModel,wireType}=profile.applicability??{};
+ return {robotModel,welderModel,wireType,...structuredClone(profile.hardware)};
+}
 export const deviceProfileName=value=>[value.welderModel,value.material,value.wireType?value.wireType.replace('焊丝','')+(value.wireDiameter||''):'',value.gas,value.robotModel].filter(Boolean).join('-').slice(0,40)||'新建设备信息';
 const signature=value=>JSON.stringify(['welderModel','material','wireType','wireDiameter','gas','robotModel'].map(key=>value?.[key]??''));
 export function newDeviceProfile(applicability={},enabled=false){

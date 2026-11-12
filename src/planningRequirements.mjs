@@ -57,7 +57,7 @@ export function withoutLegacyJoint(value) {
 
 export function planningContext(workspace) {
   const activeDevice=workspace.processDeviceProfiles?.find(profile=>profile.enabled)??null;
-  const hardware=activeDevice?.hardware;
+  const hardware=workspace.planningDevice;
   const deviceCapabilities={...workspace.deviceCapabilities};
   if(hardware?.trackingModes){
     deviceCapabilities.laserTracking=hardware.trackingModes.includes('laser');

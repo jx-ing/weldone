@@ -1,3 +1,4 @@
+import {legacyPlanningDevice} from './processDeviceModel.mjs';
 import {geometryRuleErrors,geometryRuleMismatches,shortSegmentRange,SHORT_SEGMENT_MM,endpointType,normalizeEndpointFacts} from './templateGeometryRules.mjs';
 import {GROOVE_TYPES,grooveType,grooveValue,validGroove} from './grooveModel.mjs';
 import {normalizeLegacyMergeGaps} from './mergeIntersectionGeometry.mjs';
@@ -204,6 +205,7 @@ export function migrateDraft(v) {
   if(Array.isArray(v.manualSplitHistory))history.manualSplitHistory=v.manualSplitHistory.map(entry=>({...entry,original:migrateWeld(entry.original)}));
   if(Array.isArray(v.deletedProcessDevices))history.deletedProcessDevices=v.deletedProcessDevices.map(entry=>({...entry,entries:entry.entries.map(migrateProcessWeldForms)}));
   const settings={};
+  if(v.planningDevice===undefined){const device=legacyPlanningDevice(v.processDeviceProfiles);if(device)settings.planningDevice=device;}
   if(v.planningSettings)settings.planningSettings=withoutRetiredFillSettings(v.planningSettings);
   if(v.projectPlanning)settings.projectPlanning=Object.fromEntries(Object.entries(v.projectPlanning).map(([name,profile])=>[
     name,profile.planningSettings?{...profile,planningSettings:withoutRetiredFillSettings(profile.planningSettings)}:profile

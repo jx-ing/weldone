@@ -28,16 +28,24 @@ function exactRange(value) {
   return Number.isFinite(value) && value >= 0 ? {min:value,max:value} : null;
 }
 
+export const roundEndpointGap=value=>Number.isFinite(value)?Number(value.toFixed(1)):value;
+
+function endpointHoleSize(facts,hasHole){
+  if((facts?.hasHole??hasHole)===false)return 0;
+  return facts?.holeSize;
+}
+
 export function geometryRulesFromWeld(weld) {
-  const endpoint = value => ({
+  const endpoint = (value,hasHole) => ({
     type:endpointType(value),
-    ...Object.fromEntries(ENDPOINT_DIMENSIONS.map(([key])=>[key,exactRange(value?.[key])]))
+    holeSize:exactRange(endpointHoleSize(value,hasHole)),
+    gap:exactRange(roundEndpointGap(value?.gap))
   });
   return {
     machineCount:weld.machineCount ?? 1,
     weldType:weldForm(weld),
-    start:endpoint(weld.endpointFacts?.start),
-    end:endpoint(weld.endpointFacts?.end),
+    start:endpoint(weld.endpointFacts?.start,weld.startHole),
+    end:endpoint(weld.endpointFacts?.end,weld.endHole),
     edgeDistance:exactRange(weld.edgeDistance)
   };
 }
@@ -86,7 +94,10 @@ export function geometryRuleMismatches(rules,weld) {
     const expected = rules[key] ?? {};
     const type=endpointType(expected);
     if (type && endpointType(actual) !== type) reasons.push(label+'特征不一致');
-    for (const [dimension,name] of ENDPOINT_DIMENSIONS) check(expected[dimension],actual[dimension],label+name);
+    check(expected.holeSize,endpointHoleSize(actual,weld[key+'Hole']),label+'过焊孔尺寸');
+    const range=expected.gap;
+    const oneDecimal=range&&[range.min,range.max].every(value=>roundEndpointGap(value)===value);
+    check(range,oneDecimal?roundEndpointGap(actual.gap):actual.gap,label+'间隙距离');
   }
   return reasons;
 }

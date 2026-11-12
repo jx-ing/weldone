@@ -1,7 +1,7 @@
 import React from 'react';
-import {Layers,MapPin} from 'lucide-react';
+import {Layers,MapPin,Plus} from 'lucide-react';
 
-export default function WeldPointTree({weldId,groups,selection,onSelect}){
+export default function WeldPointTree({weldId,groups,selection,onSelect,onAddPoint,onAddPass,editable}){
  const layers=new Map();
  for(const group of groups){
   if(!group.layerId)continue;
@@ -15,11 +15,16 @@ export default function WeldPointTree({weldId,groups,selection,onSelect}){
  );
  const points=group=>group.points.map(point=><div key={point.id}>{node('point',point.id,point.name,MapPin)}</div>);
  return <div className="weld-point-tree" role="group" aria-label={weldId+' 层道与点位'}>
-  {groups.filter(group=>!group.layerId).map(group=><div key={group.id}>{points(group)}</div>)}
-  {[...layers.entries()].map(([id,passes])=>{
+  {[...layers.entries()].map(([id,passes],index)=>{
    const {layerName,templateName}=passes[0];
    return <div className="weld-point-layer" key={id}>
-    {node('layer',id,[templateName,layerName].filter(Boolean).join(' · '),Layers)}
+    <div className="weld-point-row">
+     {node('layer',id,[templateName,layerName].filter(Boolean).join(' · '),Layers)}
+     {editable&&<>
+      <button type="button" className="weld-point-action" title="添加点位" aria-label={layerName+' 添加点位'} onClick={()=>onAddPoint(id)}><MapPin size={14}/></button>
+      {index>0&&<button type="button" className="weld-point-action" title="新建道" aria-label={layerName+' 新建道'} onClick={()=>onAddPass(id)}><Plus size={14}/></button>}
+     </>}
+    </div>
     {passes.map(group=><div className="weld-point-pass" key={group.id}>
      {node('pass',group.id,group.passName,Layers)}
      <div className="weld-pass-points">{points(group)}</div>

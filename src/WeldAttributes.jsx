@@ -28,6 +28,7 @@ function MatchCard({label,value,onChoose,onCreate,createDisabled,createHint}){
 
 export default function WeldAttributes(props){
  const {weld:w,templates,processLibrary,decision,onPatch,onSave,onCancel}=props,id=useId(),panel=useRef();
+ const planningFormId=id+'-planning-form';
  const [tab,setTab]=useState(props.planningSelection?'welding':'information'),[segmentIndex,setSegmentIndex]=useState(0);
  useEffect(()=>{if(props.planningSelection)setTab('welding');},[props.planningSelection]);
  useEffect(()=>{props.onPlanningViewChange?.(tab==='welding');return()=>props.onPlanningViewChange?.(false);},[tab,props.onPlanningViewChange]);
@@ -39,13 +40,6 @@ export default function WeldAttributes(props){
  const wrapValues=[['none','不包角'],['half','半包角'],['full','全包角']],scan=w.scanSettings||{};
  const precisionMethod=scan.precisionMethod??(scan.mode==='laser'?'laserSweep':'');
  const updateScan=values=>onPatch('scanSettings',{...scan,...values});
- const adjustPoint=(id,key,value)=>{
-  if(value!==null&&!Number.isFinite(value))return;
-  const overrides={...w.planningPointOverrides},point={...overrides[id]};
-  if(value===null)delete point[key];else point[key]=value;
-  if(Object.keys(point).length)overrides[id]=point;else delete overrides[id];
-  onPatch('planningPointOverrides',overrides);
- };
  const pending=w.enabled&&decision?.route==='blocked'?decision:null;
  const needsProcess=pending?.creation==='template-or-process';
  const needsTemplate=needsProcess||pending?.creation==='template';
@@ -84,7 +78,7 @@ export default function WeldAttributes(props){
     {segment?.endpointFacts&&<details className="wa-geometry-details"><summary>焊缝段几何信息</summary><dl><dt>几何轮廓</dt><dd>{segment.geometry} · {w.closure==='closed'?'闭合':'开放'}</dd><dt>焊缝段长度</dt><dd>{Number(segment.length.toFixed(1))} mm</dd><dt>板厚</dt><dd>{segment.plateThickness?.主板厚度??'—'} / {segment.plateThickness?.副板厚度??'—'} mm</dd><dt>与下一段转角</dt><dd>{Number.isFinite(w.cornerAngles?.[index])?w.cornerAngles[index]+'°':'—'}</dd><dt>主副板夹角</dt><dd>{Number.isFinite(segment.jointAngle)?segment.jointAngle+'°':'—'}</dd><dt>焊缝边缘距离</dt><dd>{Number.isFinite(segment.edgeDistance)?segment.edgeDistance.toFixed(1)+' mm':'—'}</dd>{[['start','起点'],['end','终点']].map(([key,label])=>{const facts=segment.endpointFacts[key];return <React.Fragment key={key}><dt>{label}类型</dt><dd>{endpointType(facts)||'—'}</dd><dt>{label}过焊孔尺寸</dt><dd>{Number.isFinite(facts?.holeSize)?facts.holeSize.toFixed(1)+' mm':'—'}</dd><dt>{label}间隙距离</dt><dd>{Number.isFinite(facts?.gap)?facts.gap.toFixed(1)+' mm':'—'}</dd><dt>{label}到主板端部距离</dt><dd>{Number.isFinite(facts?.mainEdgeDistance)?facts.mainEdgeDistance.toFixed(1)+' mm':'—'}</dd></React.Fragment>;})}</dl></details>}
     <h4 className="wa-groove-heading">坡口尺寸<Info size={11}/></h4>
     <div className="wa-groove-grid">{grooveFieldsFor(groove.type).map(([key,label,unit,max])=><label key={key}><span>{label}</span><NumberField label={'焊道'+label} min={0} max={max} disabled={inactive} value={key==='rootFace'?(groove.rootFace??0):grooveValue(groove,key)} onChange={value=>setGroove(key,value)}/></label>)}</div>
-   </div>:tab==='welding'?<WeldPlanningPointDetails point={props.planningPoint} group={props.planningPointGroup} layerOnly={props.planningSelection?.type==='layer'} onAdjust={adjustPoint}/>:<div className="wa-scan-settings">
+   </div>:tab==='welding'?<WeldPlanningPointDetails point={props.planningPoint} basePosition={props.planningPointBasePosition} formId={planningFormId} group={props.planningPointGroup} layerOnly={props.planningSelection?.type==='layer'} editable={w.enabled&&!w.mergedInto&&!w.splitInto} onSavePoint={props.onSavePoint} onSaveLayerOrPass={props.onSaveLayerOrPass}/>:<div className="wa-scan-settings">
     <h3 className="wa-section-heading">扫描配置</h3>
     <Row label="精测量方式"><Options label="精测量方式" value={precisionMethod} values={precisionMethods} onChange={precisionMethod=>updateScan({precisionMethod})}/></Row>
     {precisionMethod==='separateEnds'?<>
@@ -95,6 +89,6 @@ export default function WeldAttributes(props){
     <p className="wa-muted">{precisionMethod?'未连接扫描设备':'当前焊缝未设置精测量方式'}</p>
    </div>}
   </div>
-  <footer className="wa-footer">{props.onCancel&&<button type="button" className="btn" onClick={props.onCancel}>取消</button>}<button type="button" className="btn primary" onClick={()=>{for(const field of panel.current.querySelectorAll('input,select'))if(!field.checkValidity()){field.reportValidity();return;}onSave();}}>应用</button></footer>
+  <footer className="wa-footer">{props.onCancel&&<button type="button" className="btn" onClick={props.onCancel}>取消</button>}{tab==='welding'&&props.planningPointGroup?<button type="submit" form={planningFormId} disabled={!w.enabled||!!w.mergedInto||!!w.splitInto} className="btn primary">应用</button>:<button type="button" className="btn primary" onClick={()=>{for(const field of panel.current.querySelectorAll('input,select'))if(!field.checkValidity()){field.reportValidity();return;}onSave();}}>应用</button>}</footer>
  </section>;
 }

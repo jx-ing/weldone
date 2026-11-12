@@ -88,3 +88,19 @@
 .wa-point-values>div{display:flex;justify-content:space-between;gap:8px;padding:4px 0;font-size:12px}.wa-point-values dt{color:#666}.wa-point-values dd{margin:0;font-variant-numeric:tabular-nums}
 .wa-point-edit{margin-top:16px}.wa-point-edit>summary{cursor:pointer;font-size:12px}
 .weld-control-point-form .dialog-body{max-height:calc(100dvh - 165px);overflow:auto}.weld-control-point-form h3{margin:16px 0 8px;font-size:14px}
+
+.weld-point-row{display:flex;align-items:center;gap:4px}
+.weld-point-row>.weld-point-node{flex:1;min-width:0}
+.wa-point-adjustment{border:0;margin:0 0 12px;padding:0;min-width:0}
+
+.wa-offset-row{display:grid;grid-template-columns:minmax(68px,1fr) minmax(0,.8fr) auto minmax(86px,1fr);align-items:center;gap:6px;padding:4px 0;color:#555;font-size:12px}
+.wa-offset-value{text-align:right;font-variant-numeric:tabular-nums}
+.wa-offset-input{display:flex;align-items:center;gap:3px;border:1px solid #ddd;border-radius:3px;padding:0 4px;min-width:0}
+.wa-offset-input:focus-within{outline:1px solid #fa8c16;border-color:#fa8c16}
+.wa-offset-input input{width:100%;min-width:0;min-height:27px;border:0;background:transparent;padding:2px}
+.wa-offset-input>span{white-space:nowrap;font-size:10px;color:#666}
+.wa-point-tracking select{grid-column:2/-1;min-width:0}
+.wa-offset-status{color:#805022;font-size:12px}
+
+.wa-point-title{display:grid;grid-template-columns:68px minmax(0,1fr);align-items:center;gap:8px;margin-bottom:12px;color:#555;font-size:12px}
+.wa-point-title input{width:100%;min-width:0;height:29px;border:1px solid #ddd;border-radius:3px;padding:0 6px;font-weight:600}

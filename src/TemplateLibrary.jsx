@@ -13,6 +13,7 @@ import MatchConditions from './TemplateMatchConditions';
 import TemplateMatchInformation,{GeometryMatchFields} from './TemplateMatchInformation';
 import MultiPassEditor from './TemplateMultiPassEditor';
 import TemplateWorkbench from './TemplateWorkbench';
+import TemplateGeometryPreview from './TemplateGeometryPreview';
 import EditorPage,{EditorExitNotice} from './EditorPage';
 import {validTemplateCover} from './templateCoverModel.mjs';
 import {hasTemplateModelPath} from './templateModelEditing.mjs';
@@ -46,14 +47,17 @@ export function TemplateEditor({initial,processLibrary=[],fixedOnly=false,isNew,
   if(detail&&isNew){
     return <Modal title="新建焊缝模板" onClose={close}>
       {discard&&<EditorExitNotice onContinue={()=>setDiscard(false)} onDiscard={()=>{setDiscard(false);exitAction.current();}}/>}
-      <form className="template-match-editor" onSubmit={save}>
+      <form className="template-match-editor template-create-match" onSubmit={save}>
         <div className="matching-editor-body">
           <div className="matching-editor-title">
             <Field label="模板名称"><input aria-label="模板名称" required maxLength={80} value={draft.name} onChange={event=>{setDraft(previous=>({...previous,name:event.target.value}));setErrors([]);}}/></Field>
             <span>{draft.sourceWeld?.id} · 焊脚 {draft.leg} mm · {draft.segments.length} 段</span>
           </div>
-          {draft.requirementsMatch&&<GeometryMatchFields title="焊缝邻域几何匹配特征" rules={draft.requirementsMatch}
+          <div className="template-create-match-grid">
+          {hasTemplateModelPath(initial)&&<TemplateGeometryPreview template={initial}/>}
+          {draft.requirementsMatch&&<GeometryMatchFields title="焊缝邻域几何匹配特征" rules={draft.requirementsMatch} holeFlags={{start:draft.startHole,end:draft.endHole}}
             changeRules={values=>setDraft(previous=>({...previous,requirementsMatch:{...previous.requirementsMatch,...values}}))}/>}
+          </div>
           {errors.length>0&&<div className="tpl-errors" role="alert">{errors.map(error=><p key={error}>{error}</p>)}</div>}
         </div>
         <footer><Button onClick={close}>取消</Button><button type="submit" className="btn primary"><Save size={15}/>保存模板</button></footer>

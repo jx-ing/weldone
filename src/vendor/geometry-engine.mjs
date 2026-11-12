@@ -12214,10 +12214,22 @@ function activeWelds(data, config) {
     return typeof face !== "string" || config.workfaces?.[face] !== false;
   }) };
 }
-function automaticMerges(data, welds, splits, config) {
+function isPlateEndUnit(sub, endpoints) {
+  if (sub.closed || sub.geometryObstruction || sub.length < 0.1) return false;
+  return ["起点", "终点"].some(label => {
+    if (sub[label + "来源"]?.类型 !== "原焊缝" + label) return false;
+    const info = endpoints?.[label]?.unifiedInfo;
+    return !!info && (
+      (info.kind === "free-edge" || info.kind === "opening") && info.status === "verified" ||
+      Number.isFinite(info.axialClearanceMm) && info.axialClearanceMm <= 0.02
+    );
+  });
+}
+function automaticMerges(data, welds, splits, config, endpointByWeld) {
   const roleIds = recognizedRoleWeldIds(data.weldsData.welds, data.partsData.parts);
   const lugKeys = retainedLugContourUnitKeys(data.weldsData, splits, config.minimumWeldLength);
   const deletedUnitKeys = /* @__PURE__ */ new Set();
+  const retained = new Set();
   for (const split of splits.values()) split.subWelds.forEach((sub4, index) => {
     const key = `${split.weldId}|${index}`;
     const independent = sub4.geometryProperties?.\u63A5\u5934\u5F62\u5F0F?.\u677F\u539A\u5F62\u6210\u72EC\u7ACB\u710A\u7F1D;
@@ -12226,7 +12238,11 @@ function automaticMerges(data, welds, splits, config) {
       deletedUnitKeys.add(key);
       return;
     }
-    if (sub4.geometryObstruction || !sub4.geometryRetainTerminal && !lugKeys.has(key) && !isIntermittentSubWeld(sub4) && shouldHideShortWeld(sub4.length, split.weldId, true, roleIds, config.minimumWeldLength)) deletedUnitKeys.add(key);
+    if (sub4.geometryObstruction || !sub4.geometryRetainTerminal && !lugKeys.has(key) && !isIntermittentSubWeld(sub4) && shouldHideShortWeld(sub4.length, split.weldId, true, roleIds, config.minimumWeldLength)) {
+      deletedUnitKeys.add(key);
+      const endpoints = endpointByWeld?.get(split.weldId);
+      if (config.retainPlateEndWelds && isPlateEndUnit(sub4, endpoints?.bySubWeld?.[index] ?? endpoints)) retained.add(key);
+    }
   });
   const raw = computeMerges(splits, welds, data.partsData, config.mergeParams, deletedUnitKeys);
   const deletedGroupUnitKeys = /* @__PURE__ */ new Set();
@@ -12240,6 +12256,18 @@ function automaticMerges(data, welds, splits, config) {
   const groups = kept.map((group, index) => ({ ...group, id: `M${String(index + 1).padStart(3, "0")}` }));
   const mergedUnitKeys = new Set(groups.flatMap((group) => group.members.map((member) => member.key)));
   const units = raw.units.filter((unit5) => !deletedGroupUnitKeys.has(unit5.key));
+  if (retained.size) {
+    // Append restored terminal segments without changing existing automatic merges or their IDs.
+    const skip = new Set();
+    for (const split of splits.values()) split.subWelds.forEach((_, index) => {
+      const key = `${split.weldId}|${index}`;
+      if (!retained.has(key)) skip.add(key);
+    });
+    for (const unit of buildUnits(splits, welds, data.partsData, skip)) {
+      units.push({ ...unit, retainedPlateEnd: true });
+      deletedUnitKeys.delete(unit.key);
+    }
+  }
   const aliveIds = new Set(units.map((unit5) => unit5.id));
   const result = {
     groups,
@@ -12280,7 +12308,7 @@ function computeProcessedGeometryPlan(data, sourceSplits, inputConfig = {}) {
     \u8017\u65F6ms: Math.round(performance.now() - began),
     \u7EDF\u8BA1: summarizeBaojiao(byWeld)
   };
-  const automatic = automaticMerges(data, welds, splits, config);
+  const automatic = automaticMerges(data, welds, splits, config, byWeld);
   const merges = applyGeometryMergeEdits(automatic.result, data.weldsData, splits, {});
   const context = {
     weldsData: data.weldsData,

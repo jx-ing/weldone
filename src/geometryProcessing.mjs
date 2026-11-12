@@ -33,7 +33,7 @@ export async function processDemoGeometry(options,onProgress=()=>{}){
   }
   const splitInput=withPlanningEdgeThresholds(splitWeldsData,data.weldsData.welds,options.splitParameters);
   const splits=await computeAllSplitsAsync([splitInput,data.mesh,data.partsData,data.edgesData,data.contactPairs,config.offset,config.extendThreshold,config.offsetThreshold],{budgetMs:50,onProgress:p=>onProgress({stage:`打断焊道 ${p.completed}/${p.total}`,percent:10+Math.round(p.completed/Math.max(1,p.total)*65)})});
-  if(!splits)throw Error('焊道打断未完成');onProgress({stage:'筛选短段并按规则合并',percent:80});
+  if(!splits)throw Error('焊道打断未完成');onProgress({stage:'保留板端焊缝并按规则合并',percent:80});
   const runtimeConfig=config.mergeGapCheck?config:{...config,mergeParams:{...config.mergeParams,最大合并距离:Infinity}};
   const plan=computeProcessedGeometryPlan(data,splits,runtimeConfig),welds=convertGeometryPlan(data,plan,options);
   const merged=welds.filter(w=>w.sourceEvidence.unitKeys.length>1).length,rejected=new Set(welds.map(w=>w.sourceEvidence.rejectedMergeKey).filter(Boolean)).size;

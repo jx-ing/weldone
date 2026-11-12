@@ -175,12 +175,6 @@ export default function PlanningSettings({settings={},capabilities={},onSave,onC
    {mixedScan('structuredLightMixedScan','结构光')}
   </fieldset>}
  </section>
- {showLaser&&<section aria-label="视觉设置"><h3>视觉设置</h3>
-  {group('visionParameters','sweepPose','推扫标准姿态',angleFields)}
-  {group('visionParameters','photoPose','定点拍照标准姿态',angleFields)}
-  {field('visionParameters','twoFaceSpeed','两面交推扫速度',{unit:'mm/min',step:'any',placeholder:'按项目填写'})}
-  {field('visionParameters','threeFaceSpeed','三面交推扫速度',{unit:'mm/min',step:'any',placeholder:'按项目填写'})}
- </section>}
  </>}
  {tab==='tracking'&&<section aria-label="跟踪设置"><h3>跟踪设置</h3><WeldTrackingSettings showHeading={false} capabilities={capabilities} value={draft.trackingParameters} onChange={value=>setDraft(previous=>({...previous,trackingParameters:value}))}/></section>}
  </div></div>{error&&<p role="alert" className="tpl-errors planning-settings-error">{error}</p>}<footer><button type="button" className="btn" onClick={onCancel}>取消</button><button type="submit" className="btn primary">保存</button></footer></form>;
