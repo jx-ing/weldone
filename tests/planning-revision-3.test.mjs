@@ -5,6 +5,7 @@ import {geometryRulesFromWeld,shortSegmentRange} from '../src/templateGeometryRu
 import {ensureProcessLayers,newProcessEntry,addProcessPass,updateProcessPass,validateProcessEntry} from '../src/processParameterModel.mjs';
 import {sharedCornerPoint,sharedCornerPointChanges} from '../src/processFeaturePoints.mjs';
 import {analyzeWeldMatch,planWorkspace,canPreviewWeld} from '../src/weldMatching.mjs';
+import {generateStrategyPlan} from '../src/strategyPlanning.mjs';
 import {settingsDefaults} from '../src/planningSettingsModel.mjs';
 import {excludeVerifiedCollision,strategyGeometryRows} from '../src/strategyGeometry.mjs';
 import {planeSplitStations,multiSplitPreview,splitWeldPreview} from '../src/manualSplitModel.mjs';
@@ -142,4 +143,36 @@ test('激光跟踪在边缘距离不足的区间内关闭并在区间后恢复',
  const points=planned.strategyPlan.passes[0].points;
  assert.equal(points.find(point=>point.distance===30).tracking,'无跟踪');
  assert.equal(points.find(point=>point.distance>60).tracking,'激光跟踪');
+});
+
+test('自由板端按焊缝长度与可用空间过滤，立焊上包角使用独立距离',()=>{
+ const a={...source('W001'),length:20,segments:[segment(0,20)],endpointFacts:{end:{boundaryKind:'free-edge',junctionType:'两面交',gap:12,mainEdgeDistance:9,plateThickness:6,offsetDirection:[0,1,0]}}};
+ const p=recipe(), settings={topologyVersion:1,wrapParameters:{independentLength:20,outerClearance:9}};
+ assert.equal(generateStrategyPlan(a,p,settings).endpointActions[1],'L');
+ assert.equal(generateStrategyPlan({...a,length:20.1},p,settings).endpointActions[1],'none');
+ assert.equal(generateStrategyPlan(a,p,{...settings,wrapParameters:{...settings.wrapParameters,outerClearance:10}}).endpointActions[1],'none');
+ assert.equal(generateStrategyPlan(a,p,{...settings,wrapParameters:{...settings.wrapParameters,flatEnabled:false}}).endpointActions[1],'none');
+ const upright='PF · 立向上焊';
+ const vertical={...a,position:upright,segments:[{...a.segments[0],position:upright,pathPoints:[[0,0,0],[0,0,20]],referenceNormal:[1,0,0]}]};
+ const plan=generateStrategyPlan(vertical,p,{...settings,wrapParameters:{verticalDistance:8}});
+ assert.deepEqual(plan.passes[0].points.find(point=>point.name==='立焊上包角').position,[0,8,20]);
+});
+
+test('转角默认距离和偏移参与路径，单道显式数值优先',()=>{
+ const a=segment(0,100),b={...a,pathPoints:[[100,0,0],[100,100,0]]};
+ const weld={...source(),length:200,segments:[a,b]};
+ const settings={topologyVersion:1,cornerPathParameters:{before:16,after:13,offset:4}};
+ const process=recipe();
+ const pass=process.processLayers[0].passes[0];
+ const points=generateStrategyPlan(weld,process,settings).passes[0].points;
+ const corners=points.filter(point=>point.kind==='corner');
+ assert.deepEqual(corners.map(point=>point.distance),[84,100,113]);
+ assert.ok(Math.abs(Math.hypot(corners[1].position[0]-100,corners[1].position[1])-4)<1e-6);
+ pass.cornerDistances={inner:{before:7,after:null},outer:{before:7,after:null}};
+ pass.cornerOffsets={inner:0,outer:0};
+ const override=generateStrategyPlan(weld,process,settings).passes[0].points.filter(point=>point.kind==='corner');
+ assert.deepEqual(override.map(point=>point.distance),[93,100,113]);
+ assert.deepEqual(override[1].position,[100,0,0]);
+ const closed={...weld,closure:'closed',length:400,segments:[a,b,{...a,pathPoints:[[100,100,0],[0,100,0]]},{...a,pathPoints:[[0,100,0],[0,0,0]]}]};
+ assert.equal(generateStrategyPlan(closed,process,settings).passes[0].points.filter(point=>point.kind==='corner').length,12);
 });

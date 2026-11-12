@@ -17,11 +17,12 @@ function Options({label,value,onChange,values,placeholder='请选择',...props})
 function Toggle({label,value,onChange,values}){return <div className="wa-toggle" role="group" aria-label={label}>{values.map(([id,name])=><button type="button" key={id} aria-pressed={value===id} className={value===id?'active':''} onClick={()=>onChange(id)}>{name}</button>)}</div>;}
 function NumberField({label,value,onChange,unit,min=0,max,step='any',disabled=false}){return <span className={'wa-number'+(disabled?' disabled':'')}><input aria-label={label} type="number" min={min} max={max} step={step} disabled={disabled} required={!disabled} value={value??''} onChange={event=>{const number=event.target.value===''?'':+event.target.value;if(number===''||Number.isFinite(number)&&number>=min&&(max===undefined||number<=max))onChange(number);}}/>{unit&&<small>{unit}</small>}</span>;}
 
-function MatchCard({label,value,onChoose}){
+function MatchCard({label,value,onChoose,onCreate,createDisabled,createHint}){
  return <div className="wa-match-card">
   <button className="wa-choose-match" type="button" aria-label={'选择'+label} title={value?undefined:'未匹配'+label} onClick={onChoose}>
    <span>{label}{value?<FileOutput size={13}/>:<TriangleAlert className="wa-match-warning" size={15} aria-hidden="true"/>}</span><small>{value||'未选择'+label}</small>
   </button>
+  {onCreate&&<button className="wa-create-match" type="button" onClick={onCreate} disabled={createDisabled} title={createHint}>创建焊接模板</button>}
  </div>;
 }
 
@@ -57,7 +58,7 @@ export default function WeldAttributes(props){
   <div className="wa-summary">
    <div className="wa-group"><input aria-label="焊缝名称" required maxLength={80} value={w.name} title={w.name} onChange={event=>onPatch('name',event.target.value)}/><div className="wa-segments" role="group" aria-label="选择焊缝段">{w.segments.map((s,i)=><button type="button" key={i} title={segmentName(w,i)} aria-pressed={i===index} className={i===index?'active':''} onClick={()=>setSegmentIndex(i)}>{segmentName(w,i)}</button>)}</div></div>
    <div className="wa-template-cards" key={w.id}>
-    <MatchCard label="焊接模板" value={templateName} onChoose={props.onChooseTemplate}/>
+    <MatchCard label="焊接模板" value={templateName} onChoose={props.onChooseTemplate} onCreate={props.onCreateWhole} createDisabled={props.templateCreateDisabled} createHint={props.templateCreateHint}/>
     <MatchCard label="工艺参数" value={processName} onChoose={props.onChooseProcess}/>
    </div>
    {pending&&<div className="wa-pending-actions">

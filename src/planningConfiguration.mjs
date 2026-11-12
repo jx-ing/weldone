@@ -29,9 +29,9 @@ export function mergeAngleRange(value={}){
 export function mergeParameterErrors(value={}){
  const errors=[];
  if(value.lengthEnabled!==false&&filled(value.maxLength)&&(!Number.isFinite(value.maxLength)||value.maxLength<=0))errors.push('合并长度应为大于0的有效数值');
- if(filled(value.gapThreshold)&&(!Number.isFinite(value.gapThreshold)||value.gapThreshold<0))errors.push('合并间隙阈值应为非负数');
+ if(value.grooveEnabled!==false&&filled(value.gapThreshold)&&(!Number.isFinite(value.gapThreshold)||value.gapThreshold<0))errors.push(value.grooveEnabled===true?'最大合并槽隙应为非负数':'合并间隙阈值应为非负数');
  if(filled(value.passHoleSize)&&(!Number.isFinite(value.passHoleSize)||value.passHoleSize<0))errors.push('合并过焊孔尺寸应为非负数');
- if(hasRange(value)){
+ if(hasRange(value)&&value.angleEnabled!==false){
   const min=filled(value.angleMin),max=filled(value.angleMax);
   if(min!==max)errors.push('请同时填写最小合并角度和最大合并角度');
   if([value.angleMin,value.angleMax].some(v=>filled(v)&&(!Number.isFinite(v)||v<0||v>(value.rulesVersion>=2?360:180))))errors.push(value.rulesVersion>=2?'合并角度应为0–360°':'合并角度应为0–180°');
@@ -56,6 +56,20 @@ export function geometryOptionsForPlanning(defaults,settings={}){
  }else if(merge.continuousOnly)options.continuousOnly=true;
  if(merge.position)options.mergePosition=merge.position;
  if(Number.isFinite(merge.passHoleSize)){options.mergePassHoleSize=merge.passHoleSize;if(merge.passHoleInclusive===false)options.mergePassHoleInclusive=false;options.mergeParams.最长通过距离=merge.passHoleSize;options.mergeParams.最小通过高度=merge.passHoleSize;}
+ if(settings.topologyVersion===1){
+  if(typeof merge.angleEnabled!=='boolean'||typeof merge.grooveEnabled!=='boolean')throw Error('相接板端合并限制开关无效');
+  const range=mergeIncludedAngleRange(merge);
+  const maxGroove=merge.grooveEnabled?merge.gapThreshold??DEFAULT_MERGE_GAP:null;
+  options.cornerMerge={flatContactGap:merge.flatContactGap??0,verticalContactGap:merge.verticalContactGap??0,
+    angleRange:merge.angleEnabled&&Number.isFinite(range.angleMin)&&Number.isFinite(range.angleMax)?range:null,maxGroove};
+  options.automaticMerge=merge.enabled!==false;
+  options.mergeGapCheck=maxGroove!==null;
+  options.mergeParams.夹角阈值下限=0;
+  options.mergeParams.夹角阈值上限=180;
+  options.mergeParams.最大合并距离=maxGroove===null?DEFAULT_MERGE_GAP:Math.max(.001,2*maxGroove);
+  delete options.maxMergeGap;
+  delete options.mergePosition;
+ }
  if(settings.wrapParameters){options.wrapParameters=structuredClone(settings.wrapParameters);options.wrapDistanceRatio=settings.wrapParameters.lDistanceRatio==='1/2'?.5:2/3;}
  if(settings.planningRevision===3)options.planningRevision=3;
  if(settings.splitParameters||settings.planningRevision===3){

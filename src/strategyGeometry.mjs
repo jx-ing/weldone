@@ -66,7 +66,7 @@ export function strategyGeometryRows(rows,rawSettings){
   if(!decision.ready||decision.route!=='automatic'||weld.closure==='closed'||!weld.segments?.every(segment=>segment.pathPoints?.length>=2))continue;
   for(const side of ['start','end']){
    const facts=weld.endpointFacts?.[side],end=boundary(weld,side);
-   if(endpointStrategy(facts,settings,end.segment.position,side,weld.machineCount===2)!=='U')continue;
+   if(endpointStrategy(facts,settings,end.segment.position,side,weld.machineCount===2,weld.length,true)!=='U')continue;
    if(!end.tangent||!Number.isFinite(facts?.plateThickness)||facts.plateThickness<=0||!facts.offsetDirection||!end.segment.subPartId||!end.segment.mainPartId)continue;
    const key=[decision.process.id,end.segment.mainPartId,end.segment.subPartId].join('|');
    if(!buckets.has(key))buckets.set(key,[]);
@@ -80,6 +80,7 @@ export function strategyGeometryRows(rows,rawSettings){
    const matches=endpoints.filter(b=>{
     if(a.row===b.row||consumed.has(b.row.weld.id))return false;
     const gap=distance(a.position,b.position),toward=unit(subtract(b.position,a.position));
+    if(settings.topologyVersion===1&&gap<settings.mergeParameters.flatContactGap)return false;
     return toward&&Math.abs(gap-a.facts.plateThickness)<.5&&Math.abs(gap-b.facts.plateThickness)<.5&&dot(a.tangent,b.tangent)>.99&&
       Math.abs(dot(a.tangent,toward))<.05&&dot(a.facts.offsetDirection,toward)>.95&&dot(b.facts.offsetDirection,toward)<-.95;
    });
@@ -92,7 +93,7 @@ export function strategyGeometryRows(rows,rawSettings){
    const maxLength=settings.mergeParameters.lengthEnabled?settings.mergeParameters.maxLength:Infinity;
    const length=segments.reduce((sum,segment)=>sum+segment.length,0);
    if(length>maxLength)continue;
-   const weld={...a.row.weld,id:nextId(),name:('U形包角 · '+a.row.weld.name+' / '+b.row.weld.name).slice(0,80),processingKey:'wrap:'+a.row.weld.processingKey+';'+b.row.weld.processingKey,direction:'正向',segments,length,cornerAngles:mergeCornerAngles(segments),startHole:left.startHole,endHole:right.endHole,endpointFacts:{start:left.endpointFacts?.start,end:right.endpointFacts?.end},
+   const weld={...a.row.weld,id:nextId(),name:('U形包角 · '+a.row.weld.name+' / '+b.row.weld.name).slice(0,80),processingKey:'wrap:'+a.row.weld.processingKey+';'+b.row.weld.processingKey,direction:'正向',...(settings.topologyVersion===1?{topology:'U'}:{}),segments,length,cornerAngles:mergeCornerAngles(segments),startHole:left.startHole,endHole:right.endHole,endpointFacts:{start:left.endpointFacts?.start,end:right.endpointFacts?.end},
     sourceEvidence:{...a.row.weld.sourceEvidence,unitKeys:[...(a.row.weld.sourceEvidence?.unitKeys??[]),...(b.row.weld.sourceEvidence?.unitKeys??[])]}};
    joined.push({weld,decision:{...a.row.decision,plannedSegments:segments}});
    consumed.add(a.row.weld.id);consumed.add(b.row.weld.id);

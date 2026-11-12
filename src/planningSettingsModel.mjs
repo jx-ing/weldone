@@ -1,6 +1,6 @@
 import {DEFAULT_INTERFERENCE_ANGLE,DEFAULT_INTERFERENCE_DISTANCE,DEFAULT_MERGE_ANGLE_RANGE,DEFAULT_MERGE_GAP} from './planningConfiguration.mjs';
 
-export const SETTINGS_TABS=[['action','全局焊接设置'],['wrap','包角设置'],['interference','端点干涉设置'],['precision','精定位设置'],['tracking','跟踪设置'],['topology','焊缝拓扑调整'],['vision','视觉设置'],['sampling','采样避障设置'],['sequence','顺序与匹配设置']];
+export const SETTINGS_TABS=[['action','全局工艺参数'],['topology','拓扑调整'],['path','路径'],['tracking','跟踪设置'],['measurement','测量参数设置']];
 export const OFFSET_AXES=['x','y','z'];
 export const POSE_AXES=[['advance','前进角'],['work','工作角'],['rotation','旋转角']];
 export const MIXED_SCAN_FIELDS=[
@@ -26,7 +26,7 @@ export function settingsDefaults(raw={},capabilities={}){
  const {enabled,length,...split}=settings.splitParameters||{};
  const motion=settings.actionParameters||{},wrap=settings.wrapParameters||{},merge=settings.mergeParameters||{},vision=settings.visionParameters||{},precision=settings.precisionParameters||{},tracking=settings.trackingParameters||{},sampling=settings.samplingAvoidance||{};
  const {startPose,endPose,...ends}=settings.interferenceEndParameters||{};
- return {...settings,actionParameters:{...motion,legMode:motion.legMode??'thickness',legHeight:motion.legHeight??null,verticalDown:motion.verticalDown??false,poseStep:motion.poseStep??10,lineStep:motion.lineStep??5,arcStep:motion.arcStep??2,edgeSearchDistance:motion.edgeSearchDistance??15,safeTransitionOffset:offset(motion.safeTransitionOffset,[0,50,motion.liftHeight??100]),safeApproachOffset:offset(motion.safeApproachOffset,[0,20,40]),overlapDistance:motion.overlapDistance??5,staggerDistance:motion.staggerDistance??20,flatPose:pose(motion.flatPose),verticalPose:pose(motion.verticalPose),liftHeight:motion.liftHeight??100,externalAxisLength:motion.externalAxisLength??1500},
+ const next={...settings,actionParameters:{...motion,legMode:motion.legMode??'thickness',legHeight:motion.legHeight??null,verticalDown:motion.verticalDown??false,poseStep:motion.poseStep??10,lineStep:motion.lineStep??5,arcStep:motion.arcStep??2,edgeSearchDistance:motion.edgeSearchDistance??15,safeTransitionOffset:offset(motion.safeTransitionOffset,[0,50,motion.liftHeight??100]),safeApproachOffset:offset(motion.safeApproachOffset,[0,20,40]),overlapDistance:motion.overlapDistance??5,staggerDistance:motion.staggerDistance??20,flatPose:pose(motion.flatPose),verticalPose:pose(motion.verticalPose),liftHeight:motion.liftHeight??100,externalAxisLength:motion.externalAxisLength??1500},
   wrapParameters:{...wrap,flatEnabled:wrap.flatEnabled??wrap.enabled??true,verticalEnabled:wrap.verticalEnabled??wrap.enabled??true,lDistanceRatio:wrap.lDistanceRatio||'2/3',uPose:pose(wrap.uPose),flatLPose:pose(wrap.flatLPose),verticalLPose:pose(wrap.verticalLPose),independentLength:defaultNumber(wrap.independentLength,30),passHoleThreshold:defaultNumber(wrap.passHoleThreshold,35),gapThreshold:defaultNumber(wrap.gapThreshold,350)},
   mergeParameters:{...merge,gapThreshold:defaultNumber(merge.gapThreshold,DEFAULT_MERGE_GAP),enabled:merge.enabled??true,countEnabled:merge.countEnabled??Number.isInteger(merge.count),count:merge.count??2,lengthEnabled:merge.lengthEnabled??!empty(merge.maxLength),maxLength:defaultNumber(merge.maxLength,1500),passHoleSize:defaultNumber(merge.passHoleSize,15),angleMin:merge.angleMin??DEFAULT_MERGE_ANGLE_RANGE.angleMin,angleMax:merge.angleMax??DEFAULT_MERGE_ANGLE_RANGE.angleMax},
   splitParameters:{...split,gapThreshold:split.gapThreshold??null,edgeThreshold:split.edgeThreshold??null,autoDeleteUnavoidable:split.autoDeleteUnavoidable??sampling.autoDeleteUnavoidable??false},
@@ -35,6 +35,15 @@ export function settingsDefaults(raw={},capabilities={}){
   visionParameters:{...vision,sweepPose:pose(vision.sweepPose),photoPose:pose(vision.photoPose),twoFaceSpeed:vision.twoFaceSpeed??null,threeFaceSpeed:vision.threeFaceSpeed??null},
   trackingParameters:{...tracking,laserEnabled:capabilities.laserTracking===false?false:tracking.laserEnabled??true,arcEnabled:capabilities.arcTracking===false?false:tracking.arcEnabled??true,minLineLength:tracking.minLineLength??160,minArcDiameter:tracking.minArcDiameter??160,minEdgeWidth:tracking.minEdgeWidth??10},
   samplingAvoidance:{...sampling,enabled:sampling.enabled??true,step:sampling.step??null,autoDeleteUnavoidable:sampling.autoDeleteUnavoidable??false,...Object.fromEntries([['advance',-45,45],['work',-40,50],['rotation',-80,80]].map(([key,min,max])=>[key,{enabled:true,min,max,...sampling[key]}]))}};
+ if(settings.topologyVersion===1){
+  const legacyLeg={enabled:motion.legMode==='global',height:motion.legHeight??null};
+  next.actionParameters.defaultLegs=Object.fromEntries(['flat','vertical'].map(kind=>[kind,{...legacyLeg,...motion.defaultLegs?.[kind]}]));
+  Object.assign(next.mergeParameters,{angleEnabled:merge.angleEnabled??true,grooveEnabled:merge.grooveEnabled??true,flatContactGap:merge.flatContactGap??0,verticalContactGap:merge.verticalContactGap??0});
+  Object.assign(next.wrapParameters,{outerClearance:wrap.outerClearance??0,verticalDistance:wrap.verticalDistance??null});
+  const corner=settings.cornerPathParameters;
+  next.cornerPathParameters={before:corner?.before??30,after:corner?.after??30,offset:corner?.offset??0};
+ }
+ return next;
 }
 export function serializeSettings(draft,capabilities={}){
  const next=settingsDefaults(draft,capabilities),n=asNumber;
@@ -73,6 +82,16 @@ export function serializeSettings(draft,capabilities={}){
   else next.sequenceParameters.scanDirection=direction;
  }
  if('localMatchDistance' in next)next.localMatchDistance=n(next.localMatchDistance);
+ if(next.topologyVersion===1){
+  for(const leg of Object.values(action.defaultLegs))leg.height=n(leg.height);
+  for(const key of ['flatContactGap','verticalContactGap'])m[key]=defaultNumber(m[key],0);
+  w.outerClearance=defaultNumber(w.outerClearance,0);
+  w.verticalDistance=n(w.verticalDistance);
+  const corner=next.cornerPathParameters;
+  corner.before=defaultNumber(corner.before,30);
+  corner.after=defaultNumber(corner.after,30);
+  corner.offset=defaultNumber(corner.offset,0);
+ }
  for(const key of ['minLineLength','minArcDiameter','minEdgeWidth'])next.trackingParameters[key]=n(next.trackingParameters[key]);
  next.samplingAvoidance.step=n(next.samplingAvoidance.step);for(const [key] of POSE_AXES)for(const bound of ['min','max'])next.samplingAvoidance[key][bound]=n(next.samplingAvoidance[key][bound]);
  return next;
@@ -94,7 +113,24 @@ export function useCaseSettingsErrors(settings,capabilities={}){
  const errors=[],decimal=value=>Number.isFinite(value)&&Math.abs(value*10-Math.round(value*10))<1e-8;
  const numeric=(value,label,{integer=false,positive=false,optional=false}={})=>{if(optional&&empty(value))return;if(!Number.isFinite(value)||(positive?value<=0:value<0)||(integer?!Number.isInteger(value):!decimal(value)))errors.push(`${label}须为${positive?'大于0':'大于等于0'}的${integer?'整数':'一位小数'}`);};
  const poseCheck=(value,label)=>{for(const [key,name] of POSE_AXES)if(!empty(value?.[key])&&(!Number.isFinite(value[key])||Math.abs(value[key])>360))errors.push(`${label}${name}须在-360–360°范围内`);};
- if(settings.actionParameters){const a=settings.actionParameters;if(a.legMode==='global'&&(!Number.isFinite(a.legHeight)||a.legHeight<=0||!Number.isInteger(a.legHeight*2)))errors.push('统一焊脚高度须大于0，步长0.5 mm');for(const [key,label] of [['poseStep','焊枪姿态变化步长'],['lineStep','直线步长'],['arcStep','圆弧步长'],['edgeSearchDistance','焊缝边缘检测距离'],['overlapDistance','起终点搭接距离'],['staggerDistance','起点错开距离']])numeric(a[key],label,{integer:true,positive:true,optional:true});poseCheck(a.flatPose,'平角焊标准姿态');poseCheck(a.verticalPose,'立角焊标准姿态');for(const [key,label] of [['safeTransitionOffset','安全过渡点'],['safeApproachOffset','安全接近点']])for(const axis of ['x','y','z'])numeric(a[key]?.[axis],label+axis.toUpperCase()+'偏移',{integer:true,optional:true});numeric(a.externalAxisLength,'外部轴联动长度',{integer:true,positive:true});numeric(a.liftHeight,'收下枪高度',{integer:true,optional:true});}
+ if(settings.actionParameters){const a=settings.actionParameters;if(settings.topologyVersion!==1&&a.legMode==='global'&&(!Number.isFinite(a.legHeight)||a.legHeight<=0||!Number.isInteger(a.legHeight*2)))errors.push('统一焊脚高度须大于0，步长0.5 mm');for(const [key,label] of [['poseStep','焊枪姿态变化步长'],['lineStep','直线步长'],['arcStep','圆弧步长'],['edgeSearchDistance','焊缝边缘检测距离'],['overlapDistance','起终点搭接距离'],['staggerDistance','起点错开距离']])numeric(a[key],label,{integer:true,positive:true,optional:true});poseCheck(a.flatPose,'平角焊标准姿态');poseCheck(a.verticalPose,'立角焊标准姿态');for(const [key,label] of [['safeTransitionOffset','安全过渡点'],['safeApproachOffset','安全接近点']])for(const axis of ['x','y','z'])numeric(a[key]?.[axis],label+axis.toUpperCase()+'偏移',{integer:true,optional:true});numeric(a.externalAxisLength,'外部轴联动长度',{integer:true,positive:true});numeric(a.liftHeight,'收下枪高度',{integer:true,optional:true});}
+ if(settings.topologyVersion===1){
+  for(const [key,label] of [['flat','平角焊'],['vertical','立焊']]){
+   const leg=settings.actionParameters?.defaultLegs?.[key];
+   if(typeof leg?.enabled!=='boolean')errors.push(label+'默认焊脚开关无效');
+   if(leg?.enabled&&(!Number.isFinite(leg.height)||leg.height<.5||!Number.isInteger(leg.height*2)))errors.push(label+'默认焊脚高度须大于等于0.5 mm，步长0.5 mm');
+  }
+  const wrap=settings.wrapParameters, merge=settings.mergeParameters, corner=settings.cornerPathParameters;
+  if(typeof merge?.enabled!=='boolean'||typeof merge.angleEnabled!=='boolean'||typeof merge.grooveEnabled!=='boolean')errors.push('相接板端合并开关无效');
+  if(merge?.enabled&&merge.angleEnabled&&(!Number.isFinite(merge.angleMin)||!Number.isFinite(merge.angleMax)))errors.push('请填写合并角度范围的上下限');
+  numeric(merge?.flatContactGap,'平角焊焊缝相接最小间隙');
+  numeric(merge?.verticalContactGap,'立焊焊缝相接最小间隙');
+  if(wrap?.flatEnabled)numeric(wrap.outerClearance,'外角最小空间');
+  if(wrap?.verticalEnabled)numeric(wrap.verticalDistance,'立焊上包角距离',{positive:true,optional:true});
+  numeric(corner?.before,'默认转角前距离');
+  numeric(corner?.after,'默认转角后距离');
+  if(!Number.isFinite(corner?.offset))errors.push('默认转角点偏移须为有效数值');
+ }
  const w=settings.wrapParameters;if(w?.rulesVersion>=2){numeric(w.gapThreshold,'包角间隙阈值',{integer:true,positive:true,optional:true});poseCheck(w.flatLPose,'平角焊L形包角姿态');poseCheck(w.verticalLPose,'立焊L形包角姿态');numeric(w.independentLength,'独立焊缝长度',{positive:true});numeric(w.passHoleThreshold,'过焊孔包角阈值',{integer:true,positive:true});}
  const m=settings.mergeParameters;if(m?.rulesVersion>=2){numeric(m.passHoleSize,'合并过焊孔尺寸',{positive:true});if(m.lengthEnabled)numeric(m.maxLength,'合并长度',{positive:true});if(m.countEnabled){numeric(m.count,'合并数量',{integer:true,positive:true});if(m.count<2)errors.push('合并数量最小为2');}}
  const split=settings.splitParameters;if(split?.rulesVersion>=2)numeric(split.gapThreshold,'间隙打断阈值',{integer:split.rulesVersion===2,positive:true,optional:true});

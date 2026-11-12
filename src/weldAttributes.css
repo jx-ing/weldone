@@ -69,3 +69,5 @@
 .wa-scan-settings .wa-row{grid-template-columns:112px minmax(0,1fr)}
 
 .wa-point-adjustment{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;border:1px solid #f0d6b6;border-radius:4px;margin:8px 0;padding:8px}.wa-point-adjustment legend{padding:0 4px;color:#865629;font-size:12px}.wa-point-adjustment label{display:grid;gap:3px;min-width:0;color:#555;font-size:11px}.wa-point-adjustment input{width:100%;min-width:0;height:25px;padding:2px 4px;border:1px solid #ddd;border-radius:3px}
+
+.wa-create-match{border:0;background:transparent;color:#ad4e00;font-size:12px;padding:6px 4px;margin-top:4px;text-align:left}.wa-create-match:disabled{color:#888;cursor:not-allowed}

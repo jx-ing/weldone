@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {MIXED_SCAN_FIELDS,settingsDefaults,serializeSettings,SETTINGS_TABS,updateProjectPlanning,useCaseSettingsErrors,wrapChoice,resolveEndpointPose} from '../src/planningSettingsModel.mjs';
 import {planningSettingsErrors,geometryOptionsForPlanning,samplingAvoidanceValues} from '../src/planningConfiguration.mjs';
-import {DEFAULT_GEOMETRY_OPTIONS,mergeFeatureWithinSize} from '../src/geometryProcessingModel.mjs';
+import {DEFAULT_GEOMETRY_OPTIONS,convertGeometryPlan,mergeFeatureWithinSize} from '../src/geometryProcessingModel.mjs';
 
 test('工艺规划设置可保存并兼容旧项目配置',()=>{
- assert.deepEqual(SETTINGS_TABS.map(v=>v[1]),["全局焊接设置","包角设置","端点干涉设置","精定位设置","跟踪设置","焊缝拓扑调整","视觉设置","采样避障设置","顺序与匹配设置"]);
+ assert.deepEqual(SETTINGS_TABS.map(v=>v[1]),["全局工艺参数","拓扑调整","路径","跟踪设置","测量参数设置"]);
  const baseline={intermittentParameters:{enabled:true},splitParameters:{enabled:true,length:100,gapThreshold:25},visionParameters:{twoFaceSpeed:123},samplingAvoidance:{enabled:false,step:7},custom:'保留'};
  const draft=settingsDefaults(baseline);draft.visionParameters.twoFaceSpeed=999;draft.wrapParameters.flatEnabled=false;
  const saved=serializeSettings(draft);
@@ -104,4 +104,23 @@ test('干涉端使用单一角度，距离和有符号线偏移可独立保存',
  assert.deepEqual(values,{startAngle:15,endAngle:38.1,startDistance:35,endDistance:35,verticalStartDistance:20,startLineOffset:-2.5,endLineOffset:1.5});
  assert.deepEqual(planningSettingsErrors({interferenceEndParameters:values}),[]);
  assert.match(planningSettingsErrors({interferenceEndParameters:{...values,endAngle:361}}).join(''),/终点姿态/);
+});
+
+test('转角合并必须有有效交点，间隙与延长距离按独立条件检查',()=>{
+ const member=(id,points)=>({key:id,id,weldId:id,subIndex:0,weldingPosition:'PB',points,length:10,焊脚:6});
+ const a=member('A',[[0,0,0],[10,0,0]]),b=member('B',[[12,3,0],[12,13,0]]);
+ const draft=settingsDefaults({topologyVersion:1,mergeParameters:{angleMin:80,angleMax:100,gapThreshold:3.1}});
+ const rows=(right,changes={})=>{
+  const members=[a,right];
+  const data={weldsData:{welds:members.map(item=>({id:item.id,properties:{坡口:{类型:'无坡口'}}}))}};
+  const plan={splits:new Map(),merges:{units:members,mergedUnitKeys:new Set(['A','B']),groups:[{id:'M1',members,totalLength:20,closed:false,connections:[]}]}};
+  const settings=serializeSettings({...draft,mergeParameters:{...draft.mergeParameters,...changes}});
+  return convertGeometryPlan(data,plan,geometryOptionsForPlanning(DEFAULT_GEOMETRY_OPTIONS,settings));
+ };
+ assert.equal(rows(b)[0].topology,'corner');
+ assert.equal(rows(b,{gapThreshold:3}).length,2);
+ assert.equal(rows(b,{gapThreshold:3,grooveEnabled:false}).length,1);
+ assert.equal(rows(b,{flatContactGap:4}).length,2);
+ assert.equal(rows(b,{angleMin:100,angleMax:120}).length,2);
+ assert.equal(rows(member('B',[[12,3,1],[12,13,1]]),{grooveEnabled:false}).length,2);
 });

@@ -20,8 +20,13 @@ export async function processDemoGeometry(options,onProgress=()=>{}){
   if(options.planningRevision===3){
     const action=options.actionParameters??{};
     data.weldsData={...data.weldsData,welds:data.weldsData.welds.map(weld=>{
-      const properties={...weld.properties,焊脚:roundWeldLeg(action.legMode==='global'?action.legHeight:weld.properties.焊脚)};
-      const position=properties.焊接位置?.代号;
+      const position=weld.properties.焊接位置?.代号;
+      const legGroup=position==='PB'?'flat':['PF','PG'].includes(position)?'vertical':null;
+      const defaultLeg=legGroup&&action.defaultLegs?.[legGroup];
+      const height=action.defaultLegs
+        ? (defaultLeg?.enabled?defaultLeg.height:weld.properties.焊脚)
+        : (action.legMode==='global'?action.legHeight:weld.properties.焊脚);
+      const properties={...weld.properties,焊脚:roundWeldLeg(height)};
       if(position==='PF'||position==='PG')properties.焊接位置={...properties.焊接位置,代号:action.verticalDown?'PG':'PF'};
       return {...weld,properties};
     })};
