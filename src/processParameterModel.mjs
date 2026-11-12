@@ -49,7 +49,7 @@ function validatePass(p,modern=false,allowLegacyZero=false){
     else for(const [kind,label] of [['inner','内角'],['outer','外角']]){
       const distances=p.cornerDistances[kind];if(distances===undefined)continue;
       if(!distances||typeof distances!=='object'||Array.isArray(distances)){errors.push(`${label}拐角距离参数无效`);continue;}
-      for(const [key,name] of [['before','拐角前距离'],['after','拐角后距离']])if(distances[key]!==undefined&&distances[key]!==null&&!finite(distances[key],0))errors.push(`${label}${name}应为非负数`);
+      for(const [key,name] of [['before','转角前距离'],['after','转角后距离']])if(distances[key]!==undefined&&distances[key]!==null&&!finite(distances[key],0))errors.push(`${label}${name}应为非负数`);
     }
   }
   if(!Object.hasOwn(MACHINE_MODES,p.machineMode))errors.push('请选择焊机参数类型');

@@ -3,6 +3,7 @@ import {PROCESS_POINT_GROUPS,sharedCornerPoint} from './processFeaturePoints.mjs
 import {editOptionalProcessValues} from './processParameterEditing.mjs';
 import {processNumberAttributes} from './processNumberRules.mjs';
 
+const distanceFields=[['before','转角前距离'],['after','转角后距离']];
 const show=value=>value==null||value===''?'--':value;
 function Heading({label,diagram,description}){
  const match=label.match(/^(.*?)\s*(\(.*\))$/);
@@ -13,16 +14,20 @@ export default function ProcessPointParameterTable({rows,kind,position,editing,o
  const {label}=PROCESS_POINT_GROUPS[kind];
  const corner=kind==='inner'?'内角':'外角';
  const flat=position==='PB';
- const vertical=['PF','PG'].includes(position);
+ const verticalOuter=['PF','PG'].includes(position)&&kind==='outer';
  const offsetDiagram=flat
   ? ['/assets/process-library/flat-'+kind+'-corner-offset.png','平角焊'+corner+'转角点偏移示意图']
-  : vertical&&kind==='outer'
+  : verticalOuter
    ? ['/assets/process-library/vertical-outer-corner-offset.png','立焊外角转角点偏移示意图']
    : ['/assets/corner-point-offset.png','转角点偏移示意图'];
  const headings=[
   ['焊道'],['层数'],
-  ['拐角前距离 (mm)',flat?'/assets/process-library/corner-distance-before.png':undefined,'转角前距离示意图'],
-  ['拐角后距离 (mm)',flat?'/assets/process-library/corner-distance-after.png':undefined,'转角后距离示意图'],
+  ...distanceFields.map(([key,caption])=>[
+   caption+' (mm)',
+   verticalOuter?'/assets/process-library/vertical-corner-distance-'+key+'.png':
+    flat?'/assets/process-library/corner-distance-'+key+'.png':undefined,
+   (verticalOuter?'立焊':'')+caption+'示意图'
+  ]),
   ['转角速度 (cm/min)'],['转角点偏移 (mm)',...offsetDiagram],
   ['电流 (A)'],['电压/修正值 (V)'],['动作时间 (s)'],['机器人工艺号']
  ];
@@ -41,7 +46,7 @@ export default function ProcessPointParameterTable({rows,kind,position,editing,o
     const offset=pass.cornerOffsets?.[kind];
     return <tr key={pass.id} aria-label={name}>
      <td>P{index+1}</td><td>{layerIndex+1}</td>
-     {[['before','拐角前距离'],['after','拐角后距离']].map(([key,caption])=><td key={key}>{editing?
+     {distanceFields.map(([key,caption])=><td key={key}>{editing?
       <input type="number" {...processNumberAttributes('distance')} aria-label={name+caption}
        placeholder={modern?'30':'--'} value={pass.cornerDistances?.[kind]?.[key]??''}
        onChange={event=>onDistanceChange(pass,kind,key,event.target.value===''?null:Number(event.target.value))}/>:
