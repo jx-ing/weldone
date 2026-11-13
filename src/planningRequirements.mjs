@@ -69,7 +69,7 @@ export function planningContext(workspace) {
     deviceCapabilities.structuredLightPrecision=hardware.precisionCameras.structuredLight?.enabled===true;
   }
   if(workspace.deviceControl)Object.assign(deviceCapabilities,deviceControlCapabilities(workspace.deviceControl));
-  return {...workspace.planningSettings,planningRevision:3,deviceCapabilities,activeDevice};
+  return {...workspace.planningSettings,planningRevision:3,deviceCapabilities,activeDevice,requireLibraryTemplate:true};
 }
 
 const deviceFields = ['welderModel','robotModel','material','wireType','wireDiameter','gas'];

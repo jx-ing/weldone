@@ -33,7 +33,7 @@ export default function WeldAttributes(props){
  useEffect(()=>{setSegmentIndex(0);},[w.id]);
  useEffect(()=>{const body=panel.current?.querySelector('.wa-scroll');if(body)body.scrollTop=0;},[tab,w.id,props.planningSelection]);
  const index=Math.min(segmentIndex,Math.max(0,w.segments.length-1)),segment=w.segments[index],groove=w.groove||{type:'无坡口',angle:0,depth:0},inactive=grooveType(groove.type)==='无坡口';
- const template=templates.find(t=>t.id===w.templateId)||templates.find(t=>t.name===w.template),process=processLibrary.find(p=>p.id===w.processId);
+ const template=templates.find(t=>t.id===w.templateId&&t.enabled!==false),process=processLibrary.find(p=>p.id===w.processId);
  const setGroup=(key,value)=>onPatch('segments',patchWeldGroup(w,key,value)),setSegment=(key,value)=>onPatch('segments',patchWeldSegment(w,index,key,value)),setGroove=(key,value)=>onPatch('groove',patchWeldGroove(w,key,value));
  const wrapValues=[['none','不包角'],['half','半包角'],['full','全包角']],scan=w.scanSettings||{};
  const precisionMethod=scan.precisionMethod??(scan.mode==='laser'?'laserSweep':'');
@@ -41,7 +41,7 @@ export default function WeldAttributes(props){
  const pending=w.enabled&&decision?.route==='blocked'?decision:null;
  const needsProcess=pending?.creation==='template-or-process';
  const needsTemplate=needsProcess||pending?.creation==='template';
- const appliedTemplate=!onCancel&&!needsTemplate&&(template?.name||w.template);
+ const appliedTemplate=!onCancel&&!needsTemplate&&template?.name;
  const appliedProcess=!onCancel&&!needsProcess&&(process?.name||w.processName||template?.baseProcess?.name);
  const templateName=appliedTemplate||decision?.whole?.name;
  const processName=appliedProcess||decision?.process?.name;

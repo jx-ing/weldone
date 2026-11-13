@@ -234,10 +234,18 @@ export function createTemplateNeighborhoodMeasurer({parts,mesh,edges,sourceWelds
    const votes=[];
    for(const radius of radii){
     const height=Math.min(.8,Math.max(.025,radius*.25));
-    // Sample both sides of the support plane, accepting the exposed side only.
-    const signs=[1,-1].filter(sign=>!inside(byPart.get(base.id),center.clone().addScaledVector(axis,sign*height)));
-    if(signs.length!==1)continue;
-    const origin=center.clone().addScaledVector(axis,signs[0]*height);
+    // A seam can turn at the support's rim. Check the adjacent legs as well as
+    // the vertex, where both side probes can land outside the finite face.
+    const support=byPart.get(base.id);
+    const exposedSides=new Set();
+    for(const station of [center,center.clone().addScaledVector(rayA,radius),center.clone().addScaledVector(rayB,radius)]){
+     const positive=inside(support,station.clone().addScaledVector(axis,height));
+     const negative=inside(support,station.clone().addScaledVector(axis,-height));
+     if(positive!==negative)exposedSides.add(positive?-1:1);
+    }
+    if(exposedSides.size!==1)continue;
+    const [exposed]=exposedSides;
+    const origin=center.clone().addScaledVector(axis,exposed*height);
     const sample=directions=>directions.filter(direction=>{
      const point=origin.clone().addScaledVector(direction,radius);
      return subjects.some(part=>inside(part,point));

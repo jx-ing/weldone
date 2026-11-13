@@ -8,7 +8,43 @@ import {matchTemplate,targetFromWeld,applyTemplateToWeld,independentWeldTemplate
 import {matchProcessEntry,applyProcessEntry,effectiveProcessEntry} from './processParameterModel.mjs';
 export const MATCH_ROUTES={whole:'模板规划',local:'工艺参数 + 局部模板',automatic:'策略规划',blocked:'缺少匹配工艺',disabled:'已屏蔽'};
 function unique(items){return [...new Set(items.filter(v=>v?.id))];}
-const templateAvailable=(t,library)=>t.enabled!==false&&!library.some(v=>v.id===t.id&&v.enabled===false);
+function templateAvailable(template,library,options){
+  const entry=library.find(candidate=>candidate.id===template.id);
+  return template.enabled!==false&&(entry?entry.enabled!==false:!options.requireLibraryTemplate);
+}
+
+export function weldTemplateIds(weld){
+  return [
+    weld.templateId,weld.templateSnapshot?.id,weld.localTemplateId,weld.matchPlan?.wholeId,
+    ...(weld.matchPlan?.localIds??[]),
+    ...(weld.localApplications??[]).flatMap(application=>[application.templateId,application.templateSnapshot?.id])
+  ].filter(Boolean);
+}
+
+export function clearMissingWeldTemplates(weld,templates){
+  const libraryIds=new Set(templates.map(template=>template.id));
+  if(!weldTemplateIds(weld).some(id=>!libraryIds.has(id)))return weld;
+  const next={...weld,planned:false};
+  delete next.matchPlan;
+  delete next.automaticPoses;
+  const wholeIds=[weld.templateId,weld.matchPlan?.wholeId,weld.templateSnapshot?.type==='whole'?weld.templateSnapshot.id:null];
+  if(wholeIds.some(id=>id&&!libraryIds.has(id))){
+    delete next.templateId;
+    delete next.templateSnapshot;
+    delete next.strategyPlan;
+    Object.assign(next,{template:'',controlPoints:[],layers:[]});
+    if(!next.processParameters)Object.assign(next,{current:null,voltage:null,speed:null});
+  }
+  if(next.templateSnapshot&&!libraryIds.has(next.templateSnapshot.id))delete next.templateSnapshot;
+  if(next.localTemplateId&&!libraryIds.has(next.localTemplateId))delete next.localTemplateId;
+  if(next.localApplications){
+    next.localApplications=next.localApplications.filter(application=>{
+      const ids=[application.templateId,application.templateSnapshot?.id].filter(Boolean);
+      return ids.length&&ids.every(id=>libraryIds.has(id));
+    });
+  }
+  return next;
+}
 function preferred(items,id){return [...items].sort((a,b)=>Number(b.id===id)-Number(a.id===id));}
 function templateMatches(t,w,options){try{return matchTemplate(t,targetFromWeld(w,options),options).ok;}catch{return false;}}
 function localCandidates(t,w,options){
@@ -48,7 +84,7 @@ export function analyzeWeldMatch(w,templates=[],processLibrary=[],options={}){
   const strategy=options.planningRevision===3;
   const includeDiagnostics=options.includeMatchDiagnostics!==false;
   if(strategy)w={...w,leg:roundWeldLeg(w.leg)};
-  const wholeCandidates=unique([w.templateSnapshot?.type==='whole'?w.templateSnapshot:null,...preferred(templates.filter(t=>t.type==='whole'),w.templateId)]).filter(t=>templateAvailable(t,templates));
+  const wholeCandidates=unique([w.templateSnapshot?.type==='whole'?w.templateSnapshot:null,...preferred(templates.filter(t=>t.type==='whole'),w.templateId)]).filter(t=>templateAvailable(t,templates,options));
   if(strategy)wholeCandidates.sort((a,b)=>Number(!!b.defaultForGeometry)-Number(!!a.defaultForGeometry));
   const whole=wholeCandidates.find(t=>templateMatches(t,w,options));
   if(whole)return {ready:true,route:'whole',whole,steps:[`已匹配：${whole.name}`,'无需匹配','无需匹配']};
@@ -63,7 +99,7 @@ export function analyzeWeldMatch(w,templates=[],processLibrary=[],options={}){
   const process=processCandidates.find(p=>{try{return matchProcessEntry(p,w).ok;}catch{return false;}});
   if(!process)return {ready:false,route:'blocked',creation:'template-or-process',...(strategy?{plannedSegments:w.segments}:{}),reason:'无匹配的工艺参数，无法进行焊接',templateFailures:wholeFailures,processFailures:includeDiagnostics?processLibrary.map(p=>({id:p.id,name:p.name,reasons:matchProcessEntry(p,w).reasons})):[],steps:['未匹配','未匹配','不检查']};
   if(strategy)return {ready:true,route:'automatic',process,locals:[],plannedSegments:w.segments,templateFailures:wholeFailures,steps:['未匹配',`已匹配：${process.name}`,'策略规划']};
-  const localCandidates=unique([...(w.localApplications||[]).map(a=>a.templateSnapshot),...(w.templateSnapshot?.type==='local'?[w.templateSnapshot]:[]),...preferred(templates.filter(t=>t.type==='local'),w.localTemplateId)]).filter(t=>templateAvailable(t,templates));
+  const localCandidates=unique([...(w.localApplications||[]).map(a=>a.templateSnapshot),...(w.templateSnapshot?.type==='local'?[w.templateSnapshot]:[]),...preferred(templates.filter(t=>t.type==='local'),w.localTemplateId)]).filter(t=>templateAvailable(t,templates,options));
   const candidates=[];
   for(const t of localCandidates){for(const window of localTemplateWindows(t,w,options)){const base=resolveTemplateBase(t,window.target,processLibrary);if(base.ok)candidates.push({...window,baseProcess:base.process});}}
   const locals=preferLocalWindows(candidates);
@@ -105,5 +141,17 @@ export function planWorkspace(welds,templates,processLibrary,options={}){
   if(options.planningRevision!==3)return rows.map(({weld,decision})=>planWeldFromMatch(weld,decision,options));
   return assignWeldingOrder(strategyGeometryRows(rows,options).map(({weld,decision})=>planWeldFromMatch(weld,decision,options)),options);
 }
-export function canPreviewWeld(w,templates=[],processLibrary=[],options={}){if(!w?.enabled||!w.planned||!w.matchPlan?.ready)return false;const used=[w.templateSnapshot,...(w.localApplications||[]).map(a=>a.templateSnapshot)].filter(Boolean);if(used.some(t=>!templateAvailable(t,templates)))return false;if(w.matchPlan.planningRevision===3)return true;if(w.matchPlan.route!=='whole'&&w.matchPlan.localMatchDistance!==undefined&&w.matchPlan.localMatchDistance!==localMatchDistance(options))return false;return analyzeWeldMatch(w,templates,processLibrary,options).ready;}
-export function restorePlanningState(d){return {...d,welds:d.welds.map(w=>({...w,planned:!!w.planned&&w.matchPlan?.ready===true}))};}
+export function canPreviewWeld(w,templates=[],processLibrary=[],options={}){
+  if(!w?.enabled||!w.planned||!w.matchPlan?.ready)return false;
+  if(w.templateSnapshot?.enabled===false||w.localApplications?.some(application=>application.templateSnapshot?.enabled===false)||
+    weldTemplateIds(w).some(id=>!templateAvailable({id},templates,options)))return false;
+  if(w.matchPlan.planningRevision===3)return true;
+  if(w.matchPlan.route!=='whole'&&w.matchPlan.localMatchDistance!==undefined&&w.matchPlan.localMatchDistance!==localMatchDistance(options))return false;
+  return analyzeWeldMatch(w,templates,processLibrary,options).ready;
+}
+export function restorePlanningState(workspace){
+  return {...workspace,welds:workspace.welds.map(weld=>{
+    const next=workspace.templates?clearMissingWeldTemplates(weld,workspace.templates):weld;
+    return {...next,planned:!!next.planned&&next.matchPlan?.ready===true};
+  })};
+}

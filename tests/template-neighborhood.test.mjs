@@ -20,9 +20,9 @@ const weld=(segments=[segment([[0,0,0],[10,0,0]])])=>({
  groove:{type:'无坡口',angle:0,depth:0},startHole:false,endHole:false
 });
 
-function cornerSolids(subjectBoxes){
+function cornerSolids(subjectBoxes,supportBoxes=[[[-30,-30,-4],[30,30,0]]]){
  const values=[],parts=[];
- for(const [id,boxes] of [['main',[[[-30,-30,-4],[30,30,0]]]],['sub',subjectBoxes]]){
+ for(const [id,boxes] of [['main',supportBoxes],['sub',subjectBoxes]]){
   const vertexOffset=values.length/6;
   for(const [min,max] of boxes){
    const size=max.map((v,i)=>v-min[i]),center=min.map((v,i)=>(v+max[i])/2);
@@ -39,6 +39,29 @@ function cornerSolids(subjectBoxes){
  }
  return createTemplateNeighborhoodMeasurer({parts,mesh:new Float32Array(values),edges:{edges:[]},sourceWelds:[]});
 }
+
+test('立焊转平焊在支撑板边缘用相邻焊缝段确认外露侧',()=>{
+ const segments=[
+  segment([[0,0,0],[0,0,10]],{position:'PF · 立向上焊',referenceNormal:[0,-1,0]}),
+  segment([[0,0,10],[5,0,10]],{referenceNormal:[0,-1,0],length:5})
+ ];
+ // The vertex lies just beyond the support mesh's top edge, within the rounded weld geometry.
+ const support=[[[-20,0,-15],[20,6,9.995]]];
+ const measure=cornerSolids([[[0,-8,-5],[10,0,10]]],support);
+ const source=weld(segments);
+ const options={measureTemplateNeighborhood:measure};
+ const cover={kind:'weld-model-region',dataUrl:'data:image/png;base64,iVBORw0KGgo',width:640,height:400,
+  model:source.model,weldId:source.id,bounds:{min:[-2,-8,-2],max:[7,6,12]},parts:[0]};
+ const template=newPlanningTemplate(source.model,[source],source.id,cover,undefined,undefined,undefined,options);
+ for(const direction of ['正向','反向']){
+  const target={...source,direction};
+  const [corner]=targetFromWeld(target,options).cornerDirections;
+  assert.equal(corner.cornerSource,'solid');
+  assert.equal(corner.angleSide,'outer');
+  assert.equal(corner.angle,270);
+  assert.equal(matchTemplate(template,target,options).ok,true);
+ }
+});
 
 test('用实体区分混合内外角，倒序匹配保留起收弧角色及物理转角点',()=>{
  const segments=[
