@@ -2,7 +2,7 @@ import {directedWeld} from './weldDirectionGeometry.mjs';
 import {applyTemplateToWeld,targetFromWeld,TRACKING,OVERRIDES,uid} from './templateModel.mjs';
 import {analyzeWeldMatch} from './weldMatching.mjs';
 import {Euler,Quaternion} from 'three';
-import {resolvePassPoint,passOffsetValues} from './templatePassOffsets.mjs';
+import {resolvePassPoint,passOffsetValues,passOffsetWithLayer} from './templatePassOffsets.mjs';
 import {clonePassPoints} from './templateLayers.mjs';
 import {previewPath} from './weldPathGeometry.mjs';
 
@@ -50,7 +50,7 @@ export function weldPlanningPointGroups(weld,decision,templates=[],processLibrar
   let applied;try{applied=applyTemplateToWeld(target,template,options);}catch{continue;}
   applied.layers.forEach((layer,layerIndex)=>layer.passes.forEach((pass,passIndex)=>{
    const groupId=`${weld.id}:${key}:${template.id}:${layer.id}:${pass.id}`;
-   groups.push({id:groupId,name:`${template.name} · 第${layerIndex+1}层 / 第${passIndex+1}道`,templateName:template.name,layerId:weld.id+':'+key+':'+template.id+':'+layer.id,layerName:layer.name,passName:pass.name,layerHeight:layer.height,passOffset:pass.offset,definition:pass.points,localSegments:segmentIndices,points:pass.controlPoints.map(point=>{const position=xyz(point.position);return editablePoint({...point,id:groupId+':'+point.id,originalId:point.id,source:'template',templateName:template.name,layerIndex,passIndex,segment:segmentIndices?segmentIndices[(point.actualSegment||point.segment)-1]+1:point.originalSegment||point.actualSegment||point.segment,position:validPosition(position)?position:null},[key,template.id,layer.id,pass.id,point.id],weld);})});
+   groups.push({id:groupId,name:`${template.name} · 第${layerIndex+1}层 / 第${passIndex+1}道`,templateName:template.name,layerId:weld.id+':'+key+':'+template.id+':'+layer.id,layerName:layer.name,passName:pass.name,layerHeight:layer.height,layerOffsetY:layer.offsetY,passOffset:pass.offset,definition:pass.points,localSegments:segmentIndices,points:pass.controlPoints.map(point=>{const position=xyz(point.position);return editablePoint({...point,id:groupId+':'+point.id,originalId:point.id,source:'template',templateName:template.name,layerIndex,passIndex,segment:segmentIndices?segmentIndices[(point.actualSegment||point.segment)-1]+1:point.originalSegment||point.actualSegment||point.segment,position:validPosition(position)?position:null},[key,template.id,layer.id,pass.id,point.id],weld);})});
   }));
  }
  return groups;
@@ -95,7 +95,8 @@ export function weldPointTreeGroups(weld,decision,templates,processLibrary,optio
   const reference=anchors.find(anchor=>anchor.id===point.referenceId);
   const result={...point,source:'manual',referenceName:reference?.name,position:null,pose:point.angles};
   if(reference&&!weldControlPointError(point,anchors)){
-   const resolved=resolvePassPoint(target,point,[...anchors,point],group.passOffset,group.layerHeight,path);
+   const offset=passOffsetWithLayer(group.passOffset,{offsetY:group.layerOffsetY,height:group.layerHeight});
+   const resolved=resolvePassPoint(target,point,[...anchors,point],offset,0,path);
    result.position=validPosition(resolved.position)?resolved.position:null;
    result.pose=resolved.angles;
    result.distance=resolved.distance;
@@ -115,7 +116,7 @@ export function includeWeldControlPoints(template,weld,groups){
  const passes=selectedPasses.length?selectedPasses:[{id:groups[0]?.id,layerName:'第 1 层',passName:'第 1 道',layerHeight:0}];
  const layerMap=new Map();
  for(const [index,group] of passes.entries()){
-  if(!layerMap.has(group.layerId))layerMap.set(group.layerId,{id:uid(),name:group.layerName,height:group.layerHeight??0,passes:[]});
+  if(!layerMap.has(group.layerId))layerMap.set(group.layerId,{id:uid(),name:group.layerName,height:group.layerHeight??0,offsetY:group.layerOffsetY??0,passes:[]});
   const points=clonePassPoints(template.points);
   for(const record of records){
    const groupExists=selectedPasses.some(pass=>pass.id===record.groupId);

@@ -60,7 +60,7 @@ export function GeometryMatchFields({rules,changeRules,holeFlags={},title='æ•´æ
      enabled={geometryConditionEnabled(rules[key],dimension)} onEnabledChange={enabled=>changeRules({[key]:{...rules[key],
       ...(enabled&&dimension==='holeSize'&&rules[key].holeSize==null&&holeFlags[key]===false?{holeSize:{min:0,max:0}}:{}),
       [dimension+'Enabled']:enabled}})}
-     precision={dimension==='holeSize'?undefined:1} measured={evidence?(dimension==='holeSize'?evidence[key]?.holeSize:evidence[key]?.[dimension]?.distance)??null:undefined}
+     precision={1} measured={evidence?(dimension==='holeSize'?evidence[key]?.holeSize:evidence[key]?.[dimension]?.distance)??null:undefined}
      onChange={value=>changeRules({[key]:{...rules[key],[dimension]:value}})}/>)}
    </div>
   </fieldset>)}

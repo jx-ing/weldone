@@ -1,4 +1,4 @@
-import {EPS,along,clipCapturePolyline,dot,interpolate,vectorBetween} from './templateCaptureRange.mjs';
+import {EPS,along,captureRayLimit,clipCapturePolyline,dot,interpolate,vectorBetween} from './templateCaptureRange.mjs';
 
 import {closestDistance,distanceProfile} from './templateDistanceProfile.mjs';
 
@@ -70,13 +70,14 @@ function projectLink(start,end,station,boundaries,pieces,nearest){
  return nearest;
 }
 
+function boundaryPoints(edge){
+ const points=edge.points?.length>=2?edge.points:[edge.start,edge.end];
+ return edge.closed&&Math.hypot(...vectorBetween(points[0],points.at(-1)))>EPS?[...points,points[0]]:points;
+}
+
 function clippedBaseplateBoundaries(source,edges,frame){
- return baseplateEdges(source,edges).flatMap(edge=>{
-  const points=edge.points?.length>=2?edge.points:[edge.start,edge.end];
-  const closed=edge.closed&&Math.hypot(...vectorBetween(points[0],points.at(-1)))>EPS;
-  return clipCapturePolyline(frame,closed?[...points,points[0]]:points).flatMap(chunk=>
-   chunk.slice(1).map((end,index)=>({points:[chunk[index],end],kind:edge.wire==='inner'?'hole':'plate'})));
- });
+ return baseplateEdges(source,edges).flatMap(edge=>clipCapturePolyline(frame,boundaryPoints(edge)).flatMap(chunk=>
+  chunk.slice(1).map((end,index)=>({points:[chunk[index],end],kind:edge.wire==='inner'?'hole':'plate'}))));
 }
 
 function neighboringBoundaries(path,source,edges,frame){
@@ -91,14 +92,35 @@ function neighboringBoundaries(path,source,edges,frame){
   !(onPath(start)&&onPath(end)&&onPath(interpolate(start,end,.5))));
 }
 
-export function measureBaseplateEndpoint(point,source,edges,frame){
- if(!source||!edges)return null;
+// A hit must be on the outward ray, including when a boundary overlaps that ray.
+function boundaryRayDistance(point,direction,start,end){
+ const a=vectorBetween(point,start),b=vectorBetween(point,end);
+ const left=dot(a,direction),right=dot(b,direction);
+ const lateralStart=along(a,direction,-left),lateralEnd=along(b,direction,-right);
+ const lateral=vectorBetween(lateralStart,lateralEnd),size=dot(lateral,lateral);
+ if(size<=EPS*EPS){
+  if(Math.hypot(...lateralStart)>EPS||Math.hypot(...lateralEnd)>EPS||Math.max(left,right)<-EPS)return null;
+  return Math.max(0,Math.min(left,right));
+ }
+ const t=-dot(lateralStart,lateral)/size;
+ const fraction=Math.min(1,Math.max(0,t));
+ if(Math.hypot(...along(lateralStart,lateral,fraction))>EPS)return null;
+ const distance=left+(right-left)*fraction;
+ return distance>=-EPS?Math.max(0,distance):null;
+}
+
+export function measureBaseplateEndpoint(point,direction,source,edges,frame){
+ if(!direction||!source||!edges)return null;
+ const limit=captureRayLimit(frame,point,direction);
  let nearest=null;
- for(const {points:[start,end],kind} of clippedBaseplateBoundaries(source,edges,frame)){
-  const delta=vectorBetween(start,end);
-  const t=Math.max(0,Math.min(1,dot(vectorBetween(start,point),delta)/dot(delta,delta)));
-  const to=along(start,delta,t),distance=Math.hypot(...vectorBetween(point,to));
-  if(!nearest||distance<nearest.distance)nearest={from:point,to,distance,kind};
+ for(const edge of baseplateEdges(source,edges)){
+  const points=boundaryPoints(edge);
+  for(let i=1;i<points.length;i++){
+   const distance=boundaryRayDistance(point,direction,points[i-1],points[i]);
+   if(distance!==null&&distance<=limit+EPS&&(!nearest||distance<nearest.distance)){
+    nearest={from:point,to:along(point,direction,distance),distance,kind:edge.wire==='inner'?'hole':'plate'};
+   }
+  }
  }
  return nearest;
 }

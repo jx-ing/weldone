@@ -32,7 +32,7 @@ export default function TemplateModelEditor({template,onChange,onCaptureReady,po
   const body=new THREE.Group(),edges=new THREE.Group(),paths=new THREE.Group(),markers=new THREE.Group();scene.add(body,edges,paths,markers,new THREE.HemisphereLight(0xffffff,0x8996a1,2.8));const light=new THREE.DirectionalLight(0xffffff,2.8);light.position.set(8000,14000,10000);scene.add(light);
   const world=point=>vector(point.map((v,i)=>v-(model?.origin?.[i]||0)));
   function clear(group){for(const object of [...group.children]){object.geometry.dispose();object.material.dispose();group.remove(object);}}
-  function render(){if(!element.clientWidth||!model)return;renderer.render(scene,camera);const occupied=[];for(const label of labels.current?.querySelectorAll('[data-node]')||[]){const node=latest.current.nodes.find(node=>node.index===+label.dataset.node);if(!node)continue;const p=world(node.position).project(camera);const x=(p.x+1)*element.clientWidth/2;let y=(1-p.y)*element.clientHeight/2;for(let i=0;i<8&&occupied.some(q=>Math.abs(q.x-x)<60&&Math.abs(q.y-y)<22);i++)y-=24;occupied.push({x,y});label.style.left=`${x}px`;label.style.top=`${y}px`;label.style.visibility=p.z>1?'hidden':'visible';}}
+  function render(){if(!element.clientWidth||!model)return;const unitsPerPixel=(camera.top-camera.bottom)/camera.zoom/Math.max(1,element.clientHeight);for(const marker of markers.children)marker.scale.setScalar(unitsPerPixel*marker.userData.pixelRadius);renderer.render(scene,camera);const occupied=[];for(const label of labels.current?.querySelectorAll('[data-node]')||[]){const node=latest.current.nodes.find(node=>node.index===+label.dataset.node);if(!node)continue;const p=world(node.position).project(camera);const x=(p.x+1)*element.clientWidth/2;let y=(1-p.y)*element.clientHeight/2;for(let i=0;i<8&&occupied.some(q=>Math.abs(q.x-x)<60&&Math.abs(q.y-y)<22);i++)y-=24;occupied.push({x,y});label.style.left=`${x}px`;label.style.top=`${y}px`;label.style.visibility=p.z>1?'hidden':'visible';}}
   function fit(){if(!box)return;const center=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3()).length();camera.position.copy(center).add(new THREE.Vector3(1,.85,1).normalize().multiplyScalar(size*2));camera.lookAt(center);controls.target.copy(center);camera.zoom=1;controls.update();resize();}
   function resize(){const width=element.clientWidth,height=element.clientHeight;if(!width||!height||!box)return;camera.updateMatrixWorld(true);const projected=new THREE.Box3();for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z])projected.expandByPoint(new THREE.Vector3(x,y,z).applyMatrix4(camera.matrixWorldInverse));const extent=Math.max(projected.max.y-projected.min.y,(projected.max.x-projected.min.x)/(width/height))*.58;camera.left=-extent*width/height;camera.right=extent*width/height;camera.top=extent;camera.bottom=-extent;camera.updateProjectionMatrix();renderer.setSize(width,height);render();}
   function rebuild(){
@@ -55,17 +55,17 @@ export default function TemplateModelEditor({template,onChange,onCaptureReady,po
     paths.add(path);
    };
    for(const segment of t.segments)addPath(segment.pathPoints,preview?0xa7723f:0xfa8c16,preview?2:3,3);
-   for(const points of latest.current.highlight?.paths??[])addPath(points,0x007cad,5,5);
+   for(const points of latest.current.highlight?.paths??[])addPath(points,0x007cad,2.5,5);
    clear(markers);
-   const radius=box.getSize(new THREE.Vector3()).length()*.012;
-   const mark=(position,color,order)=>{
-    const marker=new THREE.Mesh(new THREE.SphereGeometry(radius,12,12),new THREE.MeshBasicMaterial({color,depthTest:false}));
+   const mark=(position,color,order,pixelRadius)=>{
+    const marker=new THREE.Mesh(new THREE.SphereGeometry(1,12,12),new THREE.MeshBasicMaterial({color,depthTest:false}));
+    marker.userData.pixelRadius=pixelRadius;
     marker.position.copy(world(position));
     marker.renderOrder=order;
     markers.add(marker);
    };
-   for(const node of latest.current.nodes)mark(node.position,node.index===latest.current.selected?0xf08814:0x19a8db,4);
-   for(const point of latest.current.highlight?.points??[])mark(point,0x007cad,6);
+   for(const node of latest.current.nodes)mark(node.position,node.index===latest.current.selected?0xf08814:0x19a8db,4,node.index===latest.current.selected?3.5:2.5);
+   for(const point of latest.current.highlight?.points??[])mark(point,0x007cad,6,2.5);
    render();
   }
   api.current={rebuild,fit};controls.addEventListener('change',render);const observer=new ResizeObserver(resize);observer.observe(element);

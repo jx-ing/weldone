@@ -158,7 +158,7 @@ function measureEndpoint(weld,key,source,edges,parts,frame){
   const distance=clearances.length?Math.min(...clearances):null;
   gap=hit??(distance!==null?{distance,from:point,to:along(point,outward,distance)}:null);
  }
- const edgeDistance=measureBaseplateEndpoint(point,source,edges,frame);
+ const edgeDistance=measureBaseplateEndpoint(point,outward,source,edges,frame);
  return {position:point,type:endpointType(facts),hasHole,holeSize,holeBoundary:holeSize>0?holeBoundary:[],gap,edgeDistance};
 }
 

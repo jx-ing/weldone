@@ -81,7 +81,7 @@ function endpointHoleSize(facts,hasHole){
 export function geometryRulesFromWeld(weld,captureRange,neighborhood) {
   const endpoint = (value,hasHole,measured) => ({
     type:endpointType(value),
-    holeSize:exactRange(measured?measured.holeSize:endpointHoleSize(value,hasHole)),
+    holeSize:exactRange(roundEndpointGap(measured?measured.holeSize:endpointHoleSize(value,hasHole))),
     gap:exactRange(roundEndpointGap(measured?measured.gap?.distance:value?.gap)),
     edgeDistance:exactRange(roundEndpointGap(measured?.edgeDistance?.distance))
   });
@@ -174,15 +174,15 @@ export function geometryRuleErrors(template) {
 
 export function geometryRuleMismatches(rules,weld,neighborhood) {
   const reasons = [];
-  const formatRange=({min,max})=>min===max?`${min} mm`:`${min}–${max} mm`;
+  const formatRange=({min,max},format=String)=>min===max?`${format(min)} mm`:`${format(min)}–${format(max)} mm`;
   const report=(label,expected,actual)=>reasons.push(`${label}（模板 ${expected} / 焊道 ${actual}）`);
   const scoped=!!rules.captureRange;
   const missing=scoped?(neighborhood?'截取范围内未命中':'缺少局部几何测量数据'):'未测得';
-  const check = (group,key,value,label) => {
+  const check = (group,key,value,label,format=String) => {
     if(!geometryConditionEnabled(group,key))return;
     const range=group[key];
     if(!range)return;
-    if(!Number.isFinite(value)||value<range.min||value>range.max)report(label,formatRange(range),Number.isFinite(value)?`${value} mm`:missing);
+    if(!Number.isFinite(value)||value<range.min||value>range.max)report(label,formatRange(range,format),Number.isFinite(value)?`${format(value)} mm`:missing);
   };
   const machines=count=>count===1?'单机焊接':count===2?'双机焊接':`${count} 台设备`;
   if (rules.machineCount !== (weld.machineCount ?? 1)) report('焊接方式不一致',machines(rules.machineCount),machines(weld.machineCount??1));
@@ -218,7 +218,10 @@ export function geometryRuleMismatches(rules,weld,neighborhood) {
     const type=endpointType(expected);
     if (type && endpointType(actual) !== type) report(label+'特征不一致',type,endpointType(actual)||'未识别');
     const hole=endpointHoleSize(actual,weld[key+'Hole']);
-    check(expected,'holeSize',scoped?(neighborhood?.[key]?.holeSize??(hole===0?0:null)):hole,label+'过焊孔尺寸');
+    const holeRange=expected.holeSize;
+    const measuredHole=scoped?(neighborhood?.[key]?.holeSize??(hole===0?0:null)):hole;
+    const roundHole=holeRange&&[holeRange.min,holeRange.max].every(value=>roundEndpointGap(value)===value);
+    check(expected,'holeSize',roundHole?roundEndpointGap(measuredHole):measuredHole,label+'过焊孔尺寸',roundHole?value=>value.toFixed(1):String);
     const range=expected.gap;
     const oneDecimal=range&&[range.min,range.max].every(value=>roundEndpointGap(value)===value);
     const gap=scoped?neighborhood?.[key]?.gap?.distance:actual.gap;

@@ -4,6 +4,9 @@ import {sampleManualWeldPath,horizontalWeldNormal} from './manualWeldModel.mjs';
 export const PASS_OFFSET_FIELDS=[['y','偏移值Y','mm'],['z','偏移值Z','mm'],['start','起弧偏移','mm'],['end','收弧偏移','mm'],['wire','焊丝方向偏移','mm'],['advance','前进角偏移','°'],['work','工作角偏移','°'],['rotation','旋转角偏移','°']];
 const value=n=>Number.isFinite(n)?n:0;
 export const passOffsetValues=offset=>Object.fromEntries(PASS_OFFSET_FIELDS.map(([key])=>[key,offset?.[key]??0]));
+export const passOffsetWithLayer=(offset,layer)=>({
+ ...offset,y:value(offset?.y)+value(layer.offsetY),z:value(offset?.z)+value(layer.height)
+});
 export function validPassOffsets(offset){return !!offset&&['y','z'].every(k=>Number.isFinite(offset[k]))&&PASS_OFFSET_FIELDS.every(([key,,unit])=>offset[key]===undefined||Number.isFinite(offset[key])&&(unit!=='°'||Math.abs(offset[key])<=360));}
 export function effectivePassPoints(points,offset={}){
   return points.map(p=>({...p,offset:{...p.offset,x:value(p.offset?.x)+(p.kind==='start'?value(offset.start):p.kind==='end'?value(offset.end):0)},angles:{...p.angles,...Object.fromEntries(['advance','work','rotation'].map(key=>[key,value(p.angles?.[key])+value(offset[key])]))}}));

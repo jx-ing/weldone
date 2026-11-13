@@ -6,7 +6,7 @@ import {geometryRulesFromWeld,geometryRuleMismatches,updateGeometryRuleMeasureme
 import {measureBaseplateEdges,measureBaseplateEndpoint} from '../src/templateBaseplateEdges.mjs';
 import {measureDistanceInterval} from '../src/templateDistanceProfile.mjs';
 import {newPlanningTemplate} from '../src/templateCoverModel.mjs';
-import {applyTemplateToWeld,matchTemplate} from '../src/templateModel.mjs';
+import {applyTemplateToWeld,matchTemplate,targetFromWeld} from '../src/templateModel.mjs';
 
 const range={along:4,across:4,above:2,below:7};
 const segment=(points,values={})=>({
@@ -53,8 +53,8 @@ test('范围同时约束段边缘、下方实体及端点间隙，未命中为�
  assert.equal(wide.start.gap.distance,3);
  assert.equal(wide.start.holeSize,0);
  assert.equal(wide.end.gap,null);
- assert.deepEqual(wide.start.edgeDistance,{from:[0,0,0],to:[0,3,0],distance:3,kind:'plate'});
- assert.equal(wide.end.edgeDistance.distance,3);
+ assert.equal(wide.start.edgeDistance,null);
+ assert.equal(wide.end.edgeDistance,null);
  const narrow={...range,along:2,across:2,below:5};
  const none=measure(target,narrow);
  assert.equal(none.segments[0].baseplate.nearest,null);
@@ -67,7 +67,48 @@ test('范围同时约束段边缘、下方实体及端点间隙，未命中为�
  assert.equal(saved.solidGap.mode,'continuous');
  assert.deepEqual(saved.solidGap.intervals.map(interval=>interval.distance),[{min:6,max:6}]);
  assert.deepEqual(geometryRuleMismatches(rules,target,wide),[]);
- assert.equal(geometryRuleMismatches(rules,target,none).length,5);
+ assert.equal(geometryRuleMismatches(rules,target,none).length,3);
+});
+
+test('端点只沿首尾各自的外向切线寻找截取范围内的第一个孔边或板边',()=>{
+ const target=weld([
+  segment([[0,0,0],[0,0,0],[10,0,0]]),
+  segment([[10,0,0],[15,10,0],[15,10,0]])
+ ]);
+ const geometry=source();
+ const boundary=(wire,points,extra={})=>({partId:'main',faceIndex:0,wire,points,...extra});
+ geometry.edges.edges.push(
+  boundary('outer',[[-4,-1,0],[-4,1,0]]),
+  boundary('inner',[[-2,-1,0],[-1,1,0],[-1,2,0]],{closed:true}),
+  boundary('outer',[[1,-1,0],[1,1,0]]),
+  boundary('inner',[[-.5,-1,.5],[-.5,1,.5]]),
+  boundary('inner',[[-.5,-1,0],[-.5,1,0]],{faceIndex:1}),
+  boundary('outer',[[16,12,0],[18,12,0]])
+ );
+ const measure=createTemplateNeighborhoodMeasurer(geometry);
+ const evidence=measure(target,range);
+ assert.deepEqual(evidence.start.edgeDistance,{from:[0,0,0],to:[-1.5,0,0],distance:1.5,kind:'hole'});
+ assert.deepEqual(evidence.end.edgeDistance,{from:[15,10,0],to:[16,12,0],distance:Math.sqrt(5),kind:'plate'});
+ const reverse=measure(targetFromWeld({...target,direction:'反向'}),range);
+ assert.deepEqual(reverse.start.edgeDistance,evidence.end.edgeDistance);
+ assert.deepEqual(reverse.end.edgeDistance,evidence.start.edgeDistance);
+ const narrow=measure(target,{...range,along:.5});
+ assert.equal(narrow.start.edgeDistance,null);
+ assert.equal(narrow.end.edgeDistance,null);
+ const rules=geometryRulesFromWeld(target,range,evidence);
+ assert.deepEqual(rules.start.edgeDistance,{min:1.5,max:1.5});
+ assert.deepEqual(rules.end.edgeDistance,{min:2.2,max:2.2});
+ assert.deepEqual(geometryRuleMismatches(rules,target,evidence),[]);
+ assert(geometryRuleMismatches(rules,target,narrow).some(reason=>reason.startsWith('起点边缘距离')));
+});
+
+test('沿端点切线重合的底板边界取最先到达的位置',()=>{
+ const s=segment([[0,0,0],[10,0,0]]);
+ const origin=s.pathPoints[0],direction=[-1,0,0],frame=captureFrame([s],s.pathPoints,range);
+ const geometry=source();
+ geometry.edges.edges.push({partId:'main',faceIndex:0,wire:'outer',points:[[-6,0,0],[-4,0,0]]});
+ const measure=()=>measureBaseplateEndpoint(origin,direction,geometry.sourceWelds[0],geometry.edges,frame);
+ assert.deepEqual(measure(),{from:origin,to:[-4,0,0],distance:4,kind:'plate'});
 });
 
 test('每段沿各自底板方向测实体间隙，分别计算最近点与连续区间',()=>{
@@ -127,7 +168,7 @@ test('模板只保留整条焊缝端点尺寸，分段范围使用模板自身�
  assert.equal(matchTemplate(template,target,options).ok,true);
  start.edgeDistanceEnabled=true;
  assert.throws(()=>applyTemplateToWeld(target,template,options),error=>
-  error.reasons.length===1&&error.reasons[0]==='起点边缘距离（模板 99 mm / 焊道 3 mm）');
+  error.reasons.length===1&&error.reasons[0]==='起点边缘距离（模板 99 mm / 焊道 截取范围内未命中）');
 });
 
 test('实时重算只更新自动测量条件并保持用户手动修改',()=>{
@@ -160,7 +201,7 @@ test('仅底板孔边和板边参与，连续距离计算两个边界之间切�
   edge('sub',0,'outer',[[0,.1,0],[10,.1,0]])
  ]};
  const profile=measureBaseplateEdges(s,source().sourceWelds[0],edges,captureFrame([s],s.pathPoints,range));
- assert.equal(measureBaseplateEndpoint(s.pathPoints[0],source().sourceWelds[0],edges,captureFrame([s],s.pathPoints,range)).distance,0);
+ assert.equal(measureBaseplateEndpoint(s.pathPoints[0],[-1,0,0],source().sourceWelds[0],edges,captureFrame([s],s.pathPoints,range)).distance,0);
  assert.deepEqual(profile.spans,[{start:0,end:4},{start:6,end:10}]);
  assert.equal(profile.nearest.distance,1);
  assert.equal(profile.nearest.kind,'hole');

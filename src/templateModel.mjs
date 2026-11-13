@@ -7,7 +7,7 @@ import {directedWeld} from './weldDirectionGeometry.mjs';
 import {curveDimensions} from './curveDimensions.mjs';
 import { previewPath, previewPoint, samplePath, segmentShape } from './weldPathGeometry.mjs';
 import { syncControlPoints, isAnchor } from './templatePointAnchors.mjs';
-import {validPassOffsets,resolvePassPoint} from './templatePassOffsets.mjs';
+import {passOffsetWithLayer,validPassOffsets,resolvePassPoint} from './templatePassOffsets.mjs';
 import {ensureLayers} from './templateLayers.mjs';
 import {CORNER_SIDES,cornerSide,cornerMeasuredAngle} from './templateCornerAngles.mjs';
 import {templateForMatching,matchingParameterShapeErrors} from './templateMatchingParameters.mjs';
@@ -278,7 +278,7 @@ export function validateTemplate(t) {
   if(!Array.isArray(t.layers)||!t.layers.length)e.push('请至少设置一层一道');
   else {
     if(new Set(t.layers.map(l=>l.id)).size!==t.layers.length)e.push('层编号不能重复');
-    for(const l of t.layers){if(!l.name?.trim()||!finite(l.height)||!Array.isArray(l.passes)||!l.passes.length){e.push('每层需要名称、高度和至少一道');continue;}
+    for(const l of t.layers){if(!l.name?.trim()||!finite(l.height)||!finite(l.offsetY??0)||!Array.isArray(l.passes)||!l.passes.length){e.push('每层需要名称、有效的层偏移和至少一道');continue;}
       if(new Set(l.passes.map(p=>p.id)).size!==l.passes.length)e.push('焊道编号不能重复');
       for(const p of l.passes){if(!p.name?.trim()||!validPassOffsets(p.offset))e.push(`${l.name}：焊道名称或偏移无效`);e.push(...validatePoints(p.points,n,false,t.type).map(error=>`${l.name}/${p.name}：${error}`));}
     }
@@ -293,7 +293,7 @@ export function validateFixed(f) {
   if(!f||typeof f.id!=='string'||!f.name?.trim()||f.name.length>80||!Number.isInteger(f.segmentCount)||!finite(f.segmentCount,1,3))return ['固定模板结构无效'];
   const issues=validatePoints(f.points,f.segmentCount,true,'local');
   if(f.definition){if(f.definition.type!=='local'||f.definition.id!==f.id||f.definition.name!==f.name||f.definition.segments?.length!==f.segmentCount)issues.push('固定模板编辑内容与点位骨架不一致');issues.push(...validateTemplate(f.definition));}
-  if(f.layers!==undefined){if(!Array.isArray(f.layers)||!f.layers.length)issues.push('固定模板至少需要一层一道');else for(const l of f.layers){if(!l.name?.trim()||!finite(l.height)||!Array.isArray(l.passes)||!l.passes.length){issues.push('固定模板层道位置无效');continue;}for(const p of l.passes){if(!validPassOffsets(p.offset))issues.push('固定模板焊道偏移无效');issues.push(...validatePoints(p.points,f.segmentCount,true,'local'));}}}
+  if(f.layers!==undefined){if(!Array.isArray(f.layers)||!f.layers.length)issues.push('固定模板至少需要一层一道');else for(const l of f.layers){if(!l.name?.trim()||!finite(l.height)||!finite(l.offsetY??0)||!Array.isArray(l.passes)||!l.passes.length){issues.push('固定模板层道位置无效');continue;}for(const p of l.passes){if(!validPassOffsets(p.offset))issues.push('固定模板焊道偏移无效');issues.push(...validatePoints(p.points,f.segmentCount,true,'local'));}}}
   return [...new Set(issues)];
 }
 export function reuseLayout(t, f) {
@@ -305,7 +305,7 @@ export function reuseLayout(t, f) {
   }
   resized.reusedFromFixed={id:f.id,name:f.name};
   function positions(points){const ids=new Map(points.map(p=>[p.id,uid()]));return points.map(p=>({...point(p.kind,p.segment,p.percent,p.name),id:ids.get(p.id),...(p.anchorRole?{anchorRole:p.anchorRole}:{}),...(p.autoRole?{autoRole:p.autoRole}:{}),...(p.referenceId!==undefined?{referenceId:ids.get(p.referenceId)||''}:{}),offset:{x:p.location?.along||0,y:p.location?.normal||0,z:p.location?.height||0}}));}
-  if(f.layers){const layers=f.layers.map(l=>({id:uid(),name:l.name,height:l.height,passes:l.passes.map(p=>({id:uid(),name:p.name,offset:structuredClone(p.offset),points:positions(p.points)}))}));return ensureLayers(syncControlPoints({...resized,layers,points:layers[0].passes[0].points}));}
+  if(f.layers){const layers=f.layers.map(l=>({id:uid(),name:l.name,height:l.height,offsetY:l.offsetY,passes:l.passes.map(p=>({id:uid(),name:p.name,offset:structuredClone(p.offset),points:positions(p.points)}))}));return ensureLayers(syncControlPoints({...resized,layers,points:layers[0].passes[0].points}));}
   return ensureLayers(syncControlPoints({...resized,points:positions(f.points)}));
 }
 export function targetFromWeld(w) {
@@ -367,7 +367,7 @@ export function applyTemplateToWeld(w, t, options={}) {
   const previewTarget={...target,segments:target.segments.map((s,i)=>({...s,shape:s.shape||t.segments[i].shape})),corners:t.corners};
   const path=previewPath(previewTarget.segments,'xy',t.corners,t.closure);
   const layers=t.layers.map(layer=>({...structuredClone(layer),passes:layer.passes.map(pass=>({...structuredClone(pass),controlPoints:pass.points.map(p=>{
-    const resolved=resolvePassPoint(previewTarget,p,pass.points,pass.offset,layer.height,path);
+    const resolved=resolvePassPoint(previewTarget,p,pass.points,passOffsetWithLayer(pass.offset,layer),0,path);
     return {...structuredClone(p),angles:resolved.angles,distance:resolved.distance,actualSegment:resolved.actualSegment,originalSegment:(target.sourceSegmentIndices?.[resolved.actualSegment-1]??resolved.actualSegment-1)+1,position:{x:resolved.position[0],y:resolved.position[1],z:resolved.position[2]}};
   }).sort((a,b)=>a.distance-b.distance)}))}));
   const controlPoints=layers[0].passes[0].controlPoints;
