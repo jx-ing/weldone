@@ -168,7 +168,7 @@ export function createTemplateNeighborhoodMeasurer({parts,mesh,edges,sourceWelds
   id:part.id,bounds:box(part.bbox.min,part.bbox.max),tree:()=>planningPartGeometryIndex(mesh,part).tree
  }));
  const cache=new Map();
- return (weld,range)=>{
+ const measure=(weld,range)=>{
   if(!weld.segments?.length||weld.segments.some(segment=>!segment.pathPoints?.length))return null;
   const signature=JSON.stringify([range,weld.segments.map(s=>[s.sourceWeldId,s.mainPartId,s.subPartId,s.pathPoints]),weld.endpointFacts,weld.startHole,weld.endHole]);
   if(cache.has(signature))return cache.get(signature);
@@ -196,6 +196,64 @@ export function createTemplateNeighborhoodMeasurer({parts,mesh,edges,sourceWelds
   cache.set(signature,result);
   return result;
  };
+ const byPart=new Map(solids.map(part=>[part.id,part]));
+ const cornerCache=new Map();
+ const rayDirection=vector([.58,.73,.36]).normalize();
+ measure.measureCorner=({before,after,normal,incoming,outgoing})=>{
+  const sourceBefore=lookup.get(before.sourceWeldId),sourceAfter=lookup.get(after.sourceWeldId);
+  const pair=(segment,source)=>[segment.mainPartId??source?.mainPartId,segment.subPartId??source?.subPartId];
+  const a=pair(before,sourceBefore),b=pair(after,sourceAfter);
+  if([...a,...b].some(id=>!byPart.has(id)))return undefined;
+  const end=before.pathPoints.at(-1),start=after.pathPoints[0];
+  const key=JSON.stringify([a,b,end,start,normal,incoming,outgoing,before.length,after.length]);
+  if(cornerCache.has(key))return cornerCache.get(key);
+  const result=(()=>{
+   const center=vector(interpolate(end,start,.5)),axis=vector(normal);
+   const rayA=vector(incoming).negate(),rayB=vector(outgoing);
+   const length=Math.min(before.length,after.length);
+   if(!Number.isFinite(length)||length<=0||vector(end).distanceTo(vector(start))>.1)return null;
+   const shared=a.filter(id=>b.includes(id));
+   // Prefer the common face with a normal perpendicular to the bend plane.
+   const alignment=(partId,segment,source,ids)=>{
+    const main=partId===ids[0],face=source?.properties?.焊缝段?.[0];
+    const direction=main?(segment.referenceNormal??face?.主板面?.法向):(segment.subFaceNormal??face?.副板面?.法向);
+    return direction?.length===3?Math.abs(vector(direction).normalize().dot(axis)):0;
+   };
+   const bases=shared.map(id=>({id,score:Math.min(alignment(id,before,sourceBefore,a),alignment(id,after,sourceAfter,b))}))
+    .filter(part=>part.score>.85).sort((x,y)=>y.score-x.score);
+   const base=bases[0];
+   if(!base||bases[1]?.score>=base.score-.03)return null;
+   const subjects=[...new Set([...a,...b].filter(id=>id!==base.id))].map(id=>byPart.get(id));
+   const inside=(part,point)=>{
+    if(!part.bounds.containsPoint(point))return false;
+    const hit=part.tree()?.raycastFirst(new Ray(point,rayDirection),DoubleSide,.0001);
+    return !!hit?.face&&hit.face.normal.dot(rayDirection)>1e-7;
+   };
+   const bisector=rayA.clone().add(rayB).normalize();
+   const radii=[.2,.4,.7].map(fraction=>Math.min(6,length*.48)*fraction);
+   const votes=[];
+   for(const radius of radii){
+    const height=Math.min(.8,Math.max(.025,radius*.25));
+    // Sample both sides of the support plane, accepting the exposed side only.
+    const signs=[1,-1].filter(sign=>!inside(byPart.get(base.id),center.clone().addScaledVector(axis,sign*height)));
+    if(signs.length!==1)continue;
+    const origin=center.clone().addScaledVector(axis,signs[0]*height);
+    const sample=directions=>directions.filter(direction=>{
+     const point=origin.clone().addScaledVector(direction,radius);
+     return subjects.some(part=>inside(part,point));
+    }).length;
+    const minor=sample([bisector,rayA.clone().lerp(rayB,.35).normalize(),rayA.clone().lerp(rayB,.65).normalize()]);
+    const major=sample([bisector.clone().negate(),rayA.clone().negate(),rayB.clone().negate()]);
+    if(minor>=2&&major===0)votes.push('outer');
+    if(major>=2&&minor===0)votes.push('inner');
+   }
+   return votes.length>=2&&votes.every(vote=>vote===votes[0])?votes[0]:null;
+  })();
+  if(cornerCache.size>=3000)cornerCache.clear();
+  cornerCache.set(key,result);
+  return result;
+ };
+ return measure;
 }
 
 export async function loadDemoTemplateNeighborhood(signal){

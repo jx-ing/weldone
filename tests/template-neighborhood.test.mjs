@@ -4,9 +4,10 @@ import {captureFrame,insideCapture,clipCapturePolyline} from '../src/templateCap
 import {createTemplateNeighborhoodMeasurer} from '../src/templateNeighborhood.mjs';
 import {geometryRulesFromWeld,geometryRuleMismatches,updateGeometryRuleMeasurements,updateDistanceIntervals,savedGeometryRules} from '../src/templateGeometryRules.mjs';
 import {measureBaseplateEdges,measureBaseplateEndpoint} from '../src/templateBaseplateEdges.mjs';
-import {measureDistanceInterval} from '../src/templateDistanceProfile.mjs';
+import {distanceProfile,measureDistanceInterval} from '../src/templateDistanceProfile.mjs';
 import {newPlanningTemplate} from '../src/templateCoverModel.mjs';
 import {applyTemplateToWeld,matchTemplate,targetFromWeld} from '../src/templateModel.mjs';
+import {BoxGeometry} from 'three';
 
 const range={along:4,across:4,above:2,below:7};
 const segment=(points,values={})=>({
@@ -17,6 +18,74 @@ const weld=(segments=[segment([[0,0,0],[10,0,0]])])=>({
  id:'W001',enabled:true,model:'111.step',name:'测试焊缝',completeStart:true,completeEnd:true,leg:6,weldType:'角焊缝',
  closure:'open',segments,cornerAngles:segments.length===2?[90]:[],position:'PB · 横角焊',
  groove:{type:'无坡口',angle:0,depth:0},startHole:false,endHole:false
+});
+
+function cornerSolids(subjectBoxes){
+ const values=[],parts=[];
+ for(const [id,boxes] of [['main',[[[-30,-30,-4],[30,30,0]]]],['sub',subjectBoxes]]){
+  const vertexOffset=values.length/6;
+  for(const [min,max] of boxes){
+   const size=max.map((v,i)=>v-min[i]),center=min.map((v,i)=>(v+max[i])/2);
+   const box=new BoxGeometry(...size).toNonIndexed();
+   const positions=box.getAttribute('position'),normals=box.getAttribute('normal');
+   for(let i=0;i<positions.count;i++){
+    values.push(positions.getX(i)+center[0],positions.getY(i)+center[1],positions.getZ(i)+center[2],
+     normals.getX(i),normals.getY(i),normals.getZ(i));
+   }
+   box.dispose();
+  }
+  const bounds={min:[0,1,2].map(i=>Math.min(...boxes.map(([min])=>min[i]))),max:[0,1,2].map(i=>Math.max(...boxes.map(([,max])=>max[i])))};
+  parts.push({id,vertexOffset,vertexCount:values.length/6-vertexOffset,solidCount:boxes.length,bbox:bounds});
+ }
+ return createTemplateNeighborhoodMeasurer({parts,mesh:new Float32Array(values),edges:{edges:[]},sourceWelds:[]});
+}
+
+test('用实体区分混合内外角，倒序匹配保留起收弧角色及物理转角点',()=>{
+ const segments=[
+  segment([[-10,0,0],[0,0,0]],{referenceNormal:[0,0,1]}),
+  segment([[0,0,0],[0,10,0]],{referenceNormal:[0,0,1]}),
+  segment([[0,10,0],[10,10,0]],{referenceNormal:[0,0,1]})
+ ];
+ // First turn: the upper-left quadrant contains material. Second turn: only the lower-right quadrant is open.
+ const measure=cornerSolids([[[-8,0,0],[0,18,6]],[[0,10,0],[18,18,6]]]);
+ const options={measureTemplateNeighborhood:measure};
+ const source={...weld(segments),cornerAngles:[90,90]};
+ const cover={kind:'weld-model-region',dataUrl:'data:image/png;base64,iVBORw0KGgo',width:640,height:400,model:source.model,weldId:source.id,
+  bounds:{min:[-10,-2,-2],max:[12,12,8]},parts:[0]};
+ const template=newPlanningTemplate(source.model,[source],source.id,cover,undefined,undefined,undefined,options);
+ assert.deepEqual(template.corners.map(corner=>[corner.angleSide,corner.standard]),[['outer',270],['inner',90]]);
+ template.points.find(point=>point.kind==='start').overrides.current=211;
+ template.points.find(point=>point.kind==='end').overrides.current=155;
+ const junction=template.points.find(point=>point.kind==='junction'&&point.segment===1);
+ junction.overrides.current=197;
+ const target={...source,direction:'反向'};
+ const measured=targetFromWeld(target,options);
+ assert.deepEqual(measured.cornerAngles,[90,270]);
+ assert.deepEqual(measured.cornerDirections.map(corner=>corner.turn),[90,-90]);
+ assert.equal(matchTemplate(template,target,options).reversed,true);
+ const applied=applyTemplateToWeld(target,template,options);
+ assert.equal(applied.direction,'反向');
+ for(const [kind,x,y,current] of [['start',10,10,211],['end',-10,0,155]]){
+  const point=applied.controlPoints.find(point=>point.kind===kind);
+  assert.deepEqual([point.position.x,point.position.y,point.overrides.current],[x,y,current]);
+ }
+ const mapped=applied.controlPoints.find(point=>point.id===junction.id);
+ assert.deepEqual([mapped.segment,mapped.position.x,mapped.position.y,mapped.overrides.current],[2,0,0,197]);
+ // A condition on the source segment's first 3 mm is evaluated at the corresponding end of the reversed segment.
+ template.requirementsMatch={
+  ...geometryRulesFromWeld(targetFromWeld(source,options),range),
+  segmentDistances:[{baseplateEdge:{mode:'continuous',intervals:[{start:0,end:3,distance:{min:4,max:4}}]}},{},{}]
+ };
+ const measuredIntervals=[];
+ const directionalMeasure=Object.assign((path)=>{
+  const first=path.segments[0].pathPoints[0];
+  measuredIntervals.push(first);
+  const distance=first[0]===-10?4:9;
+  const baseplate=distanceProfile([{start:0,end:10,from:[0,0,0],to:[0,distance,0],endFrom:[10,0,0],endTo:[10,distance,0]}],null,10);
+  return {segments:[{baseplate},{},{}]};
+ },{measureCorner:measure.measureCorner});
+ assert.equal(matchTemplate(template,target,{measureTemplateNeighborhood:directionalMeasure}).reversed,true);
+ assert.deepEqual(measuredIntervals,[[10,10,0],[-10,0,0]]);
 });
 
 test('截取坐标系随焊缝方向和平移变化，线段按同一范围裁切',()=>{

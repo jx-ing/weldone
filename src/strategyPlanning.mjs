@@ -92,7 +92,7 @@ export function plannedTracking(weld, rawSettings) {
 export function generateStrategyPlan(weld, process, rawSettings) {
   if (!weld.segments?.every(segment => segment.pathPoints?.length >= 2)) return null;
   const settings = settingsDefaults(rawSettings);
-  const directed = directedWeld(weld);
+  const directed = directedWeld(weld,rawSettings?.measureTemplateNeighborhood?.measureCorner);
   const segments = directed.segments;
   const ends = weld.direction === '反向' ? [weld.endpointFacts?.end, weld.endpointFacts?.start] : [weld.endpointFacts?.start, weld.endpointFacts?.end];
   const stations = [0];
@@ -148,7 +148,7 @@ export function generateStrategyPlan(weld, process, rawSettings) {
     const flat=weldPositionCode(before.position)==='PB'&&weldPositionCode(after.position)==='PB';
     const upright=settings.topologyVersion===1&&vertical(before.position)&&vertical(after.position);
     if(!measured?.angleSide||measured.angleSide==='straight'||(!flat&&!upright))continue;
-    corners.set(index,{index,next,at:stations[index+1],side:upright?'outer':measured.angleSide});
+    corners.set(index,{index,next,at:stations[index+1],side:upright&&measured.cornerSource!=='solid'?'outer':measured.angleSide});
   }
 
   for (const [layerIndex, layer] of layers.entries()) for (const [passIndex, pass] of layer.passes.entries()) {

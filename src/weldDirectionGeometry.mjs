@@ -17,31 +17,62 @@ export function autoWeldReferenceNormal(segments=[]){
   for(let i=0;i<segments.length-1;i++){const a=tangent(segments[i].pathPoints,true),b=tangent(segments[i+1].pathPoints,false);if(!a||!b)continue;const bend=unit(cross(a,b));if(bend)return chooseNormal(all,a,bend)||canonical(bend);}
   return chooseNormal(all,first,null)||stablePerpendicular(first);
 }
-function solveCorner(before,after,primary=[],fallback=[]){
+function solveCorner(before,after,primary=[],fallback=[],measureCorner){
   const incoming=tangent(before?.pathPoints,true),outgoing=tangent(after?.pathPoints,false);
   if(!incoming||!outgoing)return {angle:null,angleSide:null,reason:'缺少有效的焊道切向'};
   const cosine=Math.max(-1,Math.min(1,dot(incoming,outgoing))),turn=Math.acos(cosine)*180/Math.PI,bend=unit(cross(incoming,outgoing));
   const model=chooseNormal(primary,incoming,bend)||chooseNormal(fallback,incoming,bend),normal=model||canonical(bend||[])||stablePerpendicular(incoming);
   const common={referenceNormal:normal,referenceSource:model?'model':bend?'path':'axis'};
   if(turn<1e-6)return {angle:180,angleSide:'straight',turn:0,...common};
-  if(!bend)return {angle:0,angleSide:'inner',turn:180,boundaryTurn:true,...common};
+  if(!bend)return {angle:0,angleSide:measureCorner?null:'inner',turn:180,boundaryTurn:true,...common,
+    ...(measureCorner?{cornerSource:'solid',reason:'两段折返重合，无法区分开口扇区'}:{})};
   const left=dot(bend,normal)>0;
-  return {angle:Math.round((left?180-turn:180+turn)*10000)/10000,angleSide:left?'inner':'outer',turn:left?turn:-turn,...common};
+  const measured=measureCorner?.({before,after,normal,incoming,outgoing});
+  const angleSide=measured===undefined?(left?'inner':'outer'):measured;
+  return {...common,turn:left?turn:-turn,angleSide,
+    angle:angleSide?Math.round((angleSide==='inner'?180-turn:180+turn)*10000)/10000:null,
+    ...(measured!==undefined?{cornerSource:'solid',...(angleSide?{}:{reason:'转角两侧的实体与空域证据不足'})}:{})};
 }
 export function directedCorner(before,after,referenceNormal){return solveCorner(before,after,[referenceNormal]);}
 const declared=a=>Number.isFinite(a)&&a>=0&&a<=360?{angle:a,angleSide:a===180?'straight':a>180?'outer':'inner',declared:true}:{angle:null,angleSide:null,reason:'缺少有效转角数据'};
-export function measureDirectedConnection(w,before,after){
-  if(before?.pathPoints?.length&&after?.pathPoints?.length)return solveCorner(before,after,[before.endReferenceNormal,before.referenceNormal,after.startReferenceNormal,after.referenceNormal],w.cornerReferenceMode==='auto'?[]:[w.cornerReferenceNormal]);
+export function measureDirectedConnection(w,before,after,measureCorner){
+  if(before?.pathPoints?.length&&after?.pathPoints?.length)return solveCorner(before,after,[before.endReferenceNormal,before.referenceNormal,after.startReferenceNormal,after.referenceNormal],w.cornerReferenceMode==='auto'?[]:[w.cornerReferenceNormal],measureCorner);
   return null;
 }
-export function directedWeld(w){
-  if(!w||w.pathDirectionResolved)return w;
+const reverseSegment=s=>({...s,pathPoints:s.pathPoints?.slice().reverse(),
+  startReferenceNormal:s.endReferenceNormal,endReferenceNormal:s.startReferenceNormal,
+  ...(s.endpointFacts?{endpointFacts:{...s.endpointFacts,start:s.endpointFacts.end,end:s.endpointFacts.start}}:{}),
+  startWrapMode:s.endWrapMode,endWrapMode:s.startWrapMode,mainEdgeStart:s.mainEdgeEnd,mainEdgeEnd:s.mainEdgeStart});
+const reverseEnds=w=>({completeStart:w.completeEnd,completeEnd:w.completeStart,startHole:w.endHole,endHole:w.startHole,
+  startWrapMode:w.endWrapMode,endWrapMode:w.startWrapMode,
+  ...(w.endpointFacts?{endpointFacts:{...w.endpointFacts,start:w.endpointFacts.end,end:w.endpointFacts.start}}:{})});
+const reverseCorner=corner=>corner&&({...corner,turn:-corner.turn});
+
+export function reverseWeldTraversal(w){
+  return {...w,...reverseEnds(w),segments:w.segments.slice().reverse().map(reverseSegment),
+    sourceSegmentIndices:w.sourceSegmentIndices?.slice().reverse(),cornerDirections:w.cornerDirections.slice().reverse().map(reverseCorner),
+    cornerAngles:w.cornerAngles.slice().reverse(),closingCorner:reverseCorner(w.closingCorner)};
+}
+
+export function directedWeld(w,measureCorner){
+  if(!w)return w;
+  if(w.pathDirectionResolved){
+    if(!measureCorner||w.cornerGeometryMeasured)return w;
+    const {direction,sourceSegmentIndices,...resolved}=w;
+    const measured=directedWeld({...resolved,pathDirectionResolved:false},measureCorner);
+    return {...measured,direction,sourceSegmentIndices};
+  }
   const original=w.segments||[],reverse=w.direction==='反向';
   const sourceSegmentIndices=original.map((_,i)=>i);if(reverse)sourceSegmentIndices.reverse();
-  const segments=sourceSegmentIndices.map(i=>{const s=original[i];return reverse?{...s,...(s.pathPoints?{pathPoints:[...s.pathPoints].reverse()}:{}),startReferenceNormal:s.endReferenceNormal,endReferenceNormal:s.startReferenceNormal}:s;});
+  const segments=sourceSegmentIndices.map(i=>reverse?reverseSegment(original[i]):original[i]);
   const declaredAngles=reverse?[...(w.cornerAngles||[])].reverse().map(a=>Number.isFinite(a)?360-a:a):w.cornerAngles||[];
   const count=segments.every(s=>s.pathPoints?.length>=2)?Math.max(0,segments.length-1):declaredAngles.length;
-  const cornerDirections=Array.from({length:count},(_,i)=>measureDirectedConnection(w,segments[i],segments[i+1])||declared(declaredAngles[i]));
-  return {...w,pathDirectionResolved:true,sourceSegmentIndices,segments,cornerDirections,cornerAngles:cornerDirections.map((c,i)=>c.angle??declaredAngles[i]),cornerReferenceNormal:measureDirectedConnection(w,original[0],original[1])?.referenceNormal||autoWeldReferenceNormal(original),cornerReferenceMode:'auto',...(reverse?{completeStart:w.completeEnd,completeEnd:w.completeStart,startHole:w.endHole,endHole:w.startHole,...(w.endpointFacts?{endpointFacts:{start:w.endpointFacts.end,end:w.endpointFacts.start}}:{})}:{})};
+  const cornerDirections=Array.from({length:count},(_,i)=>measureDirectedConnection(w,segments[i],segments[i+1],measureCorner)||declared(declaredAngles[i]));
+  const closingCorner=(w.closure==='closed'||w.closed===true)&&segments.length>1?
+    measureDirectedConnection(w,segments.at(-1),segments[0],measureCorner):null;
+  return {...w,pathDirectionResolved:true,cornerGeometryMeasured:cornerDirections.some(c=>c.cornerSource==='solid'),sourceSegmentIndices,segments,cornerDirections,
+    cornerAngles:cornerDirections.map((c,i)=>c.cornerSource==='solid'?c.angle:c.angle??declaredAngles[i]),closingCorner,
+    cornerReferenceNormal:measureDirectedConnection(w,original[0],original[1])?.referenceNormal||autoWeldReferenceNormal(original),
+    cornerReferenceMode:'auto',...(reverse?reverseEnds(w):{})};
 }
-export function directedClosingCorner(w){const v=directedWeld(w);return measureDirectedConnection(v,v.segments.at(-1),v.segments[0])||declared(v.cornerAngles[v.segments.length-1]);}
+export function directedClosingCorner(w){const v=directedWeld(w);return v.closingCorner||measureDirectedConnection(v,v.segments.at(-1),v.segments[0])||declared(v.cornerAngles[v.segments.length-1]);}

@@ -21,13 +21,13 @@ export function weldRegionBounds(weld,origin=[0,0,0],modelSpan=1000,range){
 export function validTemplateCover(cover,source){
  return !!cover&&cover.kind==='weld-model-region'&&cover.width===640&&cover.height===400&&typeof cover.dataUrl==='string'&&cover.dataUrl.startsWith('data:image/png;base64,iVBORw0KGgo')&&cover.dataUrl.length<750000&&cover.model===source?.model&&cover.weldId===source?.id&&Array.isArray(cover.parts)&&cover.parts.length>0&&cover.bounds?.min?.length===3&&cover.bounds?.max?.length===3&&cover.bounds.min.every((v,i)=>Number.isFinite(v)&&Number.isFinite(cover.bounds.max[i])&&v<cover.bounds.max[i]);
 }
-export function newPlanningTemplate(model,welds,weldId,cover,captureRange,neighborhood,stepModel){
- const template=newWholeTemplateFromWeld(model,welds,weldId);
+export function newPlanningTemplate(model,welds,weldId,cover,captureRange,neighborhood,stepModel,options){
+ const template=newWholeTemplateFromWeld(model,welds,weldId,undefined,options);
  if(!validTemplateCover(cover,template.sourceWeld))throw Error('请在工艺规划中截取所选焊缝域模型后创建模板');
  if(stepModel){
   if(!validStepModel(stepModel))throw Error('来源 STEP 模型引用无效');
   template.sourceWeld.stepModel={sourceSha256:stepModel.sourceSha256};
  }
- const weld=targetFromWeld(welds.find(value=>value.id===weldId));
+ const weld=targetFromWeld(welds.find(value=>value.id===weldId),options);
  return {...template,name:defaultPlanningTemplateName(weld),mode:'standard',requirementsMatch:geometryRulesFromWeld(weld,captureRange,neighborhood),segments:template.segments.map(({endpointFacts,edgeDistance,mainEdgeStart,mainEdgeEnd,laserTrackingClearance,...segment})=>({...segment,...shortSegmentRange(segment)})),createdFrom:'process-planning',cover:structuredClone(cover)};
 }

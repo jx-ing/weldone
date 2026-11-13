@@ -304,9 +304,7 @@ export function App() {
           flushSync(()=>setGeometryProgress({phase:'plan',stage:'匹配模板和工艺参数并生成路径'}));
           await new Promise(resolve=>setTimeout(resolve,0));
           let measure=reference?undefined:neighborhoodRef.current;
-          const pending=dataRef.current;
-          if(!reference&&!measure&&(pending.templates.some(template=>template.enabled!==false&&template.requirementsMatch?.captureRange)||
-            pending.welds.some(weld=>weld.enabled&&weld.templateSnapshot?.requirementsMatch?.captureRange))){
+          if(!reference&&!measure&&demoModel){
             measure=await loadDemoTemplateNeighborhood();
             setNeighborhood(()=>measure);
           }
@@ -527,10 +525,10 @@ export function App() {
         const capture = coverCapture.current;
         if (!capture) return;
         const range=data.templateCaptureRange??DEFAULT_TEMPLATE_CAPTURE_RANGE;
-        const source=targetFromWeld(selected);
+        const source=targetFromWeld(selected,context);
         const evidence=context.measureTemplateNeighborhood?.(source,range);
         const cover=capture(source,range);
-        const initial=newPlanningTemplate(data.model,data.welds,selected.id,cover,range,evidence,data.stepModel);
+        const initial=newPlanningTemplate(data.model,data.welds,selected.id,cover,range,evidence,data.stepModel,context);
         const template=copyWeldLayersToTemplate(initial,pointLayout,selected,pointProcess);
         setTemplateDraft({template:{...template,project:data.project||'本地项目'},evidence,source});
       } catch (error) {
@@ -548,7 +546,7 @@ export function App() {
       );
       const decision = {ready: true, route: 'whole', whole: value, locals: [], steps: ['已匹配：'+value.name, '无需匹配', '无需匹配']};
       const source=data.welds.find(weld=>weld.id===value.sourceWeld.id);
-      const appliesToSource=source&&matchTemplate(value,targetFromWeld(source),context).ok;
+      const appliesToSource=source&&matchTemplate(value,targetFromWeld(source,context),context).ok;
       const welds=appliesToSource?data.welds.map(weld=>weld.id===source.id?planWeldFromMatch(weld,decision,context):weld):data.welds;
       const error = updateTemplates({templates, welds});
       if (error) return error;
