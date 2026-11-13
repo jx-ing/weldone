@@ -1,6 +1,7 @@
 import {loadModelData,prepareProcessedGeometryData,computeAllSplitsAsync,computeProcessedGeometryPlan,processedGeometryPlanConfig} from './vendor/geometry-engine.mjs';
 import {DEMO_SOURCE_SHA256,convertGeometryPlan,validateGeometryOptions} from './geometryProcessingModel.mjs';
-import {roundWeldLeg} from './planningRequirements.mjs';
+import {roundWeldLeg,weldPositionCode} from './planningRequirements.mjs';
+import {settingsDefaults} from './planningSettingsModel.mjs';
 import {withPlanningEdgeThresholds} from './planningEdgeThreshold.mjs';
 import {EXAMPLE_MODEL} from './manualWeldModel.mjs';
 import {loadStepMesh} from './stepModelStore.mjs';
@@ -44,22 +45,30 @@ async function processGeometry(options,onProgress,{base,model,sourceSha256,canon
   }
   const config={...processedGeometryPlanConfig(options),mergeGapCheck:options.mergeGapCheck===true,...(options.maxMergeCount!==undefined?{maxMergeCount:options.maxMergeCount}:{}),...(options.maxMergeLength!==undefined?{maxMergeLength:options.maxMergeLength}:{})},{data,splitWeldsData}=prepareProcessedGeometryData(loaded,config.legSettings,config.thicknessWeldThresholdMm);
   if(options.planningRevision===3){
-    const action=options.actionParameters??{};
+    const action=options.weldPreprocessing?settingsDefaults({topologyVersion:1,weldPreprocessing:{},actionParameters:options.actionParameters}).actionParameters:options.actionParameters??{};
+    const parts=new Map(data.partsData.parts.map(part=>[part.id,part]));
+    const calculatedLegs=new Map();
     data.weldsData={...data.weldsData,welds:data.weldsData.welds.map(weld=>{
-      const position=weld.properties.焊接位置?.代号;
-      const legGroup=position==='PB'?'flat':['PF','PG'].includes(position)?'vertical':null;
+      const position=weldPositionCode(weld.properties.焊接位置?.代号);
+      const legGroup=position==='PB'?'flat':position==='PF'?'vertical':null;
       const defaultLeg=legGroup&&action.defaultLegs?.[legGroup];
+      const thickness=weld.properties.厚度;
+      const knownThickness=Number.isFinite(thickness)&&thickness>0?thickness:null;
+      const plates=[knownThickness??thickness?.主板厚度??parts.get(weld.mainPartId)?.thickness,knownThickness??thickness?.副板厚度??parts.get(weld.subPartId)?.thickness].filter(value=>Number.isFinite(value)&&value>0);
       const height=action.defaultLegs
-        ? (defaultLeg?.enabled?defaultLeg.height:weld.properties.焊脚)
+        ? (defaultLeg?.mode==='coefficient'&&plates.length?Math.min(...plates)*defaultLeg.coefficient:defaultLeg?.mode==='fixed'||defaultLeg?.enabled?defaultLeg.height:weld.properties.焊脚)
         : (action.legMode==='global'?action.legHeight:weld.properties.焊脚);
+      const calculated=defaultLeg?.mode==='coefficient'&&plates.length&&Number.isFinite(height)&&height>0;
+      if(calculated)calculatedLegs.set(weld.id,Number(height.toPrecision(12)));
       const properties={...weld.properties,焊脚:roundWeldLeg(height)};
-      if(position==='PF'||position==='PG')properties.焊接位置={...properties.焊接位置,代号:action.verticalDown?'PG':'PF'};
+      if(position==='PF')properties.焊接位置={...properties.焊接位置,代号:'PF',位置:'立向上焊位置'};
       return {...weld,properties};
     })};
+    options={...options,calculatedLegs};
   }
-  const splitInput=withPlanningEdgeThresholds(splitWeldsData,data.weldsData.welds,options.splitParameters);
+  const splitInput=withPlanningEdgeThresholds(splitWeldsData,data.weldsData.welds,options.weldPreprocessing?{edgeThreshold:null}:options.splitParameters);
   const splits=await computeAllSplitsAsync([splitInput,data.mesh,data.partsData,data.edgesData,data.contactPairs,config.offset,config.extendThreshold,config.offsetThreshold],{budgetMs:50,onProgress:p=>onProgress({stage:`打断焊道 ${p.completed}/${p.total}`,percent:10+Math.round(p.completed/Math.max(1,p.total)*65)})});
-  if(!splits)throw Error('焊道打断未完成');onProgress({stage:'保留板端焊缝并按规则合并',percent:80});
+  if(!splits)throw Error('焊道打断未完成');onProgress({stage:options.weldPreprocessing?'读取端点几何和过焊孔':'按几何规则合并焊缝',percent:80});
   const runtimeConfig=config.mergeGapCheck?config:{...config,mergeParams:{...config.mergeParams,最大合并距离:Infinity}};
   const plan=computeProcessedGeometryPlan(data,splits,runtimeConfig),welds=convertGeometryPlan(data,plan,options,{model,sourceSha256});
   const merged=welds.filter(w=>w.sourceEvidence.unitKeys.length>1).length,rejected=new Set(welds.map(w=>w.sourceEvidence.rejectedMergeKey).filter(Boolean)).size;

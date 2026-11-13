@@ -1,4 +1,4 @@
-import {processWeldForms} from './planningRequirements.mjs';
+import {processWeldForms,weldPositionCode} from './planningRequirements.mjs';
 import {grooveType,grooveValue} from './grooveModel.mjs';
 
 export const PROCESS_TYPES={standard:'常规',inner:'内角',outer:'外角'};
@@ -9,7 +9,7 @@ export const PROCESS_CATEGORIES=[
 export function processCategory(p){return PROCESS_CATEGORIES.find(c=>processWeldForms(p).includes(c.name))?.id||'other';}
 export function processInCategory(p,category){const name=PROCESS_CATEGORIES.find(c=>c.id===category)?.name;return name?processWeldForms(p).includes(name):processCategory(p)==='other';}
 export const processType=p=>PROCESS_TYPES[p.processType||'standard']||'常规';
-export const processPositionLabel=value=>value?.startsWith('PB')?'平角焊':(value?.startsWith('PF')||value?.startsWith('PG'))?'立焊':value?.split(' · ')[1]||value||'待补充';
+export const processPositionLabel=value=>value?.startsWith('PB')?'平角焊':weldPositionCode(value)==='PF'?'立焊':value?.split(' · ')[1]||value||'待补充';
 export const processWeldType=p=>(p.processLayers?.length||1)===1&&(p.processLayers?.reduce((n,l)=>n+l.passes.length,0)||1)===1?'single':'multi';
 export function queryProcesses(entries,category,filters,sort){
  const matchingKeys=['weldForm','position','leg','groove','weldType','arcTracking','machineMode','layerCount','passCount','angle','depth','rootGap','rootRadius','rootFace'];

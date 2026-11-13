@@ -13,10 +13,10 @@ export function TemplateCaptureRangeFields({value,onChange}){
 export default function TemplateCaptureSettings({value,onSave,onCancel}){
  const [draft,setDraft]=useState(()=>({...DEFAULT_TEMPLATE_CAPTURE_RANGE,...value}));
  const [error,setError]=useState('');
- function save(event){
+ async function save(event){
   event.preventDefault();
   if(!validTemplateCaptureRange(draft)){setError('沿焊缝与两侧的范围须大于 0，上下范围合计须大于 0。');return;}
-  setError(onSave(draft)||'');
+  setError(await onSave(draft)||'');
  }
  return <form onSubmit={save}>
   <div className="tpl-editor-body template-capture-settings">

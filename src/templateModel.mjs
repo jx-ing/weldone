@@ -1,9 +1,9 @@
 import {migrateDeviceControl} from './deviceControlModel.mjs';
 import {legacyPlanningDevice} from './processDeviceModel.mjs';
 import {geometryRuleErrors,geometryRuleMismatches,needsGeometryMeasurements,shortSegmentRange,SHORT_SEGMENT_MM,endpointType,normalizeEndpointFacts} from './templateGeometryRules.mjs';
-import {GROOVE_TYPES,grooveType,grooveValue,validGroove} from './grooveModel.mjs';
+import {GROOVE_TYPES,grooveType,grooveValue,validGroove,normalizeWeldGroove} from './grooveModel.mjs';
 import {normalizeLegacyMergeGaps} from './mergeIntersectionGeometry.mjs';
-import {directedWeld,reverseWeldTraversal} from './weldDirectionGeometry.mjs';
+import {directedWeld,reverseWeldTraversal,normalizeVerticalWeld,verticalTraversal,verticalTraversalIssue} from './weldDirectionGeometry.mjs';
 import {curveDimensions} from './curveDimensions.mjs';
 import { previewPath, previewPoint, samplePath, segmentShape } from './weldPathGeometry.mjs';
 import { syncControlPoints, isAnchor } from './templatePointAnchors.mjs';
@@ -12,9 +12,9 @@ import {ensureLayers} from './templateLayers.mjs';
 import {CORNER_SIDES,cornerSide,cornerMeasuredAngle} from './templateCornerAngles.mjs';
 import {templateForMatching,matchingParameterShapeErrors} from './templateMatchingParameters.mjs';
 import {sampleManualWeldPath,horizontalWeldNormal} from './manualWeldModel.mjs';
-import {migrateProcessWeldForms,weldForm,withoutLegacyJoint} from './planningRequirements.mjs';
+import {migrateProcessWeldForms,weldForm,withoutLegacyJoint,normalizeWeldPosition,VERTICAL_WELD_POSITION} from './planningRequirements.mjs';
 import {withoutRetiredFillSettings} from './planningSettingsModel.mjs';
-export const POSITIONS = ['PA · 平焊', 'PB · 横角焊', 'PC · 横焊', 'PD · 仰角焊', 'PE · 仰焊', 'PF · 立向上焊', 'PG · 立向下焊'];
+export const POSITIONS = ['PA · 平焊', 'PB · 横角焊', 'PC · 横焊', 'PD · 仰角焊', 'PE · 仰焊', VERTICAL_WELD_POSITION];
 export const GEOMETRIES = ['直线', '圆弧', '曲线'];
 export const GROOVES = GROOVE_TYPES;
 export const TRACKING = ['无跟踪', '电弧跟踪', '激光跟踪'];
@@ -103,7 +103,7 @@ export function wholeWeldSourceIssues(model,weld) {
   if(!Array.isArray(weld.segments)||!weld.segments.length||weld.segments.length>30)issues.push('所选焊道缺少有效的焊缝段数据');
   else if(!weld.segments.every(s=>s&&POSITIONS.includes(s.position)&&geometryOptions(weld.closure).includes(s.geometry)&&Number.isFinite(s.length)&&s.length>=.1))issues.push('请完善所选焊道各段的焊接位置、几何类型和长度');
   if(!['open','closed'].includes(weld.closure))issues.push('所选焊道缺少开放／闭合属性');
-  if(!Number.isFinite(weld.leg)||weld.leg<.5||!Number.isInteger(weld.leg*2))issues.push('所选焊道缺少有效焊脚，步长应为 0.5 mm');
+  if(!Number.isFinite(weld.leg)||weld.leg<=0||!weld.calculatedLeg&&(weld.leg<.5||!Number.isInteger(weld.leg*2)))issues.push('所选焊道缺少有效焊脚，步长应为 0.5 mm');
   if(!Array.isArray(weld.cornerAngles)||weld.cornerAngles.length>(weld.segments?.length||0)-1||!weld.cornerAngles.every(a=>Number.isFinite(a)&&a>=0&&a<=360))issues.push('所选焊道缺少有效转角数据');
   if(!validGroove(weld.groove))issues.push('所选焊道缺少有效坡口数据');
   if(typeof weld.startHole!=='boolean'||typeof weld.endHole!=='boolean')issues.push('所选焊道缺少起点或终点过焊孔信息');
@@ -116,13 +116,15 @@ export function newWholeTemplateFromWeld(model,welds,weldId,copy,options={}) {
   const weld=targetFromWeld(original,options);
   const cornerIssue=weld.cornerDirections?.findIndex(c=>c.reason);
   if(cornerIssue>=0)throw Error(`转角 ${cornerIssue+1}：${weld.cornerDirections[cornerIssue].reason}`);
-  const t={...newTemplate('whole'),name:copy?`${copy.name.slice(0,72)} · 副本`:'',sourceWeld:{model,id:weld.id,name:weld.name},...(weld.cornerReferenceNormal?{cornerReferenceNormal:structuredClone(weld.cornerReferenceNormal)}:{}),closure:weld.closure,leg:weld.leg,mode:'exact',segments:weld.segments.map(s=>({...structuredClone(withoutLegacyJoint(s)),lengthTolerance:10})),cornerCount:weld.cornerAngles.length,corners:weld.cornerAngles.map((standard,i)=>({standard,tolerance:5,angleSide:weld.cornerDirections?.[i]?.angleSide==='outer'?'outer':standard>180?'outer':'inner'})),groove:structuredClone(weld.groove),startHole:weld.startHole,endHole:weld.endHole};
+  const t={...newTemplate('whole'),name:copy?`${copy.name.slice(0,72)} · 副本`:'',sourceWeld:{model,id:weld.id,name:weld.name},...(weld.cornerReferenceNormal?{cornerReferenceNormal:structuredClone(weld.cornerReferenceNormal)}:{}),closure:weld.closure,leg:weld.leg,...(weld.calculatedLeg?{calculatedLeg:true}:{}),mode:'exact',segments:weld.segments.map(s=>({...structuredClone(withoutLegacyJoint(s)),lengthTolerance:10})),cornerCount:weld.cornerAngles.length,corners:weld.cornerAngles.map((standard,i)=>({standard,tolerance:5,angleSide:weld.cornerDirections?.[i]?.angleSide==='outer'?'outer':standard>180?'outer':'inner'})),groove:structuredClone(weld.groove),startHole:weld.startHole,endHole:weld.endHole};
   t.position=t.segments[0].position;
   if(copy){t.points=structuredClone(copy.points);t.layers=structuredClone(copy.layers);}
   return independentWeldTemplate(ensureLayers(syncControlPoints(t)));
 }
 function withoutTemplateJoint(template){
   const value=withoutLegacyJoint(template);
+  if(value.position!==undefined)value.position=normalizeWeldPosition(value.position);
+  value.groove=normalizeWeldGroove(value.groove);
   if(value.baseProcessSnapshot)value.baseProcessSnapshot=migrateProcessWeldForms(value.baseProcessSnapshot);
   if(Array.isArray(value.segments))value.segments=value.segments.map(migrateWeldSegment);
   if(value.requirementsMatch){
@@ -130,7 +132,7 @@ function withoutTemplateJoint(template){
     value.requirementsMatch={...rules,start:{...start,type:endpointType(start)},end:{...end,type:endpointType(end)}};
   }
   if(Array.isArray(value.matchParameters?.segments)){
-    value.matchParameters={...withoutLegacyJoint(value.matchParameters),segments:value.matchParameters.segments.map(withoutLegacyJoint)};
+    value.matchParameters={...withoutLegacyJoint(value.matchParameters),segments:value.matchParameters.segments.map(migrateWeldSegment)};
   }
   return value;
 }
@@ -163,7 +165,7 @@ function migrateStrategyPlan(weld){
   const hasLegacyCornerOffset=passes.some(pass=>Object.values(pass?.cornerOffsets??{}).some(value=>
     value&&typeof value==='object'&&Object.values(value).some(axis=>Number.isFinite(axis)&&axis!==0)
   ));
-  if(containsRetiredMotion||hasLegacyCornerOffset){
+  if(containsRetiredMotion||hasLegacyCornerOffset||plan.attitudeVersion===1){
     delete weld.strategyPlan;
     weld.planned=false;
     return;
@@ -172,11 +174,13 @@ function migrateStrategyPlan(weld){
 }
 function migrateWeldSegment(segment){
   const value=withoutLegacyJoint(segment);
+  if(value.position!==undefined)value.position=normalizeWeldPosition(value.position);
   if(value.endpointFacts)value.endpointFacts=normalizeEndpointFacts(value.endpointFacts);
   return value;
 }
 function migrateWeld(weld){
-  const value={...withoutLegacyJoint(weld),weldType:weldForm(weld)};
+  const value={...withoutLegacyJoint(weld),weldType:weldForm(weld),groove:normalizeWeldGroove(weld.groove)};
+  if(value.position!==undefined)value.position=normalizeWeldPosition(value.position);
   if(weld.endpointFacts)value.endpointFacts=normalizeEndpointFacts(weld.endpointFacts);
   if(weld.segments)value.segments=weld.segments.map(migrateWeldSegment);
   if(Array.isArray(weld.mergeHistory?.originals))value.mergeHistory={...weld.mergeHistory,originals:weld.mergeHistory.originals.map(migrateWeld)};
@@ -192,11 +196,40 @@ function migrateWeld(weld){
     const previous=weld.attributeOverrides;
     const overrides=withoutLegacyJoint(previous);
     if(previous.joint!==undefined)overrides.weldType=value.weldType;
+    if(overrides.position!==undefined)overrides.position=normalizeWeldPosition(overrides.position);
+    if(value.segments?.some(segment=>segment.position===VERTICAL_WELD_POSITION))delete overrides.direction;
     if(previous.endpointFacts)overrides.endpointFacts=normalizeEndpointFacts(previous.endpointFacts);
+    if(Object.hasOwn(previous,'groove'))overrides.groove=normalizeWeldGroove(previous.groove);
     if(previous.segments)overrides.segments=previous.segments.map(migrateWeldSegment);
     value.attributeOverrides=overrides;
   }
-  return value;
+  const normalized=normalizeVerticalWeld(value);
+  const vertical=verticalTraversal(value.segments,value.position);
+  const oldVerticalPlan=value.strategyPlan&&!value.strategyPlan.verticalUpOnly&&
+    value.segments?.some(segment=>segment.position===VERTICAL_WELD_POSITION);
+  if(oldVerticalPlan||vertical==='conflict'||normalized.direction!==value.direction){
+    delete normalized.strategyPlan;
+    normalized.planned=false;
+  }
+  return normalized;
+}
+function migratePlanningSettings(settings){
+  const clean=withoutRetiredFillSettings(settings);
+  const restorePose=pose=>{
+    if(!pose||!('alpha' in pose||'beta' in pose))return pose;
+    const {alpha,beta,...previous}=pose;
+    if(previous.work==null&&Number.isFinite(alpha))previous.work=90-alpha;
+    if(previous.rotation==null&&Number.isFinite(beta))previous.rotation=beta;
+    return previous;
+  };
+  const restoreGroup=(group,keys)=>({...group,...Object.fromEntries(keys.filter(key=>Object.hasOwn(group,key)).map(key=>[key,restorePose(group[key])]))});
+  const {actionParameters,wrapParameters,interferenceEndParameters,...rest}=clean;
+  const {startAttitude,endAttitude,...ends}=interferenceEndParameters??{};
+  const {verticalDown,...motion}=actionParameters??{};
+  return {...rest,
+    ...(actionParameters?{actionParameters:restoreGroup(motion,['flatPose','verticalPose'])}:{}),
+    ...(wrapParameters?{wrapParameters:restoreGroup(wrapParameters,['flatLPose','uPose','verticalLPose'])}:{}),
+    ...(interferenceEndParameters?{interferenceEndParameters:ends}:{})};
 }
 export function migrateDraft(v) {
   const history={};
@@ -210,9 +243,9 @@ export function migrateDraft(v) {
   const {planningDevice,...workspace}=v;
   const legacyDevice=planningDevice??legacyPlanningDevice(v.processDeviceProfiles);
   if(legacyDevice&&v.deviceControl===undefined)settings.deviceControl=migrateDeviceControl(legacyDevice,v.deviceCapabilities);
-  if(v.planningSettings)settings.planningSettings=withoutRetiredFillSettings(v.planningSettings);
+  if(v.planningSettings)settings.planningSettings=migratePlanningSettings(v.planningSettings);
   if(v.projectPlanning)settings.projectPlanning=Object.fromEntries(Object.entries(v.projectPlanning).map(([name,profile])=>[
-    name,profile.planningSettings?{...profile,planningSettings:withoutRetiredFillSettings(profile.planningSettings)}:profile
+    name,profile.planningSettings?{...profile,planningSettings:migratePlanningSettings(profile.planningSettings)}:profile
   ]));
   return { ...workspace, ...history, ...settings, processLibrary:(v.processLibrary??[]).map(migrateProcessWeldForms), processDeviceProfiles:v.processDeviceProfiles??[], welds: v.welds?.map(migrateWeld).map(w => v.model === '肋板组件 A' ? { ...w, completeStart:w.completeStart??true,completeEnd:w.completeEnd??true,closure:w.closure??'open',segments:w.segments??[segment(w)],cornerAngles:w.cornerAngles??[],groove:w.groove??{type:'无坡口',angle:0,depth:0},startHole:w.startHole??false,endHole:w.endHole??false } : normalizeLegacyMergeGaps(w)), templates: v.templates.map(migrateTemplate), fixedTemplates: (v.fixedTemplates || []).map(f=>{
   const migratePoints=points=>syncControlPoints({type:'local',segments:Array.from({length:f.segmentCount},()=>segment()),points},true,true).points.map(({id,kind,name,segment,percent,referenceId,location,anchorRole,autoRole})=>({id,kind,name,segment,percent,...(anchorRole?{anchorRole}:{}),...(autoRole?{autoRole}:{}),...(referenceId!==undefined?{referenceId}:{}),...(location?{location}: {})}));
@@ -259,7 +292,7 @@ export function validateTemplate(t) {
   if (typeof t.id !== 'string' || !t.name?.trim() || t.name.length > 80) e.push('请输入 1–80 字模板名称');
   if (!['whole', 'local'].includes(t.type) || n < 1 || n > (t.type === 'local' ? 3 : 30)) e.push('局部模板最多 3 段，焊缝模板最多 30 段');
   if(!['open','closed'].includes(t.closure)) e.push('请选择开放或闭合');
-  if (!finite(t.leg, 0.5) || !Number.isInteger(t.leg * 2)) e.push('焊脚必须为正数，步长 0.5 mm');
+  if (t.calculatedLeg?!(Number.isFinite(t.leg)&&t.leg>0):(!finite(t.leg, 0.5) || !Number.isInteger(t.leg * 2))) e.push('焊脚必须为正数，步长 0.5 mm');
   if (!Number.isInteger(t.cornerCount) || !finite(t.cornerCount, 0, n - 1)) e.push('转角数量必须为 0 到 n−1 的整数');
   if (!Array.isArray(t.corners) || t.corners.length !== t.cornerCount) e.push('每个转角需要一组标准角度与角度容差');
   else t.corners.forEach((c,i)=>{if(c?.angleSide!==undefined&&!Object.hasOwn(CORNER_SIDES,c.angleSide))e.push(`转角 ${i+1} 请选择内角或外角`);if(c?.pathStandard!==undefined&&!finite(c.pathStandard,0,360))e.push(`转角 ${i+1} 形状角度无效`);});
@@ -317,6 +350,7 @@ export function targetFromWeld(w,options={}) {
 export function matchTemplate(t, target, options={}) {
   if(t.enabled===false)return {ok:false,reasons:['模板已停用，不参与匹配']};
   if (!target) return { ok: false, reasons: ['请先加载模型并选择焊道'] };
+  if(verticalTraversal(target.segments,target.position)==='conflict')return {ok:false,reasons:[verticalTraversalIssue]};
   target=directedWeld(target,options.measureTemplateNeighborhood?.measureCorner);
   const invalid=[...validateTemplate(t),...geometryRuleErrors(t)];if(invalid.length)return {ok:false,reasons:invalid.map(v=>'模板参数无效：'+v)};
   const shortOnly=options.planningRevision===3||!!t.requirementsMatch||t.shortSegmentMatch===true;

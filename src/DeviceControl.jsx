@@ -1,6 +1,8 @@
 import React,{useState} from 'react';
 import {Camera,Workflow} from 'lucide-react';
+import {EmptyState, PageHeader} from './WorkspaceUI';
 import {DEVICE_TRACKING_MODES,PRECISION_CAMERA_BRANDS,deviceControlError} from './deviceControlModel.mjs';
+import ToolHeadPreview from './ToolHeadPreview';
 import './deviceControl.css';
 
 const devices=[['robot','焊接机器人',Workflow],['coarseCamera','粗定位相机',Camera],['precisionCamera','精定位相机',Camera]];
@@ -12,7 +14,7 @@ function Row({label,children}){
  return <div className="dc-row"><span>{label}</span><div className="dc-value">{children}</div></div>;
 }
 function Commands({names}){
- return <div className="dc-commands">{names.map(name=><button key={name} type="button" className="btn" disabled>{name}</button>)}</div>;
+ return <div className="dc-commands">{names.map(name=><button key={name} type="button" className="btn" disabled title="设备通讯未接入">{name}</button>)}</div>;
 }
 function InputRow({label,value,onChange,numeric=false,min,max,step='any',unit,maxLength=80,disabled=false,placeholder}){
  return <Row label={label}><span className="dc-input">
@@ -62,15 +64,25 @@ function CoarsePanel({device,patch}){
      <InputRow label="扫描起点位置" value={device.scanStart} onChange={scanStart=>patch({scanStart})} numeric unit="mm" disabled={!manual}/>
      <InputRow label="扫描终点位置" value={device.scanEnd} onChange={scanEnd=>patch({scanEnd})} numeric unit="mm" disabled={!manual}/>
     </div>
-    <div className="dc-empty"><img src="/assets/empty-data.svg" alt=""/><p>暂无扫描数据</p></div>
+    <EmptyState className="dc-empty" text="暂无扫描数据" description="设备连接后可查看扫描结果。"/>
    </div>
   </Group>
  </>;
 }
-function PrecisionPanel({device,patch,laser}){
+function PrecisionPanel({device,patch,laser,coverOpen,onCoverChange,fieldOfView,onFieldOfViewChange}){
  if(!laser)return <>
   <Connection kind="相机" device={device} patch={patch}/>
-  <Group title="其他位置"><Row label="保护盖"><Commands names={['开启','关闭']}/></Row></Group>
+  <Group title="机头预览">
+   <Row label="保护盖">
+    <div className="dc-commands" role="group" aria-label="伟景保护盖预览">
+     <button type="button" className="btn" aria-pressed={coverOpen} onClick={()=>onCoverChange(true)}>开启</button>
+     <button type="button" className="btn" aria-pressed={!coverOpen} onClick={()=>onCoverChange(false)}>关闭</button>
+     <span role="status">{coverOpen?'已开启':'已关闭'}</span>
+    </div>
+   </Row>
+   <Row label="相机视野"><label className="dc-choice"><input type="checkbox" role="switch" aria-label="显示相机视野" checked={fieldOfView} onChange={event=>onFieldOfViewChange(event.target.checked)}/>显示相机视野</label></Row>
+   <ToolHeadPreview coverOpen={coverOpen} fieldOfView={fieldOfView}/>
+  </Group>
  </>;
  return <>
   <Group title="连接管理">
@@ -125,18 +137,18 @@ function CameraDetails({device,patch,precision,brand,onBrand,laser}){
   </details>
  </Group>;
 }
-function DeviceCard({id,label,Icon,selected,laser,onSelect}){
+function DeviceCard({id,label,Icon,selected,laser,onSelect,coverOpen}){
  const fields=id==='robot'?['运行状态','运行模式','运行倍率']:id==='precisionCamera'&&!laser?['保护盖','相机温度']:[];
  return <button type="button" className={'dc-card'+(selected?' active':'')} aria-pressed={selected} aria-label={label} onClick={()=>onSelect(id)}>
   <strong><Icon size={16}/>{label}</strong>
   <span className="dc-card-status">
    <span><small>设备状态</small><b>{laser?'未初始化':'未连接'}</b></span>
-   {fields.map(field=><span key={field}><small>{field}</small><b>—</b></span>)}
+   {fields.map(field=><span key={field}><small>{field}</small><b>{field==='保护盖'?(coverOpen?'预览开启':'预览关闭'):'—'}</b></span>)}
   </span>
  </button>;
 }
 
-export default function DeviceControl({value,onSave}){
+export default function DeviceControl({value,onSave,coverOpen,onCoverChange,fieldOfView,onFieldOfViewChange}){
  const [draft,setDraft]=useState(()=>structuredClone(value)),[selected,setSelected]=useState('robot'),[error,setError]=useState('');
  const precision=selected==='precisionCamera',robot=selected==='robot';
  const {brand,profiles}=draft.precisionCamera,laser=precision&&brand==='yinglai';
@@ -151,25 +163,20 @@ export default function DeviceControl({value,onSave}){
  function chooseBrand(brand){
   setDraft(previous=>({...previous,precisionCamera:{...previous.precisionCamera,brand}}));setError('');
  }
- function save(event){
+ async function save(event){
   event.preventDefault();
-  setError(deviceControlError(draft)||onSave(draft)||'');
+  setError(deviceControlError(draft)||await onSave(draft)||'');
  }
  return <form className="device-control" aria-label="设备控制" onSubmit={save}>
-  <header className="dc-header">
-   <h1>设备控制</h1>
-   <div><span>{dirty?'有未保存修改':'设备通讯未接入'}</span>
-    <button className="btn primary" type="submit" disabled={!dirty}>保存设备配置</button>
-   </div>
-  </header>
+  <PageHeader title="设备控制" breadcrumb={<span className="dc-status-badge">● {laser?'未初始化':'未连接'}</span>} actions={<><span className="dc-muted">{dirty?'有未保存修改':'设备通讯未接入'}</span><button className="btn primary" type="submit" disabled={!dirty} title={!dirty?'设备配置没有改动':undefined}>保存设备配置</button></>}/>
   <div className="dc-workspace">
    <aside className="dc-list" aria-label="设备列表">
     <h2>设备列表</h2>
     <div>{devices.map(([id,label,Icon])=><DeviceCard key={id} id={id} label={label} Icon={Icon} selected={selected===id}
-     laser={id==='precisionCamera'&&brand==='yinglai'} onSelect={setSelected}/>)}</div>
+     laser={id==='precisionCamera'&&brand==='yinglai'} onSelect={setSelected} coverOpen={coverOpen}/>)}</div>
    </aside>
    <section className="dc-main" aria-label={robot?'焊接机器人控制':precision?'精定位相机控制':'粗定位相机控制'}>
-    {robot?<RobotPanel device={device} patch={patch}/>:precision?<PrecisionPanel device={device} patch={patch} laser={laser}/>:<CoarsePanel device={device} patch={patch}/>}
+    {robot?<RobotPanel device={device} patch={patch}/>:precision?<PrecisionPanel device={device} patch={patch} laser={laser} coverOpen={coverOpen} onCoverChange={onCoverChange} fieldOfView={fieldOfView} onFieldOfViewChange={onFieldOfViewChange}/>:<CoarsePanel device={device} patch={patch}/>}
    </section>
    <aside className="dc-details" aria-label="设备详情">
     {robot?<RobotDetails device={device} patch={patch}/>:<CameraDetails device={device} patch={patch} precision={precision} brand={brand} onBrand={chooseBrand} laser={laser}/>}

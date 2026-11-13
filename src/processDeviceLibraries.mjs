@@ -8,7 +8,7 @@ function configKey(recipe) {
   const applicability = recipe.applicability ?? {};
   return JSON.stringify([
     applicability.deviceProfileId ?? [applicability.welderModel,applicability.robotModel,applicability.material,applicability.wireType,applicability.wireDiameter,applicability.gas],
-    ['PF','PG'].includes(position)?'vertical':position,recipe.leg,recipe.arcTracking ?? false,groove,
+    position==='PF'?'vertical':position,recipe.leg,recipe.arcTracking ?? false,groove,
     groove==='无坡口'?[]:grooveFieldsFor(groove).map(([key])=>grooveValue(recipe.groove,key)),
     layers.map(layer=>layer.passes.map(pass=>pass.machineMode))
   ]);

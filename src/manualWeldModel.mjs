@@ -1,6 +1,6 @@
 import {validGroove} from './grooveModel.mjs';
 import {weldForm} from './planningRequirements.mjs';
-import {autoWeldReferenceNormal} from './weldDirectionGeometry.mjs';
+import {autoWeldReferenceNormal,normalizeVerticalWeld} from './weldDirectionGeometry.mjs';
 export const EXAMPLE_MODEL='111.step';
 export function useStepExample(draft){
   if(draft.model!==''&&draft.model!=='肋板组件 A')return draft;
@@ -96,6 +96,6 @@ export function createManualWeld(existing,segments,settings){
   const closed=distance(seq[0].pathPoints[0],seq.at(-1).pathPoints.at(-1))<.5;
   if(!closed&&seq.some(s=>s.geometry==='圆弧'))seq.forEach(s=>{if(s.geometry==='圆弧')s.geometry='曲线';});
   const cornerAngles=seq.slice(1).map((s,i)=>{const before=seq[i].pathPoints,after=s.pathPoints,a=unit(sub(before.at(-2),before.at(-1))),b=unit(sub(after[1],after[0]));return metric(Math.acos(Math.max(-1,Math.min(1,dot(a,b))))*180/Math.PI);});
-  return {id:`W${String(number).padStart(3,'0')}`,name:settings.name.trim(),source:'manual',model:EXAMPLE_MODEL,cornerReferenceNormal:autoWeldReferenceNormal(seq),cornerReferenceMode:'auto',enabled:true,planned:false,completeStart:true,completeEnd:true,closure:closed?'closed':'open',length:metric(seq.reduce((n,s)=>n+s.length,0)),leg:settings.leg,position:settings.position,weldType:weldForm(settings),segments:seq,cornerAngles,groove:structuredClone(settings.groove||{type:'无坡口',angle:0,depth:0}),startHole:!!settings.startHole,endHole:!!settings.endHole,atConnection:seq.length>1,current:210,voltage:24.5,speed:340,template:'',direction:'正向',arcDelay:.3};
+  return normalizeVerticalWeld({id:`W${String(number).padStart(3,'0')}`,name:settings.name.trim(),source:'manual',model:EXAMPLE_MODEL,cornerReferenceNormal:autoWeldReferenceNormal(seq),cornerReferenceMode:'auto',enabled:true,planned:false,completeStart:true,completeEnd:true,closure:closed?'closed':'open',length:metric(seq.reduce((n,s)=>n+s.length,0)),leg:settings.leg,position:settings.position,weldType:weldForm(settings),segments:seq,cornerAngles,groove:structuredClone(settings.groove||{type:'无坡口',angle:0,depth:0}),startHole:!!settings.startHole,endHole:!!settings.endHole,atConnection:seq.length>1,current:210,voltage:24.5,speed:340,template:'',direction:'正向',arcDelay:.3});
 }
-export function validManualWeldPath(w,model=EXAMPLE_MODEL){return !['manual','manual-merge'].includes(w.source)||w.model===model&&Array.isArray(w.segments)&&w.segments.length>0&&w.segments.length<=30&&w.segments.every(s=>Array.isArray(s.pathPoints)&&s.pathPoints.length>=2&&s.pathPoints.length<=20000&&s.pathPoints.every(p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite))&&Number.isFinite(s.length)&&s.length>=.1&&Math.abs(pathLength(s.pathPoints)-s.length)<.01);}
+export function validManualWeldPath(w,model=EXAMPLE_MODEL){return !['manual','manual-merge'].includes(w.source)||w.model===model&&Array.isArray(w.segments)&&w.segments.length>0&&w.segments.length<=30&&w.segments.every(s=>Array.isArray(s.pathPoints)&&s.pathPoints.length>=2&&s.pathPoints.length<=20000&&s.pathPoints.every(p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite))&&Number.isFinite(s.length)&&s.length>0&&(w.collisionFragment||w.splitFrom?.wrap||s.length>=.1)&&Math.abs(pathLength(s.pathPoints)-s.length)<.01);}

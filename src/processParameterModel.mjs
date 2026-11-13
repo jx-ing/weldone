@@ -1,7 +1,8 @@
 import {PROCESS_TYPES} from './processLibraryView.mjs';
 import {newCornerPointGroups,newWrapPoints,processFeaturePointChanges} from './processFeaturePoints.mjs';
-import {grooveType,grooveValue,validGroove,grooveFieldsFor} from './grooveModel.mjs';
-import {migrateProcessWeldForms,migrateProcessPasses,normalizeCornerOffsets,processWeldForms,roundWeldLeg,weldForm,weldPositionCode} from './planningRequirements.mjs';
+import {grooveType,grooveValue,validGroove,grooveFieldsFor,normalizeWeldGroove} from './grooveModel.mjs';
+import {segmentUsesArcTracking} from './weldTracking.mjs';
+import {migrateProcessWeldForms,migrateProcessPasses,normalizeCornerOffsets,normalizeWeldPosition,processWeldForms,roundWeldLeg,weldForm,weldPositionCode} from './planningRequirements.mjs';
 import {GROOVES,POSITIONS} from './templateModel.mjs';
 export const MACHINE_MODES={synergic:'一元',separate:'分别',job:'JOB'};
 export const WELDING_MODES={dc:'直流',pulse:'脉冲'};
@@ -89,9 +90,9 @@ export function validateProcessEntry(p,{allowLegacyLeg=false}={}){
   const errors=[];
   if(typeof p.id!=='string'||!p.id||(typeof p.name!=='string'||!p.name.trim())||p.name.length>80)errors.push('请输入 1–80 字工艺名称');
   if(!(allowLegacyLeg&&p.leg===undefined)&&(!finite(p.leg,0.5)||!Number.isInteger(p.leg*2)))errors.push('焊脚必须为大于等于 0.5 mm 的数值，步长为 0.5 mm');
-  if(!(allowLegacyLeg&&p.position===undefined)&&!POSITIONS.includes(p.position))errors.push('请选择焊接位置');
+  if(!(allowLegacyLeg&&p.position===undefined)&&!POSITIONS.includes(normalizeWeldPosition(p.position)))errors.push('请选择焊接位置');
   if(p.recipeRevision===3){
-    if(!['PB','PF','PG'].includes(weldPositionCode(p.position)))errors.push('请选择平角焊或立焊');
+    if(!['PB','PF'].includes(weldPositionCode(p.position)))errors.push('请选择平角焊或立焊');
     if(!Array.isArray(p.weldForms)||!p.weldForms.length||p.weldForms.some(value=>!['角焊缝','搭接焊缝'].includes(value)))errors.push('请选择焊缝形式');
     if(typeof p.arcTracking!=='boolean')errors.push('请选择是否使用电弧跟踪');
     if(!p.applicability?.deviceProfileId)errors.push('请选择启用的焊接设备');
@@ -121,7 +122,7 @@ function effectivePass(p){
 export function effectiveProcessEntry(p){
   const errors=validateProcessEntry(p,{allowLegacyLeg:true});if(errors.length)throw Error(errors.join('；'));
   const processLayers=p.processLayers?.map(l=>({id:l.id,name:l.name,passes:l.passes.map(pass=>({id:pass.id,name:pass.name,...effectivePass(pass)}))}));
-  return {id:p.id,name:p.name,...(p.leg!==undefined?{leg:p.leg}:{}),...(p.position!==undefined?{position:p.position}:{}),...(p.applicability?{applicability:structuredClone(p.applicability)}:{}),weldForms:structuredClone(processWeldForms(p)),...(p.recipeRevision===3?{recipeRevision:3,arcTracking:p.arcTracking}:{}),groove:p.groove.type==='无坡口'?{type:'无坡口',angle:0,depth:0}:structuredClone(p.groove),...(processLayers?{processLayers}:{}),...effectivePass(processLayers?processLayers[0].passes[0]:p)};
+  return {id:p.id,name:p.name,...(p.leg!==undefined?{leg:p.leg}:{}),...(p.position!==undefined?{position:normalizeWeldPosition(p.position)}:{}),...(p.applicability?{applicability:structuredClone(p.applicability)}:{}),weldForms:structuredClone(processWeldForms(p)),...(p.recipeRevision===3?{recipeRevision:3,arcTracking:p.arcTracking}:{}),groove:p.groove.type==='无坡口'?{type:'无坡口',angle:0,depth:0}:structuredClone(p.groove),...(processLayers?{processLayers}:{}),...effectivePass(processLayers?processLayers[0].passes[0]:p)};
 }
 export function matchProcessEntry(p,w){
   const reasons=[];if(!w)return {ok:false,reasons:['请先在模型中选择焊道']};
@@ -131,9 +132,11 @@ export function matchProcessEntry(p,w){
   if(roundWeldLeg(w.leg)!==p.leg)reasons.push(`焊脚不一致（工艺 ${p.leg} mm / 焊道 ${w.leg} mm）`);
   const segments=w.segments?.length?w.segments:[w];
   if(!processWeldForms(p).includes(weldForm(w)))reasons.push('焊缝形式不一致');
-  if(typeof p.arcTracking==='boolean'&&p.arcTracking!==segments.some(s=>(s.tracking??w.tracking)==='电弧跟踪'))reasons.push('电弧跟踪条件不一致');
-  segments.forEach((s,i)=>{if(p.recipeRevision===3?(['PF','PG'].includes(weldPositionCode(p.position))?!['PF','PG'].includes(weldPositionCode(s.position)):weldPositionCode(s.position)!==weldPositionCode(p.position)):s.position!==p.position)reasons.push(`第 ${i+1} 段焊接位置不一致（工艺 ${p.position} / 焊道 ${s.position??'未提供'}）`);});
-  const groove=w.groove||{type:'无坡口',angle:0,depth:0};
+  if(typeof p.arcTracking==='boolean')segments.forEach((segment,i)=>{
+    if(p.arcTracking!==segmentUsesArcTracking(segment,w))reasons.push(`第 ${i+1} 段电弧跟踪条件不一致（工艺${p.arcTracking?'有':'无'}电弧跟踪 / 焊道${p.arcTracking?'无':'有'}电弧跟踪）`);
+  });
+  segments.forEach((s,i)=>{if(p.recipeRevision===3?weldPositionCode(s.position)!==weldPositionCode(p.position):normalizeWeldPosition(s.position)!==normalizeWeldPosition(p.position))reasons.push(`第 ${i+1} 段焊接位置不一致（工艺 ${p.position} / 焊道 ${s.position??'未提供'}）`);});
+  const groove=normalizeWeldGroove(w.groove);
   if(grooveType(groove.type)!==grooveType(p.groove.type))reasons.push(`坡口类型不一致（工艺 ${p.groove.type} / 焊道 ${groove.type??'未提供'}）`);else if(groove.type!=='无坡口'){if(grooveType(groove.type)!=='I 形'&&groove.angle!==p.groove.angle)reasons.push(`坡口角度不一致（工艺 ${p.groove.angle}° / 焊道 ${groove.angle??'未提供'}°）`);for(const [key,label] of grooveFieldsFor(groove.type).filter(([key])=>key!=='angle'&&key!=='depth'))if(grooveValue(groove,key)!==grooveValue(p.groove,key))reasons.push(label+'不一致（工艺 '+grooveValue(p.groove,key)+' mm / 焊道 '+(grooveValue(groove,key)??'未提供')+' mm）');if(groove.depth!==p.groove.depth)reasons.push(`坡口深度不一致（工艺 ${p.groove.depth} mm / 焊道 ${groove.depth??'未提供'} mm）`);}
   return {ok:!reasons.length,reasons};
 }

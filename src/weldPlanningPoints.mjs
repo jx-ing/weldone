@@ -2,7 +2,7 @@ import {directedWeld} from './weldDirectionGeometry.mjs';
 import {applyTemplateToWeld,targetFromWeld,TRACKING,OVERRIDES,uid} from './templateModel.mjs';
 import {analyzeWeldMatch} from './weldMatching.mjs';
 import {Euler,Quaternion} from 'three';
-import {resolvePassPoint,passOffsetValues,passOffsetWithLayer} from './templatePassOffsets.mjs';
+import {resolvePassPoint,passOffsetValues,passOffsetWithLayer,weldTorchOrientation} from './templatePassOffsets.mjs';
 import {clonePassPoints} from './templateLayers.mjs';
 import {previewPath} from './weldPathGeometry.mjs';
 
@@ -22,8 +22,11 @@ function editablePoint(point,key,weld){
  const pose={...original};
  for(const axis of poseAxes)if(Number.isFinite(override[axis]))pose[axis]=override[axis];
  const position=point.position.map((value,index)=>value+(Number.isFinite(override[axes[index]])?override[axes[index]]:0));
- const orientation=Array.isArray(point.orientation)&&poseAxes.some(axis=>Number.isFinite(override[axis]))?
-  new Quaternion().fromArray(point.orientation).multiply(localRotation(original).invert()).multiply(localRotation(pose)).toArray():point.orientation;
+ let orientation=point.orientation;
+ if(Array.isArray(orientation)&&poseAxes.some(axis=>Number.isFinite(override[axis]))){
+  orientation=point.tangent&&point.normal?weldTorchOrientation(point.tangent,point.normal,pose,point.up).toArray():
+   new Quaternion().fromArray(orientation).multiply(localRotation(original).invert()).multiply(localRotation(pose)).toArray();
+ }
  return {...point,overrideKey,override,originalPose:original,position,pose,...(orientation?{orientation}:{})};
 }
 export function weldPlanningPointGroups(weld,decision,templates=[],processLibrary=[],options={}){
@@ -50,7 +53,7 @@ export function weldPlanningPointGroups(weld,decision,templates=[],processLibrar
   let applied;try{applied=applyTemplateToWeld(target,template,options);}catch{continue;}
   applied.layers.forEach((layer,layerIndex)=>layer.passes.forEach((pass,passIndex)=>{
    const groupId=`${weld.id}:${key}:${template.id}:${layer.id}:${pass.id}`;
-   groups.push({id:groupId,name:`${template.name} · 第${layerIndex+1}层 / 第${passIndex+1}道`,templateName:template.name,layerId:weld.id+':'+key+':'+template.id+':'+layer.id,layerName:layer.name,passName:pass.name,layerHeight:layer.height,layerOffsetY:layer.offsetY,passOffset:pass.offset,definition:pass.points,localSegments:segmentIndices,points:pass.controlPoints.map(point=>{const position=xyz(point.position);return editablePoint({...point,id:groupId+':'+point.id,originalId:point.id,source:'template',templateName:template.name,layerIndex,passIndex,segment:segmentIndices?segmentIndices[(point.actualSegment||point.segment)-1]+1:point.originalSegment||point.actualSegment||point.segment,position:validPosition(position)?position:null},[key,template.id,layer.id,pass.id,point.id],weld);})});
+   groups.push({id:groupId,name:`${template.name} · 第${layerIndex+1}层 / 第${passIndex+1}道`,templateName:template.name,layerId:weld.id+':'+key+':'+template.id+':'+layer.id,layerName:layer.name,passName:pass.name,layerIndex,passIndex,layerHeight:layer.height,layerOffsetY:layer.offsetY,passOffset:pass.offset,definition:pass.points,localSegments:segmentIndices,points:pass.controlPoints.map(point=>{const position=xyz(point.position);return editablePoint({...point,id:groupId+':'+point.id,originalId:point.id,source:'template',templateName:template.name,layerIndex,passIndex,segment:segmentIndices?segmentIndices[(point.actualSegment||point.segment)-1]+1:point.originalSegment||point.actualSegment||point.segment,position:validPosition(position)?position:null},[key,template.id,layer.id,pass.id,point.id],weld);})});
   }));
  }
  return groups;
@@ -69,16 +72,23 @@ export function weldControlPointError(point,anchors){
 }
 
 export function weldPointTreeGroups(weld,decision,templates,processLibrary,options){
- const groups=weldPlanningPointGroups(weld,decision,templates,processLibrary,{...options,includeStrategyPoints:false});
+ if(!weld?.segments?.length)return [];
+ const match=decision??analyzeWeldMatch(weld,templates,processLibrary,options);
+ const groups=weldPlanningPointGroups(weld,match,templates,processLibrary,{...options,includeStrategyPoints:false});
  if(!groups.length)return groups;
  const root=groups[0];
- if(groups.length===1){
-  const layers=(weld.processParameters??decision?.process)?.processLayers;
-  for(const [layerIndex,layer] of (layers??[]).entries()){
+ const process=match.whole?null:match.process??weld.processParameters;
+ if(process){
+  const layers=process.processLayers?.length?process.processLayers:[{id:'1',passes:[process]}];
+  const templateGroups=groups.splice(1);
+  for(const [layerIndex,layer] of layers.entries()){
    const layerId=weld.id+':process:'+layer.id;
    for(const [passIndex,pass] of layer.passes.entries())groups.push({
     id:layerId+':'+pass.id,layerId,layerName:layer.name||('第 '+(layerIndex+1)+' 层'),
-    passName:pass.name||('第 '+(passIndex+1)+' 道'),layerHeight:layer.height??0,passOffset:pass.offset,points:[],
+    passName:layer.passes.length===1&&!layer.name?'第 1 道':pass.name||('第 '+(passIndex+1)+' 道'),
+    layerHeight:layer.height??0,layerOffsetY:layer.offsetY??0,passOffset:pass.offset,
+    processPassIndex:[layerIndex,passIndex],points:[],
+    localGroups:templateGroups.filter(group=>group.layerIndex===layerIndex&&group.passIndex===passIndex)
    });
   }
  }

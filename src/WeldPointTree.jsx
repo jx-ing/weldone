@@ -1,7 +1,15 @@
 import React from 'react';
-import {Layers,MapPin,Plus,Trash2} from 'lucide-react';
+import {Eye,EyeOff,Layers,MapPin,Plus,Trash2} from 'lucide-react';
 
-export default function WeldPointTree({weldId,groups,selection,onSelect,onAddPoint,onAddPass,onRemove,editable}){
+export function VisibilityButton({label,visible,onToggle}){
+ const Icon=visible?Eye:EyeOff;
+ const action=(visible?'隐藏':'显示')+label;
+ return <button type="button" className="weld-point-action weld-visibility-action" title={action} aria-label={action} onClick={onToggle}>
+  <Icon size={13}/>
+ </button>;
+}
+
+export default function WeldPointTree({weldId,groups,selection,onSelect,onAddPoint,onAddPass,onRemove,editable,isVisible,onToggleVisibility}){
  const layers=new Map();
  for(const group of groups){
   if(!group.layerId)continue;
@@ -25,6 +33,7 @@ export default function WeldPointTree({weldId,groups,selection,onSelect,onAddPoi
    return <div className="weld-point-layer" key={id}>
     <div className="weld-point-row">
      {node('layer',id,[templateName,layerName].filter(Boolean).join(' · '),Layers)}
+     <VisibilityButton label={layerName} visible={isVisible(id)} onToggle={()=>onToggleVisibility(id)}/>
      {editable&&<>
       <button type="button" className="weld-point-action" title="添加点位" aria-label={layerName+' 添加点位'} onClick={()=>onAddPoint(id)}><MapPin size={14}/></button>
       {index>0&&<button type="button" className="weld-point-action" title="新建道" aria-label={layerName+' 新建道'} onClick={()=>onAddPass(id)}><Plus size={14}/></button>}
@@ -33,6 +42,7 @@ export default function WeldPointTree({weldId,groups,selection,onSelect,onAddPoi
     </div>
     {passes.map(group=><div className="weld-point-pass" key={group.id}>
      <div className="weld-point-row">{node('pass',group.id,group.passName,Layers)}
+      <VisibilityButton label={layerName+' '+group.passName} visible={isVisible(group.id)} onToggle={()=>onToggleVisibility(group.id)}/>
       {editable&&index>0&&passes.length>1&&remove(layerName+' '+group.passName,{type:'pass',layerId:id,passId:group.id})}
      </div>
      <div className="weld-pass-points">{points(group)}</div>

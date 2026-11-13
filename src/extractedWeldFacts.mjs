@@ -26,6 +26,7 @@ export function extractedEndpointFacts(member, endpoint, plan) {
     plateThickness:dimension(info?.thicknessMm),
     offsetDirection:vec(measured?.offsetDir),
     mainEdgeDistance:Number.isFinite(info?.mainEdgeDistanceMm)?info.mainEdgeDistanceMm:null,
+    ...(info?.openingBoundaryIds?.length?{openingBoundaryIds:[...info.openingBoundaryIds]}:{}),
     openingBoundaryPoints:info?.openingBoundaryPoints?.filter(value=>vec(value)) ?? []
   };
 }

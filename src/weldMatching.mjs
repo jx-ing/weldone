@@ -3,7 +3,7 @@ import {belongsToDevice,strategyScopeIssue,roundWeldLeg} from './planningRequire
 import {strategyGeometryRows,assignWeldingOrder} from './strategyGeometry.mjs';
 import {generateStrategyPlan,plannedTracking} from './strategyPlanning.mjs';
 import {automaticWeldPoses} from './automaticWeldPoses.mjs';
-import {directedClosingCorner} from './weldDirectionGeometry.mjs';
+import {directedClosingCorner,normalizeVerticalWeld,verticalTraversal,verticalTraversalIssue} from './weldDirectionGeometry.mjs';
 import {matchTemplate,targetFromWeld,applyTemplateToWeld,independentWeldTemplate} from './templateModel.mjs';
 import {matchProcessEntry,applyProcessEntry,effectiveProcessEntry} from './processParameterModel.mjs';
 export const MATCH_ROUTES={whole:'模板规划',local:'工艺参数 + 局部模板',automatic:'策略规划',blocked:'缺少匹配工艺',disabled:'已屏蔽'};
@@ -79,11 +79,12 @@ export function resolveTemplateBase(t,w,processLibrary=[]){
   return process?{ok:true,process,reasons:[]}:{ok:false,process:null,reasons:candidates.length?['基础工艺与焊道的匹配条件不一致',...candidates.map(p=>matchProcessEntry(p,w)).sort((a,b)=>a.reasons.length-b.reasons.length)[0].reasons]:['挂载的基础工艺不存在，请重新选择']};
 }
 export function analyzeWeldMatch(w,templates=[],processLibrary=[],options={}){
+  if(verticalTraversal(w.segments,w.position)==='conflict')return {ready:false,route:'blocked',reason:verticalTraversalIssue,steps:['请先拆分焊缝','不检查','不检查']};
   if(w.gapJoinError)return {ready:false,route:'blocked',reason:w.gapJoinError,steps:['路径连接无效','不检查','不检查']};
   if(!w.enabled)return {ready:false,route:'disabled',steps:['已屏蔽','不检查','不检查']};
   const strategy=options.planningRevision===3;
   const includeDiagnostics=options.includeMatchDiagnostics!==false;
-  if(strategy)w={...w,leg:roundWeldLeg(w.leg)};
+  if(strategy&&!w.calculatedLeg)w={...w,leg:roundWeldLeg(w.leg)};
   const wholeCandidates=unique([w.templateSnapshot?.type==='whole'?w.templateSnapshot:null,...preferred(templates.filter(t=>t.type==='whole'),w.templateId)]).filter(t=>templateAvailable(t,templates,options));
   if(strategy)wholeCandidates.sort((a,b)=>Number(!!b.defaultForGeometry)-Number(!!a.defaultForGeometry));
   const whole=wholeCandidates.find(t=>templateMatches(t,w,options));
@@ -121,7 +122,8 @@ export function applySelectedTemplate(w,t,processLibrary=[],options={}){
 }
 export function planWeldFromMatch(w,decision,options={}){
   const strategy=options.planningRevision===3;
-  if(strategy)w={...w,leg:roundWeldLeg(w.leg)};
+  w=normalizeVerticalWeld(w);
+  if(strategy&&!w.calculatedLeg)w={...w,leg:roundWeldLeg(w.leg)};
   if(!decision.ready)return {...(strategy&&decision.route==='blocked'?clearApplications(w):w),...(decision.plannedSegments?{segments:decision.plannedSegments}:{}),planned:false,matchPlan:{ready:false,route:decision.route,reason:decision.reason||'已屏蔽'}};
   let next;
   if(decision.route==='whole'){
@@ -142,7 +144,7 @@ export function planWorkspace(welds,templates,processLibrary,options={}){
   return assignWeldingOrder(strategyGeometryRows(rows,options).map(({weld,decision})=>planWeldFromMatch(weld,decision,options)),options);
 }
 export function canPreviewWeld(w,templates=[],processLibrary=[],options={}){
-  if(!w?.enabled||!w.planned||!w.matchPlan?.ready)return false;
+  if(!w?.enabled||!w.planned||!w.matchPlan?.ready||verticalTraversal(w.segments,w.position)==='conflict')return false;
   if(w.templateSnapshot?.enabled===false||w.localApplications?.some(application=>application.templateSnapshot?.enabled===false)||
     weldTemplateIds(w).some(id=>!templateAvailable({id},templates,options)))return false;
   if(w.matchPlan.planningRevision===3)return true;

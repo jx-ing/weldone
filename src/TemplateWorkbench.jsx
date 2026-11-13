@@ -1,6 +1,7 @@
 import React,{useId,useMemo,useRef,useState} from 'react';
 import {Plus,Trash2,ChevronDown,ChevronRight,MapPin,SlidersHorizontal,X,Layers} from 'lucide-react';
 import TemplateModelEditor from './TemplateModelEditor';
+import WeldPoseHelp from './WeldPoseHelp';
 import PathPreview from './TemplatePathPreview';
 import {hasTemplateModelPath} from './templateModelEditing.mjs';
 import {point,TRACKING,OVERRIDES} from './templateModel.mjs';
@@ -42,7 +43,7 @@ export default function TemplateWorkbench({template,onChange}){
      {missing&&<p className="tw-warning" role="status">请选择基准点后设置偏移。</p>}
      <div className="tw-field-group">{[['x','X 偏移'],['y','Y 偏移'],['z','Z 偏移']].map(([key,label])=>numeric(label,key,'offset','mm'))}</div>
      <div className="tw-field-group">{[['advance','前进角'],['rotation','旋转角'],['work','工作角']].map(([key,label])=>numeric(label,key,'angles','°'))}<label className="tw-field"><span>跟踪方式</span><select aria-label={`${active.name} 跟踪方式`} value={active.tracking} onChange={e=>patchPoint({tracking:e.target.value})}>{TRACKING.map(v=><option key={v}>{v}</option>)}</select></label></div>
-     <p className="tw-help">偏移相对参考点设置，层道偏移在此基础上叠加。</p><p className="tw-effective-angles">叠加后姿态：前进 {(Number(active.angles.advance)||0)+(Number(offsets.advance)||0)}° · 工作 {(Number(active.angles.work)||0)+(Number(offsets.work)||0)}° · 旋转 {(Number(active.angles.rotation)||0)+(Number(offsets.rotation)||0)}°</p>
+     <p className="tw-help">偏移相对参考点设置，层道偏移在此基础上叠加。</p><WeldPoseHelp/><p className="tw-effective-angles">叠加后姿态：前进 {(Number(active.angles.advance)||0)+(Number(offsets.advance)||0)}° · 工作 {(Number(active.angles.work)||0)+(Number(offsets.work)||0)}° · 旋转 {(Number(active.angles.rotation)||0)+(Number(offsets.rotation)||0)}°</p>
     </>:<><p className="tw-help">当前点的独立工艺覆盖，留空表示未设置。</p>{Object.entries(OVERRIDES).map(([key,[label,unit,min]])=><label key={key} className="tw-field"><span>{label}</span><span className="tw-number"><input aria-label={`${active.name} ${label}覆盖值`} type="number" min={min} step="any" placeholder="未设置" value={active.overrides?.[key]??''} onChange={e=>{const overrides={...active.overrides};if(e.target.value==='')delete overrides[key];else overrides[key]=+e.target.value;patchPoint({overrides});}}/><small>{unit}</small></span></label>)}</>}
    </div>
   </aside>

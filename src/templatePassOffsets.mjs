@@ -1,3 +1,5 @@
+import {resolveWeldToolPose,weldTorchAxis} from './weldToolPose.mjs';
+export {weldTorchAxis,weldTorchBasis,weldTorchOrientation} from './weldToolPose.mjs';
 import {previewPath,previewPoint,samplePath} from './weldPathGeometry.mjs';
 import {sampleManualWeldPath,horizontalWeldNormal} from './manualWeldModel.mjs';
 
@@ -11,28 +13,27 @@ export function validPassOffsets(offset){return !!offset&&['y','z'].every(k=>Num
 export function effectivePassPoints(points,offset={}){
   return points.map(p=>({...p,offset:{...p.offset,x:value(p.offset?.x)+(p.kind==='start'?value(offset.start):p.kind==='end'?value(offset.end):0)},angles:{...p.angles,...Object.fromEntries(['advance','work','rotation'].map(key=>[key,value(p.angles?.[key])+value(offset[key])]))}}));
 }
-const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
-const unit=a=>{const length=Math.hypot(...a);return a.map(n=>n/(length||1));};
-export function weldTorchAxis(tangent,normal,angles){
-  let up=unit(cross(tangent,normal));if(up[2]<0)up=up.map(n=>-n);
-  const advance=value(angles?.advance)*Math.PI/180,work=value(angles?.work)*Math.PI/180;
-  // Rotation is roll about the wire axis and does not change its direction.
-  return unit(tangent.map((n,i)=>n*Math.sin(advance)+(normal[i]*Math.cos(work)+up[i]*Math.sin(work))*Math.cos(advance)));
-}
-export function resolvePassPoint(template,point,points=template.points,offset={},layerHeight=0,pathOverride){
+export function resolvePassPoint(template,point,points=template.points,offset={},layerHeight=0,pathOverride,poseAt,frameAt){
   const effective=effectivePassPoints(points,offset),p=effective.find(p=>p.id===point.id)||point;
   const path=pathOverride||previewPath(template.segments,'xy',template.corners,template.closure),resolved=previewPoint(p,path,'xy',false,effective);
+  const spatial=frameAt?.(resolved.distance);
   let position,tangent,normal;
   if(template.segments.every(s=>s.pathPoints?.length>=2)){
-    const at=sampleManualWeldPath(template.segments,resolved.distance,template.cornerReferenceNormal),base=samplePath(path,resolved.distance);
-    tangent=at.tangent;normal=horizontalWeldNormal(tangent,at.normal);
+    const at=spatial??sampleManualWeldPath(template.segments,resolved.distance,template.cornerReferenceNormal);
+    const base=samplePath(path,resolved.distance);
+    tangent=at.tangent;normal=at.offsetNormal??horizontalWeldNormal(tangent,at.normal);
     const across=(resolved.position.x-base.position.x)*resolved.frame.normal.x+(resolved.position.y-base.position.y)*resolved.frame.normal.y+value(offset.y),height=resolved.height+value(layerHeight)+value(offset.z);
     position=at.position.map((n,i)=>n+normal[i]*across+(i===2?height:0));
   }else{
     tangent=[resolved.frame.tangent.x,resolved.frame.tangent.y,0];normal=[resolved.frame.normal.x,resolved.frame.normal.y,0];
     position=[resolved.position.x+normal[0]*value(offset.y),resolved.position.y+normal[1]*value(offset.y),resolved.height+value(layerHeight)+value(offset.z)];
   }
-  const wireAxis=weldTorchAxis(tangent,normal,p.angles);
-  position=position.map((n,i)=>n+wireAxis[i]*value(offset.wire));
-  return {...resolved,position,tangent,normal,wireAxis,angles:p.angles};
+  const pose=poseAt?.(p,resolved.distance);
+  const angles=pose?.angles??p.angles;
+  const frame=pose?.tangent&&pose?.normal?pose:spatial??{tangent,normal};
+  const wireAxis=weldTorchAxis(frame.tangent,frame.normal,angles,frame.up);
+  const adjustment=pose?.pathOffset,wireOffset=value(offset.wire)+value(pose?.wireOffset);
+  position=position.map((n,i)=>n+wireAxis[i]*wireOffset+(adjustment?.[i]??0));
+  const toolPose=resolveWeldToolPose({...frame,position,pose:angles,distance:resolved.distance});
+  return {...resolved,position,...toolPose.frame,wireAxis,angles,toolPose};
 }

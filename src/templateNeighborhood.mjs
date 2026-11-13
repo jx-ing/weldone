@@ -4,6 +4,7 @@ import {
  EPS,along,vectorBetween,dot,interpolate,insideCapture,clipCapturePolyline,captureRayLimit,captureLocal
 } from './templateCaptureRange.mjs';
 import {endpointType} from './templateGeometryRules.mjs';
+import {validReferenceNormal} from './weldDirectionGeometry.mjs';
 import {baseplateDirection,measureBaseplateEdges,measureBaseplateEndpoint} from './templateBaseplateEdges.mjs';
 import {closestDistance,distanceProfile} from './templateDistanceProfile.mjs';
 import {measurePlanningAxial,measurePlanningBoundaries,planningPartGeometryIndex} from './vendor/geometry-engine.mjs';
@@ -196,7 +197,37 @@ export function createTemplateNeighborhoodMeasurer({parts,mesh,edges,sourceWelds
   cache.set(signature,result);
   return result;
  };
+ measure.endpointClearance=(segment,side,limit)=>{
+  const points=segment.pathPoints,start=side==='start';
+  const point=start?points[0]:points.at(-1),next=start?points[1]:points.at(-2);
+  const outward=unit(vectorBetween(next,point));
+  if(!outward)return null;
+  const source=segmentSource(segment,lookup);
+  const own=new Set([segment.mainPartId,segment.subPartId,source?.mainPartId,source?.subPartId]);
+  return rayHit(solids.filter(part=>!own.has(part.id)),point,outward,limit)?.distance??null;
+ };
+ measure.segmentClearance=(segment,limit)=>{
+  const source=segmentSource(segment,lookup);
+  const own=new Set([segment.mainPartId,segment.subPartId,source?.mainPartId,source?.subPartId]);
+  const range={along:limit,across:limit,above:limit,below:limit};
+  const region=weldRegionBounds({segments:[segment]},[0,0,0],0,range);
+  return segmentSolidGap(segment,solids.filter(part=>!own.has(part.id)),region,baseplateDirection(source));
+ };
  const byPart=new Map(solids.map(part=>[part.id,part]));
+ const partsById=new Map(parts.map(part=>[part.id,part]));
+ measure.referenceNormalAt=(segment,position,tangent)=>{
+  if(validReferenceNormal(segment.referenceNormal))return segment.referenceNormal;
+  const source=segmentSource(segment,lookup);
+  const id=segment.mainPartId??source?.mainPartId;
+  const part=partsById.get(id);
+  if(!part||part.vertexCount<3)return undefined;
+  const {tree,geometry}=planningPartGeometryIndex(mesh,part);
+  const hit=tree?.closestPointToPoint(vector(position),{},0,1);
+  if(!hit)return undefined;
+  const normal=new Vector3().fromBufferAttribute(geometry.getAttribute('normal'),hit.faceIndex*3).normalize();
+  if(normal.lengthSq()<.99||Math.abs(normal.dot(vector(tangent)))>.25)return undefined;
+  return normal.toArray();
+ };
  const cornerCache=new Map();
  const rayDirection=vector([.58,.73,.36]).normalize();
  measure.measureCorner=({before,after,normal,incoming,outgoing})=>{

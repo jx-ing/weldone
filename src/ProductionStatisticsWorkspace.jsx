@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { CalendarDays, Download } from 'lucide-react'
 import { executionCsv, executionDay, readExecutionRecords, sumExecutionMetrics } from './productionStatisticsModel.mjs'
+import {EmptyState, PageHeader} from './WorkspaceUI'
 import './productionStatistics.css'
 
 const EXECUTION_STATUS_NAMES={running:'执行中',paused:'已暂停',completed:'已完成',stopped:'已停止',error:'失败'}
@@ -37,9 +38,7 @@ export default function ProductionStatisticsWorkspace() {
     a.href=url;a.download=`weldone-仿真${consumables?'耗材':'产量'}统计-${today}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
   }
   return <section className="production-statistics" aria-label="生产统计">
-    <header className="page-bar"><h1>生产统计</h1><div className="bar-actions">
-      <button type="button" className="btn" disabled={!filtered.length} onClick={exportCsv}><Download size={15}/>导出 CSV</button>
-    </div></header>
+    <PageHeader title="生产统计" actions={<button type="button" className="btn" disabled={!filtered.length} title={filtered.length?'导出当前筛选结果':'当前筛选条件下无记录可导出'} onClick={exportCsv}><Download size={15}/>导出 CSV</button>}/>
     <div className="statistics-body">
     <div className="statistics-query">
       <div role="group" aria-label="统计视图" className="panel-tabs"><button className={!consumables?'active':''} aria-pressed={!consumables} onClick={()=>{setConsumables(false);setPage(0)}}>产量统计</button><button className={consumables?'active':''} aria-pressed={consumables} onClick={()=>{setConsumables(true);setPage(0)}}>耗材统计</button></div>
@@ -47,19 +46,19 @@ export default function ProductionStatisticsWorkspace() {
         <label>工件<select aria-label="统计工件" value={model} onChange={e=>{setModel(e.target.value);setPage(0)}}><option value="all">全部工件</option>{[...new Map(records.map(r=>[r.modelId,r.modelName])).entries()].map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>
       </div>
     </div>
-    <p className="statistics-explanation">数据来自本浏览器最近 300 批生产执行仿真记录，按开始日期统计（北京时间）。预览和未起弧的运行仅计入仿真批次，不计入焊接长度、完成焊道和耗材。重复执行分别记录，不代表实体工件交付数量。</p>
+    <details className="statistics-explanation"><summary>统计口径</summary><p>数据来自本浏览器最近 300 批生产执行仿真记录，按开始日期统计（北京时间）。预览和未起弧的运行仅计入仿真批次，不计入焊接长度、完成焊道和耗材。重复执行分别记录，不代表实体工件交付数量。</p></details>
     <div className="statistics-metrics">{cards.map(([label,value,unit])=><div key={label}><span>{label}</span><strong>{value}<small>{unit}</small></strong></div>)}</div>
-    {consumables&&<p className="statistics-explanation">焊丝按送丝速度、直径、密度和起弧时长计算，气体按流量和起弧时长计算；电弧能量按电流、电压积分。缺少任一必要参数时显示“—”；这些为仿真计算值，不是设备实测消耗。</p>}
+    {consumables&&<details className="statistics-explanation"><summary>耗材计算口径</summary><p>焊丝按送丝速度、直径、密度和起弧时长计算，气体按流量和起弧时长计算；电弧能量按电流、电压积分。缺少任一必要参数时显示“—”；这些为仿真计算值，不是设备实测消耗。</p></details>}
     <section className="statistics-chart"><header><div><h2>{consumables?'焊丝计算量趋势':'产量趋势'}</h2><span>{model==='all'?'全部工件':filtered[0]?.modelName??'当前工件'} · 最近 {period} 天</span></div>{!consumables&&<div className="statistics-segmented"><button className="btn" aria-pressed={metric==='runs'} onClick={()=>setMetric('runs')}>完成批次</button><button className="btn" aria-pressed={metric==='length'} onClick={()=>setMetric('length')}>焊接长度</button></div>}</header>
-      <div className="statistics-chart-unit">{consumables?'kg':metric==='runs'?'批':'m'}<span>{chosen.day}：{chosen.value===null?'未配置耗材参数':number(chosen.value,4)}</span></div>
-      {!filtered.length?<div className="statistics-empty"><img src="/assets/empty-data.svg" alt=""/>暂无生产执行仿真记录。</div>:<div className="statistics-bars">{bars.map(bar=><button key={bar.day} aria-label={`${bar.day} ${bar.value===null?'未确认':bar.value}`} aria-pressed={bar.day===chosen.day} onClick={()=>setActive(bar.day)}><span>{bar.value===null?'—':number(bar.value,3)}</span><i style={{height:bar.value===null?0:`${Math.max(0,bar.value/max*150)}px`}}/><small>{bar.day.slice(5)}</small></button>)}</div>}
+      {filtered.length>0&&<div className="statistics-chart-unit">{consumables?'kg':metric==='runs'?'批':'m'}<span>{chosen.day}：{chosen.value===null?'未配置耗材参数':number(chosen.value,4)}</span></div>}
+      {!filtered.length?<EmptyState text="暂无生产执行仿真记录" description="有符合筛选条件的记录后，趋势会在这里显示。"/>:<div className="statistics-bars">{bars.map(bar=><button key={bar.day} aria-label={`${bar.day} ${bar.value===null?'未确认':bar.value}`} aria-pressed={bar.day===chosen.day} onClick={()=>setActive(bar.day)}><span>{bar.value===null?'—':number(bar.value,3)}</span><i style={{height:bar.value===null?0:`${Math.max(0,bar.value/max*150)}px`}}/><small>{bar.day.slice(5)}</small></button>)}</div>}
     </section>
     <section className="statistics-details"><header><h2>{consumables?'耗材计算明细':'仿真执行明细'}</h2><span>{rows.length} 条道次记录</span></header>
       <div className="statistics-table-scroll"><table><thead><tr>{(consumables?['工件／焊道','道次','起弧时长 s','焊丝 kg','气体 m³','电弧能量 kWh','状态']:['开始时间','工件／焊道','道次／焊接位置','执行类型','运行距离 m','起弧焊接 m','状态']).map(h=><th key={h}>{h}</th>)}</tr></thead>
         <tbody>{rows.slice(page*50,page*50+50).map(({record:r,task:t})=><tr key={r.id+'|'+t.id}>{(consumables
           ?[`${r.modelName} / ${t.label}`,t.passIndex+1,number(t.arcSeconds),t.unknownWireSeconds>1e-8?'未配置':number(t.wireKg,4),t.unknownGasSeconds>1e-8?'未配置':number(t.gasM3,4),t.unknownEnergySeconds>1e-8?'未配置':number(t.energyKWh,4)]
           :[new Date(r.startedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}),`${r.modelName} / ${t.label}`,`${t.passIndex+1} / ${t.position}`,r.kind==='preview'?'几何预览':r.arcEnabled?'起弧仿真':'无弧仿真',number(t.travelMm/1000,3),number(t.weldMm/1000,3)]).map((value,i)=><td key={i}>{value}</td>)}<td>{t.completed?'已完成':EXECUTION_STATUS_NAMES[r.status]}</td></tr>)}</tbody></table></div>
-      {!rows.length&&<div className="statistics-empty">当前筛选条件下无仿真明细。</div>}
+      {!rows.length&&<EmptyState text="当前筛选条件下无仿真明细"/>}
       {rows.length>50&&<footer><button className="btn" disabled={!page} onClick={()=>setPage(p=>p-1)}>上一页</button><span>{page+1} / {Math.ceil(rows.length/50)}</span><button className="btn" disabled={(page+1)*50>=rows.length} onClick={()=>setPage(p=>p+1)}>下一页</button></footer>}
     </section>
     </div>

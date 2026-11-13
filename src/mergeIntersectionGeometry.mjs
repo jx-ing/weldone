@@ -18,11 +18,11 @@ function setBoundary(segment,point,last){
   const points=segment.pathPoints,endpoint=last?points.at(-1):points[0],t=endTangent(points,last),signed=dot(sub(point,endpoint),t)*(last?1:-1);let next;
   if(distance(point,endpoint)<1e-8)next=points;
   else if(segment.geometry==='直线'){
-    if(last){const first=points[0],extent=dot(sub(point,first),t);if(extent<.1)throw Error('延长线交点越过焊缝段，无法保留有效长度');next=[...points.slice(0,-1).filter(p=>dot(sub(p,first),t)<extent-1e-8),point];}
-    else{const end=points.at(-1),extent=dot(sub(end,point),t);if(extent<.1)throw Error('延长线交点越过焊缝段，无法保留有效长度');next=[point,...points.slice(1).filter(p=>dot(sub(end,p),t)<extent-1e-8)];}
+    if(last){const first=points[0],extent=dot(sub(point,first),t);if(extent<=1e-8)throw Error('延长线交点越过焊缝段，无法保留有效长度');next=[...points.slice(0,-1).filter(p=>dot(sub(p,first),t)<extent-1e-8),point];}
+    else{const end=points.at(-1),extent=dot(sub(end,point),t);if(extent<=1e-8)throw Error('延长线交点越过焊缝段，无法保留有效长度');next=[point,...points.slice(1).filter(p=>dot(sub(end,p),t)<extent-1e-8)];}
   }else if(signed>=-1e-8)next=last?[...points,point]:[point,...points];
   else{const piece=last?distance(points.at(-2),endpoint):distance(points[1],endpoint);if(-signed>piece+1e-8)throw Error('曲线切向交点位于有效曲线内部，无法通过延长连接');next=last?[...points.slice(0,-1),point]:[point,...points.slice(1)];}
-  const length=metric(pathLength(next));if(length<.1||next.length>20000)throw Error('交点连接后的焊缝段长度或采样点数量无效');
+  const measured=pathLength(next),length=metric(measured)||measured;if(measured<=1e-8||next.length>20000)throw Error('交点连接后的焊缝段长度或采样点数量无效');
   segment.pathPoints=next;segment.length=length;delete segment.connectionGap;
 }
 export function connectSegmentIntersections(input,{closed=false}={}){
@@ -30,7 +30,8 @@ export function connectSegmentIntersections(input,{closed=false}={}){
   if(!segments.length)throw Error('没有可合并的有效焊缝段');
   const join=(i,j)=>{const connection=intersectSegmentEnds(segments[i],segments[j]);setBoundary(segments[i],connection.point,true);setBoundary(segments[j],connection.point,false);if(connection.gap>1e-8)connections.push({...connection,beforeSegment:i+1,afterSegment:j+1});};
   for(let i=1;i<segments.length;i++)join(i-1,i);if(closed&&segments.length>1)join(segments.length-1,0);
-  return {segments,connections,gaps:connections.map(c=>c.gap),length:metric(segments.reduce((sum,s)=>sum+pathLength(s.pathPoints),0))};
+  const length=segments.reduce((sum,s)=>sum+pathLength(s.pathPoints),0);
+  return {segments,connections,gaps:connections.map(c=>c.gap),length:metric(length)||length};
 }
 export function mergeCornerAngles(segments){return segments.slice(1).map((s,i)=>{const a=endTangent(segments[i].pathPoints,true),b=endTangent(s.pathPoints,false);return metric(Math.acos(Math.max(-1,Math.min(1,-dot(a,b))))*180/Math.PI);});}
 export function normalizeLegacyMergeGaps(w){

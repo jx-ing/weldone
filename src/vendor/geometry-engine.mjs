@@ -10398,13 +10398,13 @@ function computeWeldSplit(weld, meshData, partsData, edgesData, contactPairs, of
   const buildSub = (index, pts, length3, closed, t0v, t1v) => ({
     id: `${weld.id}-${index}`,
     index,
-    length: r13(length3),
+    length: r13(length3) || length3,
     closed,
-    start: [r23(pts[0].x), r23(pts[0].y), r23(pts[0].z)],
-    end: [r23(pts[pts.length - 1].x), r23(pts[pts.length - 1].y), r23(pts[pts.length - 1].z)],
+    start: (length3 < 0.1 ? pts[0].toArray() : [r23(pts[0].x), r23(pts[0].y), r23(pts[0].z)]),
+    end: (length3 < 0.1 ? pts[pts.length - 1].toArray() : [r23(pts[pts.length - 1].x), r23(pts[pts.length - 1].y), r23(pts[pts.length - 1].z)]),
     startTangent: r2vecT(t0v),
     endTangent: r2vecT(t1v),
-    points: pts.map((p) => [r23(p.x), r23(p.y), r23(p.z)]),
+    points: pts.map((p) => (length3 < 0.1 ? p.toArray() : [r23(p.x), r23(p.y), r23(p.z)])),
     \u8D77\u70B9\u6765\u6E90: { \u7C7B\u578B: "\u6253\u65AD\u70B9" },
     \u7EC8\u70B9\u6765\u6E90: { \u7C7B\u578B: "\u6253\u65AD\u70B9" }
   });
@@ -12187,8 +12187,6 @@ var DEFAULT_PROCESSED_GEOMETRY_PLAN_CONFIG = {
   offsetThreshold: 50,
   endpointMinimumMm: 40,
   wrapDistanceRatio: 2 / 3,
-  minimumWeldLength: 50,
-  retainPlateEndWelds: true,
   thicknessWeldThresholdMm: DEFAULT_THICKNESS_WELD_THRESHOLD_MM,
   mergeParams: { ...DEFAULT_MERGE_PARAMS },
   legSettings: { ...DEFAULT_GEOMETRY_LEG_SETTINGS },
@@ -12223,77 +12221,13 @@ function activeWelds(data, config) {
     return typeof face !== "string" || config.workfaces?.[face] !== false;
   }) };
 }
-function isPlateEndUnit(sub, endpoints) {
-  if (sub.closed || sub.geometryObstruction || sub.length < 0.1) return false;
-  return ["起点", "终点"].some(label => {
-    if (sub[label + "来源"]?.类型 !== "原焊缝" + label) return false;
-    const info = endpoints?.[label]?.unifiedInfo;
-    return !!info && (
-      (info.kind === "free-edge" || info.kind === "opening") && info.status === "verified" ||
-      Number.isFinite(info.axialClearanceMm) && info.axialClearanceMm <= 0.02
-    );
-  });
-}
-function automaticMerges(data, welds, splits, config, endpointByWeld) {
-  const roleIds = recognizedRoleWeldIds(data.weldsData.welds, data.partsData.parts);
-  const lugKeys = retainedLugContourUnitKeys(data.weldsData, splits, config.minimumWeldLength);
-  const deletedUnitKeys = /* @__PURE__ */ new Set();
-  const retained = new Set();
-  const isRetainedTerminal = (weldId, index, sub) => {
-    if (!config.retainPlateEndWelds || !sub || sub.length >= config.minimumWeldLength) return false;
-    const endpoints = endpointByWeld?.get(weldId);
-    return isPlateEndUnit(sub, endpoints?.bySubWeld?.[index] ?? endpoints);
-  };
-  for (const split of splits.values()) split.subWelds.forEach((sub4, index) => {
-    const key = `${split.weldId}|${index}`;
-    const independent = sub4.geometryProperties?.\u63A5\u5934\u5F62\u5F0F?.\u677F\u539A\u5F62\u6210\u72EC\u7ACB\u710A\u7F1D;
-    if (!sub4.geometryObstruction && independent === true) return;
-    if (independent === false || sub4.geometryObstruction || !sub4.geometryRetainTerminal && !lugKeys.has(key) && !isIntermittentSubWeld(sub4) && shouldHideShortWeld(sub4.length, split.weldId, true, roleIds, config.minimumWeldLength)) {
-      deletedUnitKeys.add(key);
-      if (isRetainedTerminal(split.weldId, index, sub4)) retained.add(key);
-    }
+function automaticMerges(data, welds, splits, config) {
+  const deletedUnitKeys = new Set();
+  for (const split of splits.values()) split.subWelds.forEach((sub, index) => {
+    if (sub.geometryObstruction) deletedUnitKeys.add(split.weldId + "|" + index);
   });
   const raw = computeMerges(splits, welds, data.partsData, config.mergeParams, deletedUnitKeys);
-  const deletedGroupUnitKeys = /* @__PURE__ */ new Set();
-  const kept = raw.groups.filter((group) => {
-    if (group.members.some(member => isRetainedTerminal(member.weldId, member.subIndex, splits.get(member.weldId)?.subWelds[member.subIndex]))) return true;
-    if (!group.members.some((member) => lugKeys.has(member.key) || member.\u677F\u539A\u72EC\u7ACB === true || splits.get(member.weldId)?.subWelds[member.subIndex]?.geometryRetainTerminal || isIntermittentSubWeld(splits.get(member.weldId)?.subWelds[member.subIndex] ?? {})) && shouldHideShortGroup(group, true, roleIds, config.minimumWeldLength)) {
-      group.members.forEach((member) => deletedGroupUnitKeys.add(member.key));
-      return false;
-    }
-    return true;
-  });
-  const groups = kept.map((group, index) => ({ ...group, id: `M${String(index + 1).padStart(3, "0")}` }));
-  const mergedUnitKeys = new Set(groups.flatMap((group) => group.members.map((member) => member.key)));
-  const units = raw.units.filter((unit5) => !deletedGroupUnitKeys.has(unit5.key));
-  if (retained.size) {
-    // Append restored terminal segments without changing existing automatic merges or their IDs.
-    const skip = new Set();
-    for (const split of splits.values()) split.subWelds.forEach((_, index) => {
-      const key = `${split.weldId}|${index}`;
-      if (!retained.has(key)) skip.add(key);
-    });
-    for (const unit of buildUnits(splits, welds, data.partsData, skip)) {
-      units.push({ ...unit, retainedPlateEnd: true });
-      deletedUnitKeys.delete(unit.key);
-    }
-  }
-  const aliveIds = new Set(units.map((unit5) => unit5.id));
-  const result = {
-    groups,
-    units,
-    mergedUnitKeys,
-    decisions: raw.decisions.filter((decision) => aliveIds.has(decision.a) && aliveIds.has(decision.b)),
-    \u540C\u6E90\u963B\u65AD: raw.\u540C\u6E90\u963B\u65AD,
-    \u8840\u7F18\u963B\u65AD: raw.\u8840\u7F18\u963B\u65AD,
-    \u91CD\u5408\u963B\u65AD: raw.\u91CD\u5408\u963B\u65AD,
-    \u5355\u5143\u603B\u6570: units.length,
-    \u5408\u5E76\u540E\u603B\u6570: groups.length + units.length - mergedUnitKeys.size,
-    \u5220\u9664\u7EC4\u6570: raw.groups.length - groups.length,
-    \u5220\u9664\u7EC4\u6210\u5458\u6570: deletedGroupUnitKeys.size,
-    deletedGroupUnitKeys
-  };
-  return { result, deletedUnitKeys };
+  return { result: { ...raw, 删除组数: 0, 删除组成员数: 0, deletedGroupUnitKeys: new Set() }, deletedUnitKeys };
 }
 function computeProcessedGeometryPlan(data, sourceSplits, inputConfig = {}) {
   const config = processedGeometryPlanConfig(inputConfig);
@@ -12318,7 +12252,7 @@ function computeProcessedGeometryPlan(data, sourceSplits, inputConfig = {}) {
     \u8017\u65F6ms: Math.round(performance.now() - began),
     \u7EDF\u8BA1: summarizeBaojiao(byWeld)
   };
-  const automatic = automaticMerges(data, welds, splits, config, byWeld);
+  const automatic = automaticMerges(data, welds, splits, config);
   const merges = applyGeometryMergeEdits(automatic.result, data.weldsData, splits, {});
   const context = {
     weldsData: data.weldsData,

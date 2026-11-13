@@ -13,11 +13,7 @@ import {
 } from './geometryEditing'
 import { summarizeSplits, type WeldSplit } from './weldSplit'
 import { DEFAULT_MERGE_PARAMS, computeMerges, type MergeParams, type MergeResultFiltered } from './weldMerge'
-import { recognizedRoleWeldIds, shouldHideShortWeld, shouldHideShortGroup } from './partRoles'
-import { retainedLugContourUnitKeys } from './lugContours'
-import {
-  isIntermittentSubWeld, applyIntermittentWeldEndpointRules,
-} from './intermittentWelding'
+import { applyIntermittentWeldEndpointRules } from './intermittentWelding'
 import type { GeometryManualMergeOperation } from './geometryManualMerge'
 import { computeGeometryWeldBaojiao, computeGeometryCornerInstances, type GeometryActionOptions } from './geometryActions'
 import { summarizeBaojiao, type BaojiaoResult, type WeldBaojiao } from './baojiao'
@@ -34,7 +30,6 @@ export interface ProcessedGeometryPlanConfig {
   offsetThreshold: number | null
   endpointMinimumMm: number
   wrapDistanceRatio: number
-  minimumWeldLength: number
   thicknessWeldThresholdMm: number
   mergeParams: MergeParams
   legSettings: GeometryLegSettings
@@ -45,7 +40,7 @@ export interface ProcessedGeometryPlanConfig {
 
 export const DEFAULT_PROCESSED_GEOMETRY_PLAN_CONFIG: Readonly<ProcessedGeometryPlanConfig> = {
   offset: 50, extendThreshold: 50, offsetThreshold: 50, endpointMinimumMm: 40,
-  wrapDistanceRatio: 2 / 3, minimumWeldLength: 50,
+  wrapDistanceRatio: 2 / 3,
   thicknessWeldThresholdMm: DEFAULT_THICKNESS_WELD_THRESHOLD_MM,
   mergeParams: { ...DEFAULT_MERGE_PARAMS }, legSettings: { ...DEFAULT_GEOMETRY_LEG_SETTINGS },
   workfaces: null, jointTypes: null,
@@ -110,44 +105,15 @@ function activeWelds(data: WeldsData, config: ProcessedGeometryPlanConfig): Weld
   }) }
 }
 
-/** Exactly App's post-split <50 mm filtering and ordinary automatic grouping.
- * Endpoint wrap choices do not create or consume any merge operations. */
+/** Obstruction evidence excludes a segment from merging and planning. Length is not a deletion criterion. */
 function automaticMerges(data: ModelData, welds: WeldsData, splits: Map<string, WeldSplit>,
   config: ProcessedGeometryPlanConfig) {
-  const roleIds = recognizedRoleWeldIds(data.weldsData.welds, data.partsData.parts)
-  const lugKeys = retainedLugContourUnitKeys(data.weldsData, splits, config.minimumWeldLength)
   const deletedUnitKeys = new Set<string>()
   for (const split of splits.values()) split.subWelds.forEach((sub, index) => {
-    const key = `${split.weldId}|${index}`
-    const independent = (sub.geometryProperties?.接头形式 as Record<string, unknown> | undefined)?.板厚形成独立焊缝
-    if (!sub.geometryObstruction && independent === true) return
-    if (independent === false) { deletedUnitKeys.add(key); return }
-    if (sub.geometryObstruction || !sub.geometryRetainTerminal && !lugKeys.has(key)
-      && !isIntermittentSubWeld(sub)
-      && shouldHideShortWeld(sub.length, split.weldId, true, roleIds, config.minimumWeldLength)) deletedUnitKeys.add(key)
+    if (sub.geometryObstruction) deletedUnitKeys.add(split.weldId + '|' + index)
   })
   const raw = computeMerges(splits, welds, data.partsData, config.mergeParams, deletedUnitKeys)
-  const deletedGroupUnitKeys = new Set<string>()
-  const kept = raw.groups.filter(group => {
-    if (!group.members.some(member => lugKeys.has(member.key)
-      || member.板厚独立 === true
-      || splits.get(member.weldId)?.subWelds[member.subIndex]?.geometryRetainTerminal
-      || isIntermittentSubWeld(splits.get(member.weldId)?.subWelds[member.subIndex] ?? {}))
-      && shouldHideShortGroup(group, true, roleIds, config.minimumWeldLength)) {
-      group.members.forEach(member => deletedGroupUnitKeys.add(member.key))
-      return false
-    }
-    return true
-  })
-  const groups = kept.map((group, index) => ({ ...group, id: `M${String(index + 1).padStart(3, '0')}` }))
-  const mergedUnitKeys = new Set(groups.flatMap(group => group.members.map(member => member.key)))
-  const units = raw.units.filter(unit => !deletedGroupUnitKeys.has(unit.key))
-  const aliveIds = new Set(units.map(unit => unit.id))
-  const result: MergeResultFiltered = { groups, units, mergedUnitKeys,
-    decisions: raw.decisions.filter(decision => aliveIds.has(decision.a) && aliveIds.has(decision.b)),
-    同源阻断: raw.同源阻断, 血缘阻断: raw.血缘阻断, 重合阻断: raw.重合阻断,
-    单元总数: units.length, 合并后总数: groups.length + units.length - mergedUnitKeys.size,
-    删除组数: raw.groups.length - groups.length, 删除组成员数: deletedGroupUnitKeys.size, deletedGroupUnitKeys }
+  const result: MergeResultFiltered = { ...raw, 删除组数: 0, 删除组成员数: 0, deletedGroupUnitKeys: new Set<string>() }
   return { result, deletedUnitKeys }
 }
 

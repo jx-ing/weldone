@@ -38,6 +38,12 @@ function rangeBelow(piece,distance){
  return [piece.start+(piece.end-piece.start)*start,piece.start+(piece.end-piece.start)*end];
 }
 
+export function distanceRangesBelow(profile,limit){
+ if(!(limit>0))return [];
+ return mergeRanges((profile?.pieces??[]).filter(piece=>closestDistance(piece).distance<limit)
+  .map(piece=>rangeBelow(piece,limit)).filter(range=>range&&range[1]-range[0]>EPS));
+}
+
 function clipSpan(piece,start,end){
  const first=Math.max(piece.start,start),last=Math.min(piece.end,end);
  if(last-first<=EPS)return null;

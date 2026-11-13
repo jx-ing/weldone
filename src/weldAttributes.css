@@ -11,8 +11,16 @@
 .wa-segments>button{height:30px;min-width:52px;padding:0 10px;border:0;background:transparent;color:#777;font-size:13px;border-radius:8px;white-space:nowrap}
 .wa-segments>button.active{background:white;color:#fa8c16;box-shadow:0 1px 4px #0000000d}
 .wa-template-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
-.wa-match-card{min-width:0}
-.wa-choose-match{width:100%;border:0;border-radius:8px;background:#f8f8f8;min-width:0;height:70px;padding:9px 12px;text-align:left}
+.wa-match-card{position:relative;display:flex;align-items:flex-start;min-width:0;border-radius:8px;background:#f8f8f8}
+.wa-choose-match{flex:1;border:0;border-radius:8px;background:transparent;min-width:0;height:70px;padding:9px 12px;text-align:left}
+.wa-match-card:has(.wa-create-match) .wa-choose-match{padding-right:4px}
+.wa-create-match{display:grid;place-items:center;flex:0 0 24px;height:24px;margin:9px 6px 0 0;border:1px solid transparent;border-radius:4px;background:transparent;color:#ad4e00}
+.wa-template-cards .wa-create-match svg{color:inherit}
+.wa-create-match:hover,.wa-create-match:focus-visible{border-color:#ffd591;background:#fff7e6}
+.wa-create-match[aria-disabled=true]{color:#999;cursor:not-allowed}
+.wa-create-tooltip{position:absolute;top:36px;right:0;z-index:2;width:max-content;max-width:220px;padding:6px 9px;border-radius:4px;background:#262626;color:#fff;font-size:12px;line-height:1.5;visibility:hidden;pointer-events:none}
+.wa-match-card:first-child .wa-create-tooltip{left:0;right:auto}
+.wa-create-match:hover+.wa-create-tooltip,.wa-create-match:focus-visible+.wa-create-tooltip{visibility:visible}
 .weld-row .wa-pending-dot{background:#d97706}
 .wa-choose-match>span{display:flex;align-items:center;justify-content:space-between;gap:5px;color:#333;font-size:12px;line-height:18px}
 .wa-template-cards svg{color:#d2d4d6;flex-shrink:0}
@@ -38,6 +46,8 @@
 .wa-readonly{display:flex;align-items:center;height:25px;padding:0 8px;color:#999;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wa-length{justify-content:space-between}
 .wa-length>small{padding-right:2px}
+.wa-tracking{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px}
+.wa-tracking label{display:flex;align-items:center;gap:4px;white-space:nowrap}
 .wa-toggle{display:flex;align-items:center;min-width:0;height:25px;background:#f6f6f6;border-radius:4px;padding:2px;gap:1px}
 .wa-toggle>button{flex:1;min-width:0;height:21px;padding:0 5px;border:0;background:transparent;border-radius:3px;font-size:13px;color:#999;white-space:nowrap}
 .wa-toggle>button:first-child{flex:0 0 36px}
@@ -62,12 +72,18 @@
 
 
 .wa-group{height:auto;min-height:38px;flex-wrap:wrap}.wa-group .wa-segments{max-width:100%;height:auto;min-height:38px}.wa-group>input{flex:1;min-width:80px}.wa-segments>button{flex:none}
+.wa-group:has(.wa-separate-button) .wa-segments{flex-basis:100%}
+.wa-group .wa-separate-button{min-height:26px;padding:2px 10px;font-size:12px}
+.weld-segment-options{display:grid;gap:2px;max-height:min(350px,45vh);overflow:auto;margin-top:10px}
+.weld-segment-options label,.weld-segment-select-all{display:flex;align-items:center;gap:8px;padding:7px 0}
+.weld-segment-options small{margin-left:auto;color:#777}
 .wa-scan-settings .wa-row{grid-template-columns:112px minmax(0,1fr)}
 
 .wa-point-adjustment{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;border:1px solid #f0d6b6;border-radius:4px;margin:8px 0;padding:8px}.wa-point-adjustment label{display:grid;gap:3px;min-width:0;color:#555;font-size:11px}.wa-point-adjustment input{width:100%;min-width:0;height:25px;padding:2px 4px;border:1px solid #ddd;border-radius:3px}
 
 
 .weld-row .weld-row-main{min-width:0}
+.weld-list{overflow-anchor:none}
 .weld-row-main>span:first-of-type{min-width:0}
 .weld-row-main small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .weld-row .weld-point-action{flex:0 0 18px;justify-content:center;padding:3px 0}
@@ -82,6 +98,15 @@
 .wa-point-context{color:#666;font-size:12px;margin:0 0 9px;overflow-wrap:anywhere}
 .wa-point-values{margin:0;background:#f8f8f8;padding:5px 9px;border-radius:4px}
 .wa-point-values>div{display:flex;justify-content:space-between;gap:8px;padding:4px 0;font-size:12px}.wa-point-values dt{color:#666}.wa-point-values dd{margin:0;font-variant-numeric:tabular-nums}
+.wa-pass-preview{margin-bottom:16px}
+.wa-pass-preview label{display:grid;grid-template-columns:1fr auto;gap:6px;font-size:12px;color:#555}
+.wa-pass-preview output{font-variant-numeric:tabular-nums}
+.wa-pass-preview input{grid-column:1/-1;width:100%;accent-color:#fa8c16;margin:2px 0 8px}
+.wa-sample-ticks{position:relative;height:6px;margin:-5px 8px 8px}
+.wa-sample-ticks span{position:absolute;top:0;width:1px;height:4px;background:#a4a4a4}
+.wa-sample-ticks span.active{width:2px;height:6px;background:#d46b08}
+.wa-pass-preview .wa-sample-select{grid-template-columns:auto minmax(0,1fr);align-items:center;margin-bottom:8px}
+.wa-sample-select select{min-width:0;font-size:12px;font-variant-numeric:tabular-nums}
 .wa-point-edit{margin-top:16px}.wa-point-edit>summary{cursor:pointer;font-size:12px}
 .weld-control-point-form .dialog-body{max-height:calc(100dvh - 165px);overflow:auto}.weld-control-point-form h3{margin:16px 0 8px;font-size:14px}
 
@@ -91,6 +116,10 @@
 
 .wa-offset-row{display:grid;grid-template-columns:minmax(68px,1fr) minmax(0,.8fr) auto minmax(86px,1fr);align-items:center;gap:6px;padding:4px 0;color:#555;font-size:12px}
 .wa-offset-value{text-align:right;font-variant-numeric:tabular-nums}
+.wa-actual-pose{grid-template-columns:minmax(68px,1fr) minmax(0,.8fr) minmax(86px,1fr);column-gap:12px}
+.wa-actual-pose .wa-offset-value{color:#222}
+.wa-actual-pose-header{color:#666}
+.wa-actual-pose-header span:nth-child(2){text-align:right}
 .wa-offset-input{display:flex;align-items:center;gap:3px;border:1px solid #ddd;border-radius:3px;padding:0 4px;min-width:0}
 .wa-offset-input:focus-within{outline:1px solid #fa8c16;border-color:#fa8c16}
 .wa-offset-input input{width:100%;min-width:0;min-height:27px;border:0;background:transparent;padding:2px}
@@ -103,3 +132,7 @@
 
 .weld-remove-action{opacity:.58}
 .weld-point-row:hover>.weld-remove-action,.weld-remove-action:focus-visible{opacity:1}
+.wa-playback{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-bottom:10px;font-size:12px;color:#555}
+.wa-playback p,.wa-playback label{flex-basis:100%;margin:0}
+.wa-playback label{grid-template-columns:auto minmax(0,1fr);align-items:center}
+.wa-playback .btn{min-height:25px;padding:0 7px}

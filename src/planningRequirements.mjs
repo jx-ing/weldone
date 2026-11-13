@@ -2,6 +2,7 @@ import {deviceControlCapabilities} from './deviceControlModel.mjs';
 import {DEFAULT_INTERFERENCE_DISTANCE} from './planningConfiguration.mjs';
 
 export const MAX_PLANNING_WELDS = 2500;
+export const VERTICAL_WELD_POSITION = 'PF · 立向上焊';
 
 export function roundWeldLeg(value) {
   return Number.isFinite(value) && value > 0 ? Math.max(0.5, Math.round(value * 2) / 2) : null;
@@ -9,12 +10,13 @@ export function roundWeldLeg(value) {
 
 export function weldPositionCode(value) {
   const position = String(value ?? '').trim();
-  if (/^[A-Z]{2}(?:\s|$)/.test(position)) return position.slice(0, 2);
+  if (/^[A-Z]{2}(?:\s|$)/.test(position)) return position.startsWith('PG') ? 'PF' : position.slice(0, 2);
   if (['平角焊', '横角焊'].includes(position)) return 'PB';
-  if (['立焊', '立角焊', '立向上焊'].includes(position)) return 'PF';
-  if (position === '立向下焊') return 'PG';
+  if (['立焊', '立角焊', '立向上焊', '立向上焊位置', '立向下焊', '立向下焊位置'].includes(position)) return 'PF';
   return position;
 }
+
+export const normalizeWeldPosition=position=>weldPositionCode(position)==='PF'?VERTICAL_WELD_POSITION:position;
 
 export function legacyWeldForm(value) {
   if (value === '搭接' || value === '搭接接头') return '搭接焊缝';
@@ -42,6 +44,7 @@ function migrateProcessPass({crater,holeFill,...pass}) {
 
 export function migrateProcessPasses(recipe) {
   const value=migrateProcessPass(recipe);
+  if(value.position!==undefined)value.position=normalizeWeldPosition(value.position);
   if(Array.isArray(value.processLayers))value.processLayers=value.processLayers.map(layer=>({...layer,passes:layer.passes.map(migrateProcessPass)}));
   return value;
 }
@@ -69,7 +72,8 @@ export function planningContext(workspace) {
     deviceCapabilities.structuredLightPrecision=hardware.precisionCameras.structuredLight?.enabled===true;
   }
   if(workspace.deviceControl)Object.assign(deviceCapabilities,deviceControlCapabilities(workspace.deviceControl));
-  return {...workspace.planningSettings,planningRevision:3,deviceCapabilities,activeDevice,requireLibraryTemplate:true};
+  const settings=workspace.planningSettings??{},merge=settings.mergeParameters??{};
+  return {...settings,topologyVersion:1,weldPreprocessing:settings.weldPreprocessing??{outerClearance:settings.wrapParameters?.outerClearance??0},mergeParameters:{...merge,enabled:true,angleEnabled:true,grooveEnabled:true},planningRevision:3,deviceCapabilities,activeDevice,requireLibraryTemplate:true};
 }
 
 const deviceFields = ['welderModel','robotModel','material','wireType','wireDiameter','gas'];
@@ -84,13 +88,13 @@ export function strategyScopeIssue(weld, settings) {
   if (weld.templateRequired) return '合并段的工艺条件不同，仅支持焊接模板规划';
   const segments = weld.segments?.length ? weld.segments : [weld];
   if (!['角焊缝', '搭接焊缝'].includes(weldForm(weld)) ||
-      segments.some(s => !['PB', 'PF', 'PG'].includes(weldPositionCode(s.position ?? weld.position))) ||
+      segments.some(s => !['PB', 'PF'].includes(weldPositionCode(s.position ?? weld.position))) ||
       !['无坡口', 'I形', 'I 形', 'V形', 'V 形', '喇叭形'].includes(weld.groove?.type ?? '无坡口')) {
     return '该焊缝超出策略规划范围，请创建或选择焊接模板';
   }
   const ends = settings.interferenceEndParameters ?? {};
-  const vertical = segments.some(s => ['PF', 'PG'].includes(weldPositionCode(s.position ?? weld.position)));
+  const vertical = segments.some(s => weldPositionCode(s.position ?? weld.position)==='PF');
   const limit = vertical ? ends.verticalStartDistance ?? 20 : Math.max(ends.startDistance ?? DEFAULT_INTERFERENCE_DISTANCE, ends.endDistance ?? DEFAULT_INTERFERENCE_DISTANCE);
-  if (weld.length < limit) return '焊缝长度小于端点变姿态距离，仅支持焊接模板规划';
+  if (!weld.collisionFragment && weld.length < limit) return '焊缝长度小于端点变姿态距离，仅支持焊接模板规划';
   return '';
 }

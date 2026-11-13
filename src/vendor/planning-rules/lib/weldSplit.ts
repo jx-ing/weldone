@@ -585,19 +585,20 @@ function computeWeldSplit(
   const stripExt = (c: ExtCandidate | null): (SplitTrigger & { 延伸到: number[] }) | null =>
     c ? { 规则: c.规则, 关联零件: c.关联零件, 距离: c.距离, 延伸到: c.延伸到 } : null
 
+  const outputPoint = (p: THREE.Vector3, length: number) => length < .1 ? p.toArray() : [r2(p.x), r2(p.y), r2(p.z)]
   const buildSub = (
     index: number, pts: THREE.Vector3[], length: number, closed: boolean,
     t0v: THREE.Vector3, t1v: THREE.Vector3,
   ) => ({
     id: `${weld.id}-${index}`,
     index,
-    length: r1(length),
+    length: r1(length) || length,
     closed,
-    start: [r2(pts[0].x), r2(pts[0].y), r2(pts[0].z)],
-    end: [r2(pts[pts.length - 1].x), r2(pts[pts.length - 1].y), r2(pts[pts.length - 1].z)],
+    start: outputPoint(pts[0], length),
+    end: outputPoint(pts[pts.length - 1], length),
     startTangent: r2vecT(t0v),
     endTangent: r2vecT(t1v),
-    points: pts.map((p) => [r2(p.x), r2(p.y), r2(p.z)]),
+    points: pts.map((p) => outputPoint(p, length)),
     起点来源: { 类型: '打断点' } as SubWeldEndSource,
     终点来源: { 类型: '打断点' } as SubWeldEndSource,
   })

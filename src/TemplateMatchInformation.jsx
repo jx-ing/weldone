@@ -195,24 +195,24 @@ export default function TemplateMatchInformation({templates,onSave,onCancel,meas
  const changeRules=values=>setRuleDrafts(previous=>({...previous,[selectedId]:{...previous[selectedId],...values}}));
 
  const change=values=>{setDrafts(previous=>({...previous,[selectedId]:{...previous[selectedId],...values}}));setError('');};
- function save(event){
+ async function save(event){
   event.preventDefault();
   const changed=templates.filter(value=>value.id===selectedId&&(value.matchParameters?.version!==2||!value.matchParameters.corners.every(corner=>'angleMin' in corner&&'angleMax' in corner))||JSON.stringify(drafts[value.id])!==JSON.stringify(initialMatch(value))||JSON.stringify(ruleDrafts[value.id])!==JSON.stringify(value.requirementsMatch));
   for(const value of changed){const candidate={...value,shortSegmentMatch:true,matchParameters:drafts[value.id],requirementsMatch:ruleDrafts[value.id]};const issues=[...validateTemplate(candidate),...geometryRuleErrors(candidate)];if(issues.length){setSelectedId(value.id);setError(issues.join('；'));return;}}
-  const result=onSave(changed.map(value=>({...value,shortSegmentMatch:true,requirementsMatch:structuredClone(savedGeometryRules(ruleDrafts[value.id])),matchParameters:structuredClone(drafts[value.id]),updatedAt:new Date().toISOString()})));if(result)setError(result);
+  const result=await onSave(changed.map(value=>({...value,shortSegmentMatch:true,requirementsMatch:structuredClone(savedGeometryRules(ruleDrafts[value.id])),matchParameters:structuredClone(drafts[value.id]),updatedAt:new Date().toISOString()})));if(result)setError(result);
  }
  return <form className="template-match-editor" onSubmit={save}>
   <div className="matching-editor-body">
    {!template?<p>暂无焊接模板。</p>:<>
     <div className="matching-editor-title">{templates.length>1?<Field label="焊接模板"><Select label="选择匹配参数模板" value={selectedId} values={templates.map(value=>[value.id,value.name])} onChange={setSelectedId}/></Field>:<strong>{template.name}</strong>}<span>{template.closure==='closed'?'闭合':'开放'} · {template.segments.length} 段 · {template.corners.length} 个转角</span></div>
     <section aria-label="基本匹配参数"><h3>基本匹配参数</h3><div className="matching-field-grid three">
-     <Field label="焊脚高度"><NumberField label="匹配焊脚高度" min={.5} step={.5} value={draft.leg} unit="mm" onChange={leg=>change({leg})}/></Field>
+     <Field label="焊脚高度"><NumberField label="匹配焊脚高度" min={draft.calculatedLeg?0:.5} step={draft.calculatedLeg?'any':.5} value={draft.leg} unit="mm" onChange={leg=>change({leg})}/></Field>
      <Field label="焊接位置"><Select label="匹配焊接位置" value={draft.position??''} placeholder="各段不同（保留原值）" values={POSITIONS.map(value=>[value,processPositionLabel(value)])} onChange={position=>change({position})}/></Field>
     </div></section>
     <TemplateSegmentMatchFields template={template} parameters={draft} rules={rules} change={change} changeRules={changeRules} evidence={evidence}/>
     <TemplateCornerMatchFields template={template} parameters={draft} change={change}/>
     {rules&&<GeometryMatchFields rules={rules} changeRules={changeRules} holeFlags={{start:template.startHole,end:template.endHole}}/>}
-    <section aria-label="坡口与过焊孔匹配参数"><h3>坡口与过焊孔</h3><div className="matching-field-grid three">
+    <section aria-label="坡口与过焊孔匹配参数"><h3>坡口与过焊孔</h3>{draft.groove.type==='无坡口'&&<p className="matching-editor-note">选择坡口类型后可填写对应尺寸。</p>}<div className="matching-field-grid three">
      <GrooveFields prefix="匹配" value={draft.groove} onChange={groove=>change({groove})}/>
      {[['startHole','起点过焊孔'],['endHole','终点过焊孔']].map(([key,label])=><Field key={key} label={label}><Select label={'匹配'+label} value={String(draft[key])} values={[[ 'false','无'],['true','有']]} onChange={value=>change({[key]:value==='true'})}/></Field>)}
     </div></section>

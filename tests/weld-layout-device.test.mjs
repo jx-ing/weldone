@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Vector3} from 'three';
+import {BoxGeometry,Vector3} from 'three';
 import {applyTemplateToWeld,migrateDraft,newWholeTemplateFromWeld,point} from '../src/templateModel.mjs';
 import {geometryRulesFromWeld,geometryRuleMismatches} from '../src/templateGeometryRules.mjs';
 import {planningContext} from '../src/planningRequirements.mjs';
-import {copyWeldLayersToTemplate,newWeldLayer,nextWeldLayer,nextWeldPass,removeWeldLayoutItem,validWeldLayerLayout,weldLayerLayout,weldLayerPassPaths,weldLayerTreeGroups} from '../src/weldLayerLayout.mjs';
-import {weldPassMeshGeometry} from '../src/weldPassMesh.mjs';
+import {copyWeldLayersToTemplate,newWeldLayer,nextWeldLayer,nextWeldPass,removeWeldLayoutItem,updateWeldLayoutPoint,validWeldLayerLayout,weldLayerLayout,weldLayerPassPaths,weldLayerTreeGroups,weldPointPosition} from '../src/weldLayerLayout.mjs';
+import {orientWeldSections,weldPassMeshGeometry,weldSectionSigns,weldSegmentPass,weldSolidTest} from '../src/weldPassMesh.mjs';
 
 test('规划设备能力独立于工艺库设备，旧相机配置可迁移',()=>{
  const profile={id:'library',enabled:true,applicability:{welderModel:'库设备'},hardware:{
@@ -51,7 +51,7 @@ test('后续层道直接继承第一道的起终点与姿态，并叠加自身�
 test('层道轨迹使用实际高度和偏移，保留 CAD 折点并经过手动控制点',()=>{
  const weld={id:'W002',enabled:true,closure:'open',segments:[{geometry:'曲线',pathPoints:[[0,0,0],[50,0,5],[100,0,0]]}]};
  const layout=weldLayerLayout(weld,{ready:false},[],[],{});
- assert.deepEqual(weldLayerPassPaths(weld,layout),[]);
+ assert.deepEqual(weldLayerPassPaths(weld,layout)[0].positions,weld.segments[0].pathPoints);
  const second=nextWeldLayer(weld,layout);
  layout.push(second);
  second.height=3;
@@ -68,6 +68,21 @@ test('层道轨迹使用实际高度和偏移，保留 CAD 折点并经过手动
  const bend=derived.positions.find(position=>position[0]===50);
  assert(Math.abs(bend[1]-2)<1e-9);
  assert(bend[2]>12&&bend[2]<13);
+});
+
+test('单道位置偏移预览带动焊道，经过同一里程处的偏移控制点',()=>{
+ const weld={id:'W006',enabled:true,leg:4,closure:'open',segments:[{geometry:'直线',pathPoints:[[0,0,0],[100,0,0]]}]};
+ const saved=weldLayerLayout(weld,{ready:false},[],[],{});
+ const [pass]=saved[0].passes;
+ const start=pass.points[0];
+ const preview=updateWeldLayoutPoint(saved,pass.id,{id:start.id,offset:{x:5,y:3,z:4}});
+ const expected=[5,3,4];
+ assert.deepEqual(weldPointPosition(weld,preview,pass.id,start.id),expected);
+ assert.deepEqual(weldLayerPassPaths(weld,preview)[0].positions,[expected,[100,0,0]]);
+ assert.deepEqual(weldLayerPassPaths(weld,saved)[0].positions,weld.segments[0].pathPoints);
+ const control={...point('control',1,0),referenceId:start.id,offset:{x:0,y:10,z:0}};
+ const withControl=updateWeldLayoutPoint(preview,pass.id,control,true);
+ assert.deepEqual(weldLayerPassPaths(weld,withControl)[0].positions,[expected,[5,13,4],[100,0,0]]);
 });
 
 test('删除新增层、道和手动点位，保留自动锚点并避免重用现有名称',()=>{
@@ -129,6 +144,23 @@ test('焊道三角截面沿接头两面展开，两个焊脚的实际长度相�
  const cap=Array.from(points.slice(-18,-9)).map(value=>value===0?0:value);
  assert.deepEqual(cap,[0,0,0,0,-6,0,0,0,6]);
  assert.equal(geometry.index.count,24);
+});
+
+test('三角焊脚避开两块零件实体，即使两侧面的法向均反向',()=>{
+ const bottom=new BoxGeometry(100,40,8).translate(0,0,-4);
+ const upright=new BoxGeometry(80,8,20).translate(0,-4,10);
+ const contains=weldSolidTest([{geometry:bottom},{geometry:upright}]);
+ const world=point=>new Vector3(...point);
+ assert(contains(world([0,-1,1])));
+ assert(contains(world([0,1,-1])));
+ assert(!contains(world([0,1,1])));
+ for(const pathPoints of [[[-40,0,0],[40,0,0]],[[40,0,0],[-40,0,0]]]){
+  const pass=weldSegmentPass({pathPoints,referenceNormal:[0,0,-1],subFaceNormal:[0,-1,0]},6);
+  const oriented=orientWeldSections(pass,[weldSectionSigns(pass,contains,world)]);
+  const geometry=weldPassMeshGeometry(oriented,world);
+  const cap=Array.from(geometry.attributes.position.array.slice(-18,-9)).map(value=>value||0);
+  assert.deepEqual(cap,[pathPoints[0][0],0,0,pathPoints[0][0],6,0,pathPoints[0][0],0,6]);
+ }
 });
 
 test('过焊孔尺寸和端点间隙按一位小数记录并匹配，无过焊孔显示 0.0 mm',()=>{

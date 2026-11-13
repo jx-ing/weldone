@@ -1,6 +1,6 @@
 import {EXAMPLE_MODEL} from './manualWeldModel.mjs';
 
-const modelFields=['welds','selected','geometryProcessing','previousGeometryProcessing','rejectedGeometryWelds','manualEditHistory','manualSplitHistory'];
+const modelFields=['welds','selected','geometryProcessing','previousGeometryProcessing','rejectedGeometryWelds','manualEditHistory','manualSplitHistory','collisionOriginals'];
 export const validStepModel=reference=>typeof reference?.sourceSha256==='string'&&/^[a-f0-9]{64}$/.test(reference.sourceSha256);
 export const isDemoModel=workspace=>workspace.model===EXAMPLE_MODEL&&!workspace.stepModel;
 export const stepModelKey=workspace=>workspace.stepModel?.sourceSha256??'built-in:'+workspace.model;
@@ -11,7 +11,6 @@ function openStore(){
   request.onupgradeneeded=()=>{
    const db=request.result;
    if(!db.objectStoreNames.contains('models'))db.createObjectStore('models',{keyPath:'sourceSha256'});
-   if(!db.objectStoreNames.contains('workspaces'))db.createObjectStore('workspaces');
    db.createObjectStore('neighborhoods');
   };
   request.onsuccess=()=>resolve(request.result);
@@ -47,14 +46,9 @@ export async function loadStepMesh(name,reference){
  return response.json();
 }
 
-export async function switchStepWorkspace(current,model,stepModel){
+export function switchStepWorkspace(current,model,stepModel){
  const target={model,...(stepModel?{stepModel}:{})};
- const from=stepModelKey(current),to=stepModelKey(target);
- if(from===to)return current;
- const outgoing={model:current.model,...Object.fromEntries(modelFields.filter(key=>key in current).map(key=>[key,current[key]]))};
- await access('workspaces','readwrite',store=>store.put(outgoing,from));
- const incoming=await access('workspaces','readonly',store=>store.get(to));
- const next={...current,...target};
+ const next={...current};
  for(const key of ['stepModel',...modelFields])delete next[key];
- return {...next,...target,welds:[],selected:'',...incoming};
+ return {...next,...target,welds:[],selected:''};
 }

@@ -1,11 +1,10 @@
-import React,{useEffect,useRef,useState} from 'react';
+import React,{useEffect,useState} from 'react';
 import {FileInput,FileOutput} from 'lucide-react';
 import {createPortal} from 'react-dom';
 import {Modal} from './TemplateLibrary';
 import {exportDeviceLibrary,importDeviceLibraries} from './processLibraryTransfer.mjs';
 
-export default function ProcessLibraryActions({entries,deviceProfiles=[],onImport,notify}){
- const file=useRef();
+export default function ProcessLibraryActions({entries,deviceProfiles=[],onImport,notify,file}){
  const [target,setTarget]=useState(null),[selected,setSelected]=useState(null);
  useEffect(()=>{setTarget(document.querySelector('.process-library-view .bar-actions'));},[]);
  function download(){
@@ -26,15 +25,15 @@ export default function ProcessLibraryActions({entries,deviceProfiles=[],onImpor
   if(!files.length)return;
   try{
    const documents=await Promise.all(files.map(async file=>JSON.parse(await file.text())));
-   const error=onImport(importDeviceLibraries(entries,deviceProfiles,documents));
+   const error=await onImport(importDeviceLibraries(entries,deviceProfiles,documents));
    if(error)throw Error(error);
    notify('设备信息与工艺参数库已导入');
-  }catch(error){notify(error.message);}
+  }catch(error){notify(error.message,'error');}
  }
  const toggle=id=>setSelected(ids=>ids.includes(id)?ids.filter(value=>value!==id):[...ids,id]);
  return <>{target&&createPortal(<div className="process-transfer-tools">
-  <button className="icon" type="button" aria-label="导入工艺参数库" title="导入工艺参数库" onClick={()=>file.current.click()}><FileInput size={18}/></button>
-  <button className="icon" type="button" aria-label="导出工艺参数库" title="导出工艺参数库" disabled={!deviceProfiles.length} onClick={()=>setSelected([])}><FileOutput size={18}/></button>
+  <button className="btn" type="button" aria-label="导入工艺参数库" title="导入工艺参数库" onClick={()=>file.current.click()}><FileInput size={16}/>导入</button>
+  <span className="export-action" data-tooltip={!deviceProfiles.length?'无数据可导出':undefined} tabIndex={!deviceProfiles.length?0:undefined} aria-label={!deviceProfiles.length?'无数据可导出':undefined} title={!deviceProfiles.length?'无数据可导出':undefined}><button className="btn" type="button" aria-label="导出工艺参数库" title={deviceProfiles.length?'导出工艺参数库':undefined} disabled={!deviceProfiles.length} onClick={()=>setSelected([])}><FileOutput size={16}/>导出</button></span>
   <input hidden multiple ref={file} type="file" accept=".json,application/json" onChange={read}/>
  </div>,target)}{selected&&<Modal title="导出工艺参数库" onClose={()=>setSelected(null)}>
   <div className="tpl-confirm-body">

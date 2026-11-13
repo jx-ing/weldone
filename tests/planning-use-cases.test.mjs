@@ -1,18 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {MIXED_SCAN_FIELDS,settingsDefaults,serializeSettings,SETTINGS_TABS,updateProjectPlanning,useCaseSettingsErrors,wrapChoice,resolveEndpointPose} from '../src/planningSettingsModel.mjs';
-import {planningSettingsErrors,geometryOptionsForPlanning,samplingAvoidanceValues} from '../src/planningConfiguration.mjs';
+import {MIXED_SCAN_FIELDS,settingsDefaults,serializeSettings,SETTINGS_TABS,updateProjectPlanning,useCaseSettingsErrors,useCaseSettingsIssues,wrapChoice,resolveEndpointPose} from '../src/planningSettingsModel.mjs';
+import {planningSettingsErrors,planningSettingsIssues,geometryOptionsForPlanning} from '../src/planningConfiguration.mjs';
 import {DEFAULT_GEOMETRY_OPTIONS,convertGeometryPlan,mergeFeatureWithinSize} from '../src/geometryProcessingModel.mjs';
 
 test('工艺规划设置可保存并兼容旧项目配置',()=>{
- assert.deepEqual(SETTINGS_TABS.map(v=>v[1]),["全局工艺参数","拓扑调整","路径设置","跟踪设置","测量参数设置"]);
+ assert.deepEqual(SETTINGS_TABS.map(v=>v[1]),["全局焊脚设置","拓扑调整","路径设置","跟踪设置","测量参数设置"]);
  const baseline={intermittentParameters:{enabled:true},splitParameters:{enabled:true,length:100,gapThreshold:25},visionParameters:{twoFaceSpeed:123},samplingAvoidance:{enabled:false,step:7},custom:'保留'};
- const draft=settingsDefaults(baseline);draft.visionParameters.twoFaceSpeed=999;draft.wrapParameters.flatEnabled=false;
+ const draft=settingsDefaults(baseline);draft.wrapParameters.flatEnabled=false;
  const saved=serializeSettings(draft);
  assert.equal('intermittentParameters' in saved,false);
- assert.deepEqual(saved.splitParameters,{gapThreshold:25,edgeThreshold:null,autoDeleteUnavoidable:false,rulesVersion:3});
- assert.equal(saved.visionParameters.twoFaceSpeed,999);
- assert.equal(saved.samplingAvoidance.step,7);
+ assert.deepEqual(saved.splitParameters,{gapThreshold:25,edgeThreshold:null,autoDeleteUnavoidable:true,rulesVersion:3});
+ assert.equal(saved.visionParameters,undefined);
+ assert.equal(saved.samplingAvoidance,undefined);
  assert.equal(saved.custom,'保留');
  assert.equal(saved.wrapParameters.flatEnabled,false);
  assert.deepEqual(baseline.visionParameters,{twoFaceSpeed:123});
@@ -63,7 +63,7 @@ test('用例默认值和空值回退，设备默认已配置，明确无配置�
  assert.equal(d.wrapParameters.independentLength,30);assert.equal(d.wrapParameters.passHoleThreshold,35);assert.equal(d.wrapParameters.gapThreshold,350);
  assert.equal(d.mergeParameters.angleMin,60);assert.equal(d.mergeParameters.angleMax,120);assert.equal(d.mergeParameters.passHoleSize,15);assert.equal(d.mergeParameters.maxLength,1500);assert.equal(d.intermittentParameters,undefined);
  assert.deepEqual(d.trackingParameters,{laserEnabled:true,arcEnabled:true,minLineLength:160,minArcDiameter:160,minEdgeWidth:10,rulesVersion:2});
- assert.equal(d.visionParameters.twoFaceSpeed,null);assert.equal(d.splitParameters.gapThreshold,null);
+ assert.equal(d.visionParameters,undefined);assert.equal(d.splitParameters.gapThreshold,null);
  d.wrapParameters.independentLength='';d.interferenceEndParameters.startDistance='';d.interferenceEndParameters.startAngle='';
  const saved=serializeSettings(d);assert.equal(saved.wrapParameters.independentLength,30);assert.equal(saved.interferenceEndParameters.startDistance,35);assert.equal(saved.interferenceEndParameters.startAngle,38);
  const absent=settingsDefaults({}, {laserTracking:false,arcTracking:false});assert.equal(absent.trackingParameters.laserEnabled,false);assert.equal(absent.trackingParameters.arcEnabled,false);
@@ -86,11 +86,6 @@ test('合并过焊孔按严格小于阈值，等于15不合并；长度开关独
  const saved=serializeSettings(settingsDefaults());saved.mergeParameters.lengthEnabled=true;
  const options=geometryOptionsForPlanning(DEFAULT_GEOMETRY_OPTIONS,saved);assert.equal(options.maxMergeLength,1500);assert.equal(options.mergePassHoleInclusive,false);
  const hole={特征类型:'圆',圆类型:'凹圆弧',L1:15,L2:12};assert.equal(mergeFeatureWithinSize(hole,15,false),false);assert.equal(mergeFeatureWithinSize({...hole,L1:14.9},15,false),true);
-});
-test('采样总开关和步长在子参数编辑后保留，禁用轴可保留原范围',()=>{
- const d=settingsDefaults();d.samplingAvoidance.enabled=false;d.samplingAvoidance.step=5;d.samplingAvoidance.advance.min=90;d.samplingAvoidance.advance.max=-90;
- const child=samplingAvoidanceValues(d.samplingAvoidance);assert.equal(child.enabled,false);assert.equal(child.step,5);
- const saved=serializeSettings(d);assert.deepEqual(planningSettingsErrors(saved),[]);saved.samplingAvoidance.enabled=true;assert.ok(planningSettingsErrors(saved).some(e=>e.includes('最小值')));
 });
 test('包角决策覆盖三面交、两面交、30mm独立焊缝长度和350mm包角间隙',()=>{
  const p=settingsDefaults().wrapParameters,three={position:'PB',junctionType:'三面交',hasHole:true,holeSize:35,plateThickness:29.9},two={...three,junctionType:'两面交',gap:351};
@@ -125,4 +120,25 @@ test('转角合并必须有有效交点，间隙与延长距离按独立条件�
  assert.equal(rows(b,{flatContactGap:4}).length,2);
  assert.equal(rows(b,{angleMin:100,angleMax:120}).length,2);
  assert.equal(rows(member('B',[[12,3,1],[12,13,1]]),{grooveEnabled:false}).length,2);
+});
+
+test('设置校验定位跨页字段，逐项修正或停用规则后清除对应错误',()=>{
+ const draft=settingsDefaults({topologyVersion:1});
+ const validate=()=>{
+  const settings=serializeSettings(draft);
+  return [...planningSettingsIssues(settings),...useCaseSettingsIssues(settings)].map(issue=>issue.field);
+ };
+ draft.mergeParameters.angleMin=130;
+ draft.actionParameters.lineStep=0;
+ draft.wrapParameters.flatLPose.advance=361;
+ assert.deepEqual(validate(),['mergeParameters.angleMin','actionParameters.lineStep','wrapParameters.flatLPose.advance']);
+ draft.mergeParameters.enabled=false;
+ draft.wrapParameters.flatEnabled=false;
+ assert.deepEqual(validate(),['actionParameters.lineStep']);
+ assert.equal(serializeSettings(draft).mergeParameters.angleMin,130);
+ assert.equal(serializeSettings(draft).wrapParameters.flatLPose.advance,361);
+ draft.actionParameters.lineStep=6;
+ assert.deepEqual(validate(),[]);
+ draft.mergeParameters.enabled=true;
+ assert.deepEqual(validate(),['mergeParameters.angleMin']);
 });

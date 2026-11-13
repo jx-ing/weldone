@@ -14,7 +14,7 @@ export default function ProcessPointParameterTable({rows,kind,position,editing,o
  const {label}=PROCESS_POINT_GROUPS[kind];
  const corner=kind==='inner'?'内角':'外角';
  const flat=position==='PB';
- const verticalOuter=['PF','PG'].includes(position)&&kind==='outer';
+ const verticalOuter=position==='PF'&&kind==='outer';
  const offsetDiagram=flat
   ? ['/assets/process-library/flat-'+kind+'-corner-offset.png','平角焊'+corner+'转角点偏移示意图']
   : verticalOuter

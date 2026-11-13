@@ -1,7 +1,7 @@
-.template-library-view{--ps:clamp(.64px,calc(100vw / 1920),1px)}
+.template-library-view{--ps:1px}
 .template-library-view main{padding:calc(16 * var(--ps));gap:calc(12 * var(--ps))}
 .template-library-view .statusbar{display:none}
-.tpl-library.process-library{--ps:clamp(.64px,calc(100vw / 1920),1px);padding:0;overflow:hidden}
+.tpl-library.process-library{--ps:1px;padding:0;overflow:hidden}
 .tpl-project-sidebar{overflow:auto;min-height:0}
 .tpl-project-sidebar .process-sidebar-heading{gap:12px;font-size:calc(14 * var(--ps))}
 .tpl-project-sidebar .process-sidebar-heading img{width:16px;height:16px}

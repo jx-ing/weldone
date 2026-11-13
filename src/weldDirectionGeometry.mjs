@@ -1,3 +1,5 @@
+import {weldPositionCode} from './planningRequirements.mjs';
+
 const dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0),sub=(a,b)=>a.map((v,i)=>v-b[i]);
 const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
 export const validReferenceNormal=n=>Array.isArray(n)&&n.length===3&&n.every(Number.isFinite)&&Math.hypot(...n)>1e-9;
@@ -39,10 +41,64 @@ export function measureDirectedConnection(w,before,after,measureCorner){
   if(before?.pathPoints?.length&&after?.pathPoints?.length)return solveCorner(before,after,[before.endReferenceNormal,before.referenceNormal,after.startReferenceNormal,after.referenceNormal],w.cornerReferenceMode==='auto'?[]:[w.cornerReferenceNormal],measureCorner);
   return null;
 }
+// Check every leg so a path with both rising and falling vertical welds cannot be reversed into a valid pass.
+export function verticalTraversal(segments=[],position){
+  let rising=false,falling=false;
+  for(const segment of segments){
+    if(weldPositionCode(segment.position??position)!=='PF')continue;
+    const points=segment.pathPoints??[];
+    for(let index=1;index<points.length;index++){
+      const rise=points[index][2]-points[index-1][2];
+      if(rise>1e-6)rising=true;
+      if(rise< -1e-6)falling=true;
+      if(rising&&falling)return 'conflict';
+    }
+  }
+  return rising?'up':falling?'down':null;
+}
+export const verticalTraversalIssue='焊缝包含无法按同一方向向上焊接的立焊段，请先拆分焊缝';
+export function weldTravelReversed(weld){
+  const vertical=verticalTraversal(weld.segments,weld.position);
+  return vertical==='down'||vertical===null&&weld.direction==='反向';
+}
+export function normalizeVerticalWeld(weld){
+  const segments=weld.segments??[];
+  const vertical=segments.map(segment=>weldPositionCode(segment.position??weld.position)==='PF');
+  if(!vertical.includes(true))return weld;
+  const reverse=weldTravelReversed(weld);
+  const start=reverse?'end':'start',end=reverse?'start':'end';
+  const blocked=segments.map(()=>new Set());
+  for(const [index,upright] of vertical.entries()){
+    if(!upright)continue;
+    blocked[index].add(start);
+    const previous=index+(reverse?1:-1);
+    if(blocked[previous])blocked[previous].add(end);
+    else if(weld.closure==='closed')blocked[reverse?0:segments.length-1].add(end);
+  }
+  function clearWraps(segment,sides){
+    if(!sides.size)return segment;
+    const next={...segment};
+    for(const side of sides){
+      if(Object.hasOwn(next,side+'WrapMode'))next[side+'WrapMode']='none';
+      if(Object.hasOwn(next,side+'WrapKind'))next[side+'WrapKind']=null;
+    }
+    if(next.strategyWrapKind){
+      if(!next.startWrapKind&&!next.endWrapKind){delete next.strategyRole;delete next.strategyWrapKind;}
+      else next.strategyWrapKind='L';
+    }
+    return next;
+  }
+  const first=reverse?segments.length-1:0;
+  const next=clearWraps(weld,vertical[first]?new Set([start]):new Set());
+  return {...next,direction:reverse?'反向':'正向',segments:segments.map((segment,index)=>clearWraps(segment,blocked[index])),
+    ...(weld.attributeOverrides?.segments?{attributeOverrides:{...weld.attributeOverrides,
+      segments:weld.attributeOverrides.segments.map((segment,index)=>blocked[index]?.size?clearWraps(segment,blocked[index]):segment)}}:{})};
+}
 const reverseSegment=s=>({...s,pathPoints:s.pathPoints?.slice().reverse(),
   startReferenceNormal:s.endReferenceNormal,endReferenceNormal:s.startReferenceNormal,
   ...(s.endpointFacts?{endpointFacts:{...s.endpointFacts,start:s.endpointFacts.end,end:s.endpointFacts.start}}:{}),
-  startWrapMode:s.endWrapMode,endWrapMode:s.startWrapMode,mainEdgeStart:s.mainEdgeEnd,mainEdgeEnd:s.mainEdgeStart});
+  startWrapMode:s.endWrapMode,endWrapMode:s.startWrapMode,
+  startWrapKind:s.endWrapKind,endWrapKind:s.startWrapKind,mainEdgeStart:s.mainEdgeEnd,mainEdgeEnd:s.mainEdgeStart});
 const reverseEnds=w=>({completeStart:w.completeEnd,completeEnd:w.completeStart,startHole:w.endHole,endHole:w.startHole,
   startWrapMode:w.endWrapMode,endWrapMode:w.startWrapMode,
   ...(w.endpointFacts?{endpointFacts:{...w.endpointFacts,start:w.endpointFacts.end,end:w.endpointFacts.start}}:{})});
@@ -54,15 +110,15 @@ export function reverseWeldTraversal(w){
     cornerAngles:w.cornerAngles.slice().reverse(),closingCorner:reverseCorner(w.closingCorner)};
 }
 
-export function directedWeld(w,measureCorner){
+export function directedWeld(w,measureCorner,reverse=w&&weldTravelReversed(w)){
   if(!w)return w;
   if(w.pathDirectionResolved){
     if(!measureCorner||w.cornerGeometryMeasured)return w;
     const {direction,sourceSegmentIndices,...resolved}=w;
-    const measured=directedWeld({...resolved,pathDirectionResolved:false},measureCorner);
+    const measured=directedWeld({...resolved,pathDirectionResolved:false},measureCorner,false);
     return {...measured,direction,sourceSegmentIndices};
   }
-  const original=w.segments||[],reverse=w.direction==='反向';
+  const original=w.segments||[];
   const sourceSegmentIndices=original.map((_,i)=>i);if(reverse)sourceSegmentIndices.reverse();
   const segments=sourceSegmentIndices.map(i=>reverse?reverseSegment(original[i]):original[i]);
   const declaredAngles=reverse?[...(w.cornerAngles||[])].reverse().map(a=>Number.isFinite(a)?360-a:a):w.cornerAngles||[];

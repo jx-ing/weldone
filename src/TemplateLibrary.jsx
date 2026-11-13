@@ -19,6 +19,7 @@ import {validTemplateCaptureRange} from './templateCaptureRange.mjs';
 import {templateMatchParameters} from './templateMatchingParameters.mjs';
 import {geometryRuleErrors,geometryRulesFromWeld,savedGeometryRules,updateGeometryRuleMeasurements} from './templateGeometryRules.mjs';
 import EditorPage,{EditorExitNotice} from './EditorPage';
+import {EmptyState, PageHeader, formatLength, useModalScrollLock} from './WorkspaceUI';
 import {validTemplateCover} from './templateCoverModel.mjs';
 import {hasTemplateModelPath} from './templateModelEditing.mjs';
 import {localProcessBindingIssues} from './localTemplateConditions.mjs';
@@ -27,13 +28,14 @@ function Button({ children, icon: Icon, primary, ...props }) { return <button cl
 function Field({ label, children, hint }) { return <label className="tpl-field"><span>{label}</span>{children}{hint && <small>{hint}</small>}</label>; }
 
 export function Modal({ title, children, onClose, wide = false, closeLabel = '关闭模板窗口' }) {
+  useModalScrollLock();
   const ref = useRef(), closeRef = useRef(onClose); closeRef.current = onClose;
   useEffect(() => { const old = document.activeElement; ref.current?.focus(); const key = e => {
     if ([...document.querySelectorAll('[data-template-modal]')].at(-1) !== ref.current) return;
     if (e.key === 'Escape') { e.stopPropagation(); closeRef.current(); }
-    if (e.key === 'Tab') { const els = [...ref.current.querySelectorAll('button,input,select,textarea')].filter(el => !el.disabled && el.getClientRects().length); if (!els.length) return; if (e.shiftKey && (document.activeElement === els[0] || document.activeElement === ref.current)) { e.preventDefault(); els.at(-1).focus(); } else if (!e.shiftKey && (document.activeElement === els.at(-1) || document.activeElement === ref.current)) { e.preventDefault(); els[0].focus(); } }
+    if (e.key === 'Tab') { const els = [...ref.current.querySelectorAll('button,input,select,textarea,summary')].filter(el => !el.disabled && el.getClientRects().length); if (!els.length) return; if (e.shiftKey && (document.activeElement === els[0] || document.activeElement === ref.current)) { e.preventDefault(); els.at(-1).focus(); } else if (!e.shiftKey && (document.activeElement === els.at(-1) || document.activeElement === ref.current)) { e.preventDefault(); els[0].focus(); } }
   }; document.addEventListener('keydown', key); return () => { document.removeEventListener('keydown', key); old?.focus(); }; }, []);
-  return <div className="tpl-overlay"><section className={`tpl-modal ${wide ? 'wide' : ''}`} tabIndex={-1} ref={ref} data-template-modal role="dialog" aria-modal="true" aria-label={title}><header><strong>{title}</strong><button type="button" className="icon" aria-label={closeLabel} onClick={onClose}><X size={18}/></button></header>{children}</section></div>;
+  return <div className="tpl-overlay"><section className={`tpl-modal ${wide ? 'wide' : ''}`} tabIndex={-1} ref={ref} data-template-modal role="dialog" aria-modal="true" aria-label={title}><header><strong>{title}</strong><button type="button" className="icon" aria-label={closeLabel} title={closeLabel} onClick={onClose}><X size={18}/></button></header>{children}</section></div>;
 }
 
 export function TemplateEditor({initial,processLibrary=[],fixedOnly=false,isNew,backLabel,onSave,onClose,neighborhoodEvidence,neighborhoodSource,measureNeighborhood}) {
@@ -42,6 +44,7 @@ export function TemplateEditor({initial,processLibrary=[],fixedOnly=false,isNew,
   const [captureInput,setCaptureInput]=useState(initial.requirementsMatch?.captureRange);
   const automaticRules=useRef(initial.requirementsMatch);
   const [captureError,setCaptureError]=useState('');
+  const [renaming,setRenaming]=useState(false);
   function changeCaptureRange(range){
     setCaptureInput(range);
     if(!validTemplateCaptureRange(range)){
@@ -65,7 +68,7 @@ export function TemplateEditor({initial,processLibrary=[],fixedOnly=false,isNew,
   useEffect(()=>{if(scroll.current)scroll.current.scrollTop=0;},[activeTab]);
   function close(){exitAction.current=onClose;if(JSON.stringify(draft)!==pristine.current)setDiscard(true);else onClose();}
   useEffect(()=>{const navigate=event=>{if(JSON.stringify(liveDraft.current)===pristine.current)return;event.preventDefault();exitAction.current=event.detail.navigate;setDiscard(true);};const unload=event=>{if(JSON.stringify(liveDraft.current)!==pristine.current){event.preventDefault();event.returnValue='';}};window.addEventListener('template-library-navigate',navigate);window.addEventListener('beforeunload',unload);return()=>{window.removeEventListener('template-library-navigate',navigate);window.removeEventListener('beforeunload',unload);};},[]);
-  function save(e){e.preventDefault();if(captureError)return;const value=withoutLocalLengthBounds({...draft,...(!fixedOnly&&draft.type==='local'?{localConditionsVersion:1}:{}),enabled:draft.enabled!==false,segments:draft.segments.map(s=>detail?{...s}:{...s,minLength:segmentMinLength(draft,s),maxLength:segmentMaxLength(draft,s)}),corners:draft.corners.map(c=>detail?{...c}:{...c,angleSide:cornerSide(c)}),name:draft.name.trim(),position:draft.segments[0].position});const original=JSON.parse(pristine.current);if(value.sourceWeld&&(JSON.stringify(value.segments)!==JSON.stringify(original.segments)||JSON.stringify(value.requirementsMatch?.captureRange)!==JSON.stringify(original.requirementsMatch?.captureRange))){if(!modelCapture.current){setErrors(['请等待三维焊缝域模型加载完成后保存']);return;}try{value.cover=modelCapture.current({id:value.sourceWeld.id,leg:value.leg,segments:value.segments});}catch(error){setErrors([error.message]);return;}}const record=fixedOnly?fixedTemplateRecord(value):independentWeldTemplate({...value,...(value.requirementsMatch?{requirementsMatch:savedGeometryRules(value.requirementsMatch)}:{})});const baseIssues=!fixedOnly&&draft.type==='local'?localProcessBindingIssues(value,processLibrary):[];const issues=fixedOnly?validateFixed(record):[...baseIssues,...(isNew&&value.type==='whole'&&(value.createdFrom!=='process-planning'||!validTemplateCover(value.cover,value.sourceWeld))?['新建模板必须来自工艺规划中选中的焊缝及其模型截图']:[]),...validateTemplate(value),...geometryRuleErrors(value)];if(issues.length){setErrors([...new Set(issues)]);return;}const failure=onSave(record);if(failure)setErrors([failure]);}
+  async function save(e){e.preventDefault();if(captureError)return;const value=withoutLocalLengthBounds({...draft,...(!fixedOnly&&draft.type==='local'?{localConditionsVersion:1}:{}),enabled:draft.enabled!==false,segments:draft.segments.map(s=>detail?{...s}:{...s,minLength:segmentMinLength(draft,s),maxLength:segmentMaxLength(draft,s)}),corners:draft.corners.map(c=>detail?{...c}:{...c,angleSide:cornerSide(c)}),name:draft.name.trim(),position:draft.segments[0].position});const original=JSON.parse(pristine.current);if(value.sourceWeld&&(JSON.stringify(value.segments)!==JSON.stringify(original.segments)||JSON.stringify(value.requirementsMatch?.captureRange)!==JSON.stringify(original.requirementsMatch?.captureRange))){if(!modelCapture.current){setErrors(['请等待三维焊缝域模型加载完成后保存']);return;}try{value.cover=modelCapture.current({id:value.sourceWeld.id,leg:value.leg,segments:value.segments});}catch(error){setErrors([error.message]);return;}}const record=fixedOnly?fixedTemplateRecord(value):independentWeldTemplate({...value,...(value.requirementsMatch?{requirementsMatch:savedGeometryRules(value.requirementsMatch)}:{})});const baseIssues=!fixedOnly&&draft.type==='local'?localProcessBindingIssues(value,processLibrary):[];const issues=fixedOnly?validateFixed(record):[...baseIssues,...(isNew&&value.type==='whole'&&(value.createdFrom!=='process-planning'||!validTemplateCover(value.cover,value.sourceWeld))?['新建模板必须来自工艺规划中选中的焊缝及其模型截图']:[]),...validateTemplate(value),...geometryRuleErrors(value)];if(issues.length){setErrors([...new Set(issues)]);return;}const failure=await onSave(record);if(failure)setErrors([failure]);}
   const set=values=>{setDraft(d=>reconcileTemplateGeometry({...d,...values}));setErrors([]);};
   const Frame=isNew?Modal:EditorPage;
   if(detail&&isNew){
@@ -105,7 +108,12 @@ export function TemplateEditor({initial,processLibrary=[],fixedOnly=false,isNew,
   }
   if(detail){
     const workspace=<form onSubmit={save} className="tw-editor" onKeyDown={event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();event.currentTarget.requestSubmit();}}}>
-      <header className="tw-editor-header"><button type="button" className="btn tw-back" onClick={close}><ArrowLeft size={15}/>{isNew?'取消新建':backLabel||'返回列表'}</button><div className="tw-template-name"><input aria-label="模板名称" required maxLength={80} placeholder="请输入模板名称" value={draft.name} onChange={event=>{setDraft({...draft,name:event.target.value});setErrors([]);}}/><Pencil size={15}/></div><details className="tw-template-summary"><summary>{draft.closure==='closed'?'闭合':'开放'} · 焊脚 {draft.leg} mm · {draft.segments.length} 段 · {draft.layers.length} 层 {passCount} 道<Info size={13}/></summary><dl><dt>模板类型</dt><dd>焊缝模板</dd><dt>转角数量</dt><dd>{draft.cornerCount}</dd><dt>坡口类型</dt><dd>{draft.groove.type}</dd><dt>工艺点数</dt><dd>{pointCount}</dd></dl></details><span className="tw-save-state">{JSON.stringify(draft)===pristine.current?'已保存':'未保存修改'}</span><button type="submit" className="btn primary"><Save size={15}/>保存模板</button></header>
+      <PageHeader title={draft.name||'未命名模板'} breadcrumb={<><button type="button" onClick={close}>焊接模板库</button><span>/</span><span>{draft.project||'本地项目'}</span></>} actions={<>
+       <span className="tw-save-state">{JSON.stringify(draft)===pristine.current?'已保存':'未保存修改'}</span>
+       <button type="button" className="btn" onClick={()=>setRenaming(open=>!open)} aria-expanded={renaming}><Pencil size={14}/>重命名</button>
+       <button type="submit" className="btn primary"><Save size={15}/>保存模板</button>
+      </>}><details className="tw-template-summary"><summary>{draft.closure==='closed'?'闭合':'开放'} · 焊脚 {draft.leg} mm · {draft.segments.length} 段 · {draft.layers.length} 层 {passCount} 道<Info size={13}/></summary><dl><dt>模板类型</dt><dd>焊缝模板</dd><dt>转角数量</dt><dd>{draft.cornerCount}</dd><dt>坡口类型</dt><dd>{draft.groove.type}</dd><dt>工艺点数</dt><dd>{pointCount}</dd></dl></details></PageHeader>
+      {renaming&&<label className="template-rename-field">模板名称<input autoFocus aria-label="模板名称" required maxLength={80} value={draft.name} onChange={event=>{setDraft({...draft,name:event.target.value});setErrors([]);}}/></label>}
       <TemplateWorkbench template={draft} onChange={next=>{setDraft(next);setErrors([]);}}/>
       {errors.length>0&&<div className="tpl-errors tw-errors" role="alert">{errors.map(error=><p key={error}>{error}</p>)}</div>}
     </form>;
@@ -131,56 +139,65 @@ export default function TemplateLibrary({templates,onUpdate,notify,onEditingChan
  const projectTemplates=templates.filter(t=>t.type==='whole'&&templateProjectName(t,project)===activeProject),visible=projectTemplates.filter(t=>t.name.toLowerCase().includes(appliedQuery.trim().toLowerCase()));
  const pageCount=Math.max(1,Math.ceil(visible.length/10)),currentPage=Math.min(page,pageCount),pageRows=visible.slice((currentPage-1)*10,currentPage*10),firstPage=Math.max(1,Math.min(currentPage-2,pageCount-4));
  function reset(){setQuery('');setAppliedQuery('');setPage(1);}
- function persist(next,message){const error=onUpdate(next);if(!error)notify(message);return error;}
+ async function persist(next,message){const error=await onUpdate(next);if(!error&&message)notify(message);return error;}
  function openProject(type,name=''){setProjectDialog({type,name});setProjectValue(type==='rename'?name:'');setProjectError('');}
- function selectProject(name){if(name!==project){try{const error=persist(selectTemplateProject(templates,project,projectNames,name),'已切换项目');if(error){notify(error);return;}}catch(error){notify(error.message);return;}}setSelectedProject(name);reset();}
- function saveProject(event){event.preventDefault();try{const values=projectDialog.type==='create'?createTemplateProject(templates,project,projectNames,projectValue):renameTemplateProject(templates,project,projectNames,projectDialog.name,projectValue),error=persist(values,projectDialog.type==='create'?'项目已新建':'项目已重命名');if(error){setProjectError(error);return;}setSelectedProject(projectValue.trim());reset();setProjectDialog(null);}catch(error){setProjectError(error.message);}}
+ async function selectProject(name){if(name!==project){try{const error=await persist(selectTemplateProject(templates,project,projectNames,name),'已切换项目');if(error){notify(error);return;}}catch(error){notify(error.message);return;}}setSelectedProject(name);reset();}
+ async function saveProject(event){event.preventDefault();try{const values=projectDialog.type==='create'?createTemplateProject(templates,project,projectNames,projectValue):renameTemplateProject(templates,project,projectNames,projectDialog.name,projectValue),error=await persist(values,projectDialog.type==='create'?'项目已新建':'项目已重命名');if(error){setProjectError(error);return;}setSelectedProject(projectValue.trim());reset();setProjectDialog(null);}catch(error){setProjectError(error.message);}}
  const projectRemovalIds=projectDialog?.type==='delete'?templates.filter(template=>template.type==='whole'&&
   templateProjectName(template,project)===projectDialog.name).map(template=>template.id):[];
  const projectImpact=projectRemovalIds.length?templateImpact?.(projectRemovalIds)??0:0;
  const removeImpact=remove?templateImpact?.([remove.id])??0:0;
  const deleteMessage=(message,count)=>count?message+'，已更新当前模型 '+count+' 条焊缝的模板匹配':message;
- function removeProject(){
+ async function removeProject(){
   try{
    const values=deleteTemplateProject(templates,project,projectNames,projectDialog.name,true);
-   const error=persist(values,deleteMessage('项目已删除',projectImpact));
+   const error=await persist(values,deleteMessage('项目已删除',projectImpact));
    if(error){setProjectError(error);return;}
    if(activeProject===projectDialog.name)setSelectedProject(values.templateProjects[0]||'');
    reset();
    setProjectDialog(null);
   }catch(error){setProjectError(error.message);}
  }
- function removeTemplate(){
-  const error=persist({templates:templates.filter(template=>template.id!==remove.id)},deleteMessage('模板已删除并保存',removeImpact));
+ function deleteTemplate(id){
+  return persist({templates:templates.filter(template=>template.id!==id)});
+ }
+ async function requestTemplateRemoval(template){
+  if(templateImpact?.([template.id])>0){
+   setRemoveError('');
+   setRemove({id:template.id,name:template.name});
+   return;
+  }
+  const error=await deleteTemplate(template.id);
+  if(error)notify(error,'error');
+ }
+ async function removeTemplate(){
+  const error=await deleteTemplate(remove.id);
   if(error){setRemoveError(error);return;}
   setRemove(null);
  }
- function saveEditor(value){const next=templates.map(t=>t.id===value.id?{...value,project:templateProjectName(value,project)}:t),error=persist({templates:next},'焊缝模板已保存至本机');if(!error)setEditor(null);return error;}
+ async function saveEditor(value){const next=templates.map(t=>t.id===value.id?{...value,project:templateProjectName(value,project)}:t),error=await persist({templates:next},'焊缝模板已保存至本机');if(!error)setEditor(null);return error;}
  const editorView=editor&&<TemplateEditor key={editor.initial.id} {...editor} processLibrary={processLibrary} onClose={()=>setEditor(null)} onSave={saveEditor}/>;
  if(editor&&!editor.isNew)return <div className="tpl-editor-host">{editorView}</div>;
- return <section className="tpl-library process-library" aria-label="焊接模板库列表">
- <aside className="process-sidebar tpl-project-sidebar" aria-label="项目列表"><div className="process-sidebar-heading"><img src="/assets/process-library/menu.svg" alt=""/><span>项目</span><button type="button" className="icon" aria-label="新建项目" title="新建项目" onClick={()=>openProject('create')}><Plus size={15}/></button></div>{projects.map(p=><div key={p.name} className={'tpl-project-row'+(p.name===activeProject?' active':'')}><button type="button" className="tpl-project-select" aria-pressed={p.name===activeProject} aria-label={'项目 '+p.name} title={p.name} onClick={()=>selectProject(p.name)}><Folder size={16}/><span>{p.name}</span><small>{p.count}</small></button><div className="tpl-project-actions"><button type="button" className="icon" aria-label={'重命名项目 '+p.name} title="重命名" onClick={()=>openProject('rename',p.name)}><Pencil size={12}/></button><button type="button" className="icon" aria-label={'删除项目 '+p.name} title="删除项目" onClick={()=>openProject('delete',p.name)}><Trash2 size={12}/></button></div></div>)}</aside>
- <div className="process-library-main tpl-project-main"><div className="process-breadcrumb"><span>焊接模板库</span><span>/</span><strong title={activeProject}>{activeProject||'暂无项目'}</strong><button type="button" className="icon template-capture-button" aria-label="焊接模板库设置" title="焊接模板库设置" onClick={()=>setCaptureSettings(true)}><Settings size={17}/></button></div>
+ return <><PageHeader title="焊接模板库" breadcrumb={activeProject?<span>{activeProject}</span>:undefined} actions={<Button icon={Settings} onClick={()=>setCaptureSettings(true)}>模板库设置</Button>}/><section className="tpl-library process-library" aria-label="焊接模板库列表">
+ <aside className="process-sidebar tpl-project-sidebar" aria-label="项目列表"><div className="process-sidebar-heading"><img src="/assets/process-library/menu.svg" alt=""/><span>项目</span><button type="button" className="icon" aria-label="新建项目" title="新建项目" onClick={()=>openProject('create')}><Plus size={15}/></button></div>{projects.map(p=><div key={p.name} className={'tpl-project-row'+(p.name===activeProject?' active':'')}><button type="button" className="tpl-project-select" aria-pressed={p.name===activeProject} aria-label={'项目 '+p.name} title={p.name} onClick={()=>selectProject(p.name)}><Folder size={16}/><span>{p.name}</span><small>{p.count}</small></button><div className="tpl-project-actions"><button type="button" className="icon" aria-label={'重命名项目 '+p.name} title="重命名" onClick={()=>openProject('rename',p.name)}><Pencil size={12}/></button><button type="button" className="icon danger-text" aria-label={'删除项目 '+p.name} title="删除项目" onClick={()=>openProject('delete',p.name)}><Trash2 size={12}/></button></div></div>)}</aside>
+ <div className="process-library-main tpl-project-main">
  <form className="process-filters" onSubmit={e=>{e.preventDefault();setAppliedQuery(query);setPage(1);}}><label>模板名称<input aria-label="搜索模板" placeholder="请输入模板名称" value={query} onChange={e=>setQuery(e.target.value)}/></label><button type="submit" className="process-query">查询</button><button type="button" className="process-query" onClick={reset}>重置</button></form>
- <div className="tpl-project-card-scroll"><div className="tpl-cards">{pageRows.map(t=><article className="tpl-card" key={t.id} aria-label={t.name}><div className="tpl-card-top"><span className="tpl-card-icon"><Route size={22}/></span><h3 title={t.name}>{t.name}</h3><button className="icon" aria-label={'删除 '+t.name} onClick={()=>{setRemoveError('');setRemove({id:t.id,name:t.name});}}><Trash2 size={15}/></button></div>{validTemplateCover(t.cover,t.sourceWeld)?<img className="tpl-model-cover" src={t.cover.dataUrl} alt={`${t.name} · 焊缝域模型封面`}/>:<div className="tpl-model-cover-empty">暂无焊缝域截图</div>}<footer><Button icon={Pencil} aria-label={'编辑模板 '+t.name} onClick={()=>setEditor({initial:t,isNew:false})}>编辑</Button><Button className="btn template-match-action" aria-label={'匹配信息 '+t.name} onClick={()=>setMatchingTemplate(t.id)}>匹配信息</Button><label className="tpl-enable"><input type="checkbox" aria-label={'启用模板 '+t.name} checked={t.enabled!==false} onChange={e=>persist({templates:templates.map(item=>item.id===t.id?{...item,enabled:e.target.checked}:item)},e.target.checked?'模板已启用':'模板已停用，不参与匹配')}/>启用</label></footer></article>)}</div>
- {!visible.length&&<div className="tpl-empty"><h3>{!activeProject?'暂无项目':projectTemplates.length?'未找到匹配的模板':'当前项目暂无焊缝模板'}</h3>{!activeProject?<Button onClick={()=>openProject('create')}>新建项目</Button>:projectTemplates.length?<Button onClick={reset}>重置查询</Button>:<><p>请在工艺规划中选择焊缝后创建模板</p><Button onClick={onGoPlanning}>前往工艺规划</Button></>}</div>}</div>
+ <div className="tpl-project-card-scroll"><div className="tpl-cards">{pageRows.map(t=><article className="tpl-card" key={t.id} aria-label={t.name} onDoubleClick={event=>{if(!event.target.closest('button,input,label'))setEditor({initial:t,isNew:false});}}><div className="tpl-card-top"><span className="tpl-card-icon"><Route size={22}/></span><h3 title={t.name}>{t.name}</h3><button className="icon danger-text" title="删除模板" aria-label={'删除 '+t.name} onClick={()=>requestTemplateRemoval(t)}><Trash2 size={15}/></button></div>{validTemplateCover(t.cover,t.sourceWeld)?<img className="tpl-model-cover" src={t.cover.dataUrl} alt={`${t.name} · 焊缝域模型封面`}/>:<p className="tpl-card-summary">{formatLength(t.leg)} mm · {t.segments.length} 段 · {t.closure==='closed'?'闭合':'开放'}</p>}<footer><Button icon={Pencil} aria-label={'编辑模板 '+t.name} onClick={()=>setEditor({initial:t,isNew:false})}>编辑</Button><Button className="btn template-match-action" aria-label={'匹配信息 '+t.name} onClick={()=>setMatchingTemplate(t.id)}>匹配信息</Button><label className="tpl-enable"><input type="checkbox" role="switch" aria-label={'启用模板 '+t.name} checked={t.enabled!==false} onChange={async e=>{const enabled=e.target.checked,error=await persist({templates:templates.map(item=>item.id===t.id?{...item,enabled}:item)},enabled?'模板已启用':'模板已停用，不参与匹配');if(error)notify(error,'error');}}/>{t.enabled===false?'已停用':'已启用'}</label></footer></article>)}</div>
+ {!visible.length&&<EmptyState text={!activeProject?'暂无项目':projectTemplates.length?'未找到匹配的模板':'当前项目暂无焊缝模板'} description={activeProject&&!projectTemplates.length?'在工艺规划中选择焊缝后创建模板。':undefined} actions={!activeProject?<Button onClick={()=>openProject('create')}>新建项目</Button>:projectTemplates.length?<Button onClick={reset}>重置查询</Button>:<Button onClick={onGoPlanning}>前往工艺规划</Button>}/> }
  {captureSettings&&<Modal title="焊接模板库设置" onClose={()=>setCaptureSettings(false)}>
-  <TemplateCaptureSettings value={captureRange} onCancel={()=>setCaptureSettings(false)} onSave={templateCaptureRange=>{
-   const error=persist({templateCaptureRange},'已保存局部模型截取范围');
+  <TemplateCaptureSettings value={captureRange} onCancel={()=>setCaptureSettings(false)} onSave={async templateCaptureRange=>{
+   const error=await persist({templateCaptureRange},'已保存局部模型截取范围');
    if(!error)setCaptureSettings(false);
    return error;
   }}/>
  </Modal>}
- <nav className="process-pagination" aria-label="模板分页"><button aria-label="上一页" disabled={currentPage===1} onClick={()=>setPage(currentPage-1)}><img src="/assets/process-library/previous.svg" alt=""/></button>{Array.from({length:Math.min(5,pageCount)},(_,i)=>firstPage+i).map(n=><button key={n} className={currentPage===n?'active':''} aria-current={currentPage===n?'page':undefined} onClick={()=>setPage(n)}>{n}</button>)}<button aria-label="下一页" disabled={currentPage===pageCount} onClick={()=>setPage(currentPage+1)}><img src="/assets/process-library/next.svg" alt=""/></button></nav></div>
+ {pageCount>1&&<nav className="process-pagination" aria-label="模板分页"><button aria-label="上一页" disabled={currentPage===1} onClick={()=>setPage(currentPage-1)}><img src="/assets/process-library/previous.svg" alt=""/></button>{Array.from({length:Math.min(5,pageCount)},(_,i)=>firstPage+i).map(n=><button key={n} className={currentPage===n?'active':''} aria-current={currentPage===n?'page':undefined} onClick={()=>setPage(n)}>{n}</button>)}<button aria-label="下一页" disabled={currentPage===pageCount} onClick={()=>setPage(currentPage+1)}><img src="/assets/process-library/next.svg" alt=""/></button></nav>}</div></div>
 
- {matchingTemplate&&<Modal title="焊接模板匹配参数" onClose={()=>setMatchingTemplate(null)}><TemplateMatchInformation measureNeighborhood={measureNeighborhood} templates={templates.filter(t=>t.id===matchingTemplate)} onCancel={()=>setMatchingTemplate(null)} onSave={changed=>{if(!changed.length){setMatchingTemplate(null);return '';}const byId=new Map(changed.map(t=>[t.id,t])),error=persist({templates:templates.map(t=>byId.get(t.id)||t)},'模板匹配参数已保存至本机');if(!error)setMatchingTemplate(null);return error;}}/></Modal>}
- {projectDialog&&<Modal title={projectDialog.type==='create'?'新建项目':projectDialog.type==='rename'?'重命名项目':'删除项目'} onClose={()=>setProjectDialog(null)}>{projectDialog.type==='delete'?<><div className="tpl-confirm-body">{projects.find(p=>p.name===projectDialog.name)?.count?`项目“${projectDialog.name}”包含 ${projects.find(p=>p.name===projectDialog.name).count} 个模板，是否自动清空模板并删除项目？`:`确定删除空项目“${projectDialog.name}”？`}{projectImpact>0&&<p>删除会影响当前模型的 {projectImpact} 条焊缝。工艺规划将重新匹配。</p>}</div>{projectError&&<div className="tpl-errors" role="alert">{projectError}</div>}<footer><Button onClick={()=>setProjectDialog(null)}>取消</Button><Button primary onClick={removeProject}>{projects.find(p=>p.name===projectDialog.name)?.count?'清空模板并删除':'确认删除项目'}</Button></footer></>:<form onSubmit={saveProject}><div className="tpl-confirm-body"><Field label="项目名称"><input aria-label="项目名称" required maxLength={80} autoFocus value={projectValue} onChange={e=>{setProjectValue(e.target.value);setProjectError('');}} placeholder="请输入项目名称"/></Field></div>{projectError&&<div className="tpl-errors" role="alert">{projectError}</div>}<footer><Button onClick={()=>setProjectDialog(null)}>取消</Button><button type="submit" className="btn primary">{projectDialog.type==='create'?'新建':'保存'}</button></footer></form>}</Modal>}
+ {matchingTemplate&&<Modal title="焊接模板匹配参数" onClose={()=>setMatchingTemplate(null)}><TemplateMatchInformation measureNeighborhood={measureNeighborhood} templates={templates.filter(t=>t.id===matchingTemplate)} onCancel={()=>setMatchingTemplate(null)} onSave={async changed=>{if(!changed.length){setMatchingTemplate(null);return '';}const byId=new Map(changed.map(t=>[t.id,t])),error=await persist({templates:templates.map(t=>byId.get(t.id)||t)},'模板匹配参数已保存至本机');if(!error)setMatchingTemplate(null);return error;}}/></Modal>}
+ {projectDialog&&<Modal title={projectDialog.type==='create'?'新建项目':projectDialog.type==='rename'?'重命名项目':'删除项目'} onClose={()=>setProjectDialog(null)}>{projectDialog.type==='delete'?<><div className="tpl-confirm-body">{projects.find(p=>p.name===projectDialog.name)?.count?`项目“${projectDialog.name}”包含 ${projects.find(p=>p.name===projectDialog.name).count} 个模板，是否自动清空模板并删除项目？`:`确定删除空项目“${projectDialog.name}”？`}{projectImpact>0&&<p>当前规划中有 {projectImpact} 条焊缝使用此项目的模板，删除后将重新匹配。</p>}</div>{projectError&&<div className="tpl-errors" role="alert">{projectError}</div>}<footer><Button onClick={()=>setProjectDialog(null)}>取消</Button><Button className="btn danger" onClick={removeProject}>{projects.find(p=>p.name===projectDialog.name)?.count?'清空模板并删除':'确认删除项目'}</Button></footer></>:<form onSubmit={saveProject}><div className="tpl-confirm-body"><Field label="项目名称"><input aria-label="项目名称" required maxLength={80} autoFocus value={projectValue} onChange={e=>{setProjectValue(e.target.value);setProjectError('');}} placeholder="请输入项目名称"/></Field></div>{projectError&&<div className="tpl-errors" role="alert">{projectError}</div>}<footer><Button onClick={()=>setProjectDialog(null)}>取消</Button><button type="submit" className="btn primary">{projectDialog.type==='create'?'新建':'保存'}</button></footer></form>}</Modal>}
  {remove&&<Modal title="删除焊缝模板" onClose={()=>setRemove(null)}>
-  <div className="tpl-confirm-body">
-   <p>确定删除“{remove.name}”？</p>
-   {removeImpact>0&&<p>删除会影响当前模型的 {removeImpact} 条焊缝。工艺规划将重新匹配。</p>}
-  </div>
+  <div className="tpl-confirm-body tpl-remove-in-use"><p>当前规划中有 {removeImpact} 条焊缝使用「{remove.name}」。删除后会重新匹配这些焊缝。</p></div>
   {removeError&&<div className="tpl-errors" role="alert">{removeError}</div>}
-  <footer><Button onClick={()=>setRemove(null)}>取消</Button><Button primary onClick={removeTemplate}>确认删除</Button></footer>
- </Modal>}</section>;
+  <footer><Button onClick={()=>setRemove(null)}>取消</Button><Button className="btn danger" onClick={removeTemplate}>确认删除</Button></footer>
+ </Modal>}</section></>;
 }

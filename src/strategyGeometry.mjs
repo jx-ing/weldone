@@ -15,7 +15,7 @@ const boundary = (weld,side) => {
  return {segment,position:side==='start'?points[0]:points.at(-1),tangent:unit(side==='start'?subtract(points[0],points[1]):subtract(points.at(-1),points.at(-2)))};
 };
 const weldArc=segment=>segment.geometry==='圆弧'||Number.isFinite(segment.shape?.radius);
-const isVertical=weld=>['PF','PG'].includes(weldPositionCode(weld.position));
+const isVertical=weld=>weldPositionCode(weld.position)==='PF';
 const actualCollision=(weld,settings)=>settings.splitParameters.autoDeleteUnavoidable&&weld.collisionResult?.verified===true;
 
 export function excludeVerifiedCollision(weld,settings,nextId){
@@ -25,10 +25,10 @@ export function excludeVerifiedCollision(weld,settings,nextId){
  if(!Array.isArray(data.unavoidableRanges)||!data.unavoidableRanges.length)return [weld];
  const ranges=data.unavoidableRanges.filter(range=>Array.isArray(range)&&range.length===2&&range.every(Number.isFinite)&&range[0]>=0&&range[0]<range[1]&&range[1]<=weld.length).sort((a,b)=>a[0]-b[0]);
  if(ranges.length!==data.unavoidableRanges.length)return [weld];
- const kept=[];
+ const kept=[],epsilon=1e-6;
  let start=0;
- for(const [from,to] of ranges){if(from-start>=.1)kept.push([start,from]);start=Math.max(start,to);}
- if(weld.length-start>=.1)kept.push([start,weld.length]);
+ for(const [from,to] of ranges){if(from-start>epsilon)kept.push([start,from]);start=Math.max(start,to);}
+ if(weld.length-start>epsilon)kept.push([start,weld.length]);
  const cut={type:null,breakReason:'避障打断'};
  return kept.map(([from,to])=>{
   const segments=sliceWeldSegments(weld,from,to);
@@ -48,7 +48,7 @@ export function strategyGeometryRows(rows,rawSettings){
    expanded.push(row);continue;
   }
   for(const part of excludeVerifiedCollision(weld,settings,nextId)){
-   const indices=part.segments.slice(1).flatMap((segment,index)=>weldArc(part.segments[index])&&weldArc(segment)&&Math.abs((part.cornerAngles?.[index]??180)-180)>.01?[index+1]:[]);
+   const indices=settings.weldPreprocessing?[]:part.segments.slice(1).flatMap((segment,index)=>weldArc(part.segments[index])&&weldArc(segment)&&Math.abs((part.cornerAngles?.[index]??180)-180)>.01?[index+1]:[]);
    if(!indices.length){expanded.push({weld:part,decision:{...decision,plannedSegments:part.segments}});continue;}
    const breakType={type:null,breakReason:'长度打断'};
    const boundaries=[0,...indices,part.segments.length];
@@ -60,6 +60,10 @@ export function strategyGeometryRows(rows,rawSettings){
   }
  }
 
+ if(settings.weldPreprocessing){
+  if(expanded.length>MAX_PLANNING_WELDS)throw Error('规划后的焊缝数量超过工作区上限');
+  return expanded;
+ }
  const buckets=new Map();
  for(const row of expanded){
   const {weld,decision}=row;

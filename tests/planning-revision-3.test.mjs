@@ -1,15 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {newTemplate,matchTemplate} from '../src/templateModel.mjs';
+import {Quaternion,Vector3} from 'three';
+import {weldTorchAxis} from '../src/templatePassOffsets.mjs';
+import {newTemplate,matchTemplate,migrateDraft,POSITIONS} from '../src/templateModel.mjs';
 import {geometryRulesFromWeld,shortSegmentRange} from '../src/templateGeometryRules.mjs';
 import {ensureProcessLayers,newProcessEntry,addProcessPass,updateProcessPass,validateProcessEntry} from '../src/processParameterModel.mjs';
 import {sharedCornerPoint,sharedCornerPointChanges} from '../src/processFeaturePoints.mjs';
 import {analyzeWeldMatch,planWorkspace,canPreviewWeld} from '../src/weldMatching.mjs';
 import {generateStrategyPlan} from '../src/strategyPlanning.mjs';
-import {settingsDefaults} from '../src/planningSettingsModel.mjs';
+import {settingsDefaults,serializeSettings,updateProjectPlanning} from '../src/planningSettingsModel.mjs';
 import {excludeVerifiedCollision,strategyGeometryRows} from '../src/strategyGeometry.mjs';
 import {planeSplitStations,multiSplitPreview,splitWeldPreview} from '../src/manualSplitModel.mjs';
 import {recipeConflicts,deviceLibraryUpdates,restoreDeviceLibrary,clearRemovedProcess} from '../src/processDeviceLibraries.mjs';
+import {weldLayerLayout,weldLayerTreeGroups,weldLayerPassPaths,updateWeldLayoutPoint,weldPointPlacement,copyWeldLayersToTemplate} from '../src/weldLayerLayout.mjs';
+
+import {directedWeld} from '../src/weldDirectionGeometry.mjs';
 
 const position='PB · 横角焊',joint='T 形接头';
 const segment=(a,b,y=0)=>({position,joint,geometry:'直线',length:b-a,pathPoints:[[a,y,0],[b,y,0]],mainPartId:'base',subPartId:'rib',referenceNormal:[0,0,1]});
@@ -21,6 +26,86 @@ const recipe=()=>{
   applicability:{...device.applicability,deviceProfileId:device.id},start:{current:210,voltage:24,time:.5},weld:{current:200,voltage:24,speed:400},end:{current:180,voltage:20,time:.5}});
 };
 const config={planningRevision:3,activeDevice:device,trackingParameters:{laserEnabled:false,arcEnabled:false}};
+
+test('匹配工艺中的每道 Y/Z 偏移直接用于工艺规划界面，并保留本地点位修改',()=>{
+ const w=source();
+ let p=recipe();
+ const layerId=p.processLayers[0].id;
+ p=addProcessPass(p,layerId);
+ const [first,second]=p.processLayers[0].passes;
+ p=updateProcessPass(p,first.id,{offset:{y:2,z:3}});
+ p=updateProcessPass(p,second.id,{offset:{y:-4,z:7}});
+ const decision=analyzeWeldMatch(w,[],[p],config);
+ assert.equal(decision.process.id,p.id);
+ const previous=weldLayerLayout(w,{ready:false},[],[],config);
+ const [base]=previous[0].passes;
+ w.pointLayout=updateWeldLayoutPoint(previous,base.id,{id:base.points[0].id,offset:{x:5,y:0,z:0}});
+ const layout=weldLayerLayout(w,decision,[],[p],config);
+ const groups=weldLayerTreeGroups(w,layout,p);
+ assert.deepEqual(groups.map(group=>[group.passOffset.y,group.passOffset.z]),[[2,3],[-4,7]]);
+ assert.deepEqual(groups.map(group=>group.points[0].position),[[5,2,3],[5,-4,7]]);
+ assert.deepEqual(weldLayerPassPaths(w,layout).map(pass=>pass.positions[0]),[[5,2,3],[5,-4,7]]);
+ assert.deepEqual(weldLayerLayout({...w,pointLayout:layout},decision,[],[p],config),layout);
+});
+
+test('点位显示轨迹姿态并叠加本道和点位偏移',()=>{
+ const w={...source(),endpointFacts:{start:{junctionType:'三面交',hasHole:false}}};
+ let p=recipe();
+ p=addProcessPass(p,p.processLayers[0].id);
+ const [first,second]=p.processLayers[0].passes;
+ p=updateProcessPass(p,first.id,{angles:{...first.angles,pushPull:12,pitch:38},offset:{y:0,z:0,work:2,wire:5}});
+ p=updateProcessPass(p,second.id,{angles:{...second.angles,pushPull:8,pitch:55},offset:{y:0,z:0,advance:3,wire:5}});
+ const options={...config,actionParameters:{flatPose:{rotation:7}},interferenceEndParameters:{startAngle:25,startDistance:20}};
+ const decision=analyzeWeldMatch(w,[],[p],options);
+ const layout=weldLayerLayout(w,decision,[],[p],options);
+ const plan=generateStrategyPlan(w,p,options);
+ const groups=weldLayerTreeGroups(w,layout,p,plan);
+ assert.deepEqual(groups.map(group=>group.points[0].pose),[
+  {advance:25,work:40,rotation:7},{advance:28,work:55,rotation:7}
+ ]);
+ assert.deepEqual(groups.map(group=>group.points.at(-1).pose),[
+  {advance:12,work:40,rotation:7},{advance:11,work:55,rotation:7}
+ ]);
+ const [group]=groups,[point]=group.points;
+ const preview=updateWeldLayoutPoint(layout,group.id,{id:point.raw.id,offset:{x:10,y:0,z:0},poseOffset:{advance:6,work:0,rotation:20}});
+ const placement=weldPointPlacement(w,preview,group.id,point.raw.id,false,plan);
+ assert.deepEqual(placement.angles,{advance:24.5,work:40,rotation:27});
+ assert.deepEqual(weldLayerTreeGroups(w,preview,p,plan)[0].points[0].pose,placement.angles);
+ assert.deepEqual(weldLayerPassPaths(w,preview,plan)[0].positions[0],placement.position);
+ assert.deepEqual(copyWeldLayersToTemplate({},preview,w,p,plan).points[0].angles,placement.angles);
+});
+
+test('一键规划按焊接位置应用标准姿态，轨迹与点位使用同一个 TCP 轴',()=>{
+ const flat=source();
+ const verticalPosition='PF · 立向上焊';
+ const upright={...source('W002'),position:verticalPosition,segments:[{
+  ...segment(0,100),position:verticalPosition,pathPoints:[[0,0,0],[0,0,100]],referenceNormal:[1,0,0]
+ }]};
+ const flatPose={advance:0,work:34,rotation:20},verticalPose={advance:-8,work:62,rotation:35};
+ const options={...config,topologyVersion:1,actionParameters:{flatPose,verticalPose,lineStep:5}};
+ const recipeWithAngles=recipe();
+ const first=recipeWithAngles.processLayers[0].passes[0];
+ const p=updateProcessPass(recipeWithAngles,first.id,{angles:{pushPull:15,pitch:50}});
+ const recipes=[p,{...p,id:'upright',position:verticalPosition}];
+ const planned=planWorkspace([flat,upright],[],recipes,options);
+ for(const [w,expected] of [[planned[0],flatPose],[planned[1],verticalPose]]){
+  const [pass]=w.strategyPlan.passes;
+  const end=pass.points.at(-1);
+  assert.deepEqual(end.pose,expected);
+  assert.deepEqual(pass.points.find(point=>point.distance===50).pose,expected);
+  const layout=weldLayerLayout(w,undefined,[],recipes,options);
+  const point=weldLayerTreeGroups(w,layout,w.processParameters)[0].points.at(-1);
+  assert.deepEqual(point.pose,expected);
+  const axis=new Vector3(0,0,1).applyQuaternion(new Quaternion(...end.orientation));
+  assert.ok(axis.distanceTo(new Vector3(...weldTorchAxis(point.tangent,point.normal,point.pose)))<1e-9);
+  const rollChanged=generateStrategyPlan(w,w.processParameters,{...options,actionParameters:{
+   ...options.actionParameters,flatPose:{...flatPose,rotation:0},verticalPose:{...verticalPose,rotation:0}
+  }}).passes[0].points.at(-1);
+  assert.deepEqual(rollChanged.position,end.position);
+  assert.notDeepEqual(rollChanged.orientation,end.orientation);
+  assert.ok(axis.distanceTo(new Vector3(0,0,1).applyQuaternion(new Quaternion(...rollChanged.orientation)))<1e-9);
+ }
+});
 
 test('短段区间±5 mm且上限30 mm，长段长度不限制，端点条件仍须匹配',()=>{
  for(const [length,accepted,rejected] of [[28,30,30.1],[30,500,null]]){
@@ -159,6 +244,36 @@ test('自由板端按焊缝长度与可用空间过滤，立焊上包角使用�
  assert.deepEqual(plan.passes[0].points.find(point=>point.name==='立焊上包角').position,[0,8,20]);
 });
 
+test('旧立向下焊草稿迁移为立向上焊，只在高端生成包角',()=>{
+ const low=[0,0,0],high=[0,0,100],down='PG · 立向下焊',up='PF · 立向上焊';
+ const edge={boundaryKind:'free-edge',junctionType:'两面交',mainEdgeDistance:9,plateThickness:6,offsetDirection:[0,1,0]};
+ const segmentDown={...segment(0,100),position:down,pathPoints:[high,low],referenceNormal:[1,0,0],
+  startWrapMode:'half',endWrapMode:'full'};
+ const legacy={...source(),position:down,direction:'正向',segments:[segmentDown],startWrapMode:'half',endWrapMode:'full',
+  endpointFacts:{start:{...edge,label:'高端'},end:{...edge,label:'低端'}},strategyPlan:{passes:[]},planned:true};
+ const p={...recipe(),position:down},template=newTemplate('whole',{position:down});
+ const migrated=migrateDraft({model:'111.step',welds:[legacy],templates:[template],processLibrary:[p]});
+ const [w]=migrated.welds,[process]=migrated.processLibrary;
+ assert.equal(POSITIONS.some(value=>value.startsWith('PG')),false);
+ assert.equal(w.position,up);
+ assert.equal(process.position,up);
+ assert.equal(migrated.templates[0].segments[0].position,up);
+ assert.equal(w.planned,false);
+ const directed=directedWeld(w);
+ assert.deepEqual(directed.segments[0].pathPoints,[low,high]);
+ assert.equal(directed.endpointFacts.start.label,'低端');
+ assert.equal(directed.segments[0].startWrapMode,'none');
+ assert.equal(directed.segments[0].endWrapMode,'half');
+ const plan=generateStrategyPlan(w,process,{topologyVersion:1,wrapParameters:{verticalDistance:8}});
+ assert.deepEqual(plan.endpointActions,['none','vertical']);
+ const points=plan.passes[0].points;
+ assert.deepEqual(points.find(point=>point.kind==='start').position,low);
+ assert.ok(points.filter(point=>point.kind==='wrap').every(point=>point.distance>0));
+ assert.deepEqual(points.find(point=>point.name==='立焊上包角').position,[0,8,100]);
+ const shortPlan=generateStrategyPlan({...w,length:10,segments:[{...w.segments[0],length:10,pathPoints:[[0,0,10],low]}]},process,{topologyVersion:1});
+ assert.ok(shortPlan.passes[0].points.filter(point=>point.kind==='wrap').every(point=>point.distance>0));
+});
+
 test('转角默认距离和偏移参与路径，单道显式数值优先',()=>{
  const a=segment(0,100),b={...a,pathPoints:[[100,0,0],[100,100,0]]};
  const weld={...source(),length:200,segments:[a,b]};
@@ -176,4 +291,20 @@ test('转角默认距离和偏移参与路径，单道显式数值优先',()=>{
  assert.deepEqual(override[1].position,[100,0,0]);
  const closed={...weld,closure:'closed',length:400,segments:[a,b,{...a,pathPoints:[[100,100,0],[0,100,0]]},{...a,pathPoints:[[0,100,0],[0,0,0]]}]};
  assert.equal(generateStrategyPlan(closed,process,settings).passes[0].points.filter(point=>point.kind==='corner').length,12);
+});
+
+test('保存路径步长保留已有规划，重新规划时按新步长生成焊接点',()=>{
+ const parameters={...config,topologyVersion:1,actionParameters:{lineStep:5}};
+ const process=recipe();
+ const welds=planWorkspace([source()],[],[process],parameters);
+ const distances=entry=>entry.strategyPlan.passes[0].points.filter(point=>point.kind==='weld').map(point=>point.distance);
+ const before=distances(welds[0]);
+ assert.ok(before.includes(5));
+ const draft=settingsDefaults({topologyVersion:1,actionParameters:{lineStep:20}});
+ const saved=updateProjectPlanning({welds,planningSettings:parameters},{planningSettings:serializeSettings(draft)});
+ assert.deepEqual(distances(saved.welds[0]),before);
+ const [replanned]=planWorkspace([source()],[],[process],{...saved.planningSettings,...config});
+ const after=distances(replanned);
+ assert.ok(after.includes(20)&&!after.includes(5));
+ assert.ok(after.length<before.length);
 });

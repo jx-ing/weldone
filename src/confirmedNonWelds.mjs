@@ -5,7 +5,8 @@ const MODEL_SHA='c85056ed9022210cd93e48bc4d09b97615c57a70235f4f55d986e6a2bdec4fc
 export const CONFIRMED_NON_WELD_IDS=['W10001','W10011','W10012','W10034'];
 const rejectedIds=new Set(CONFIRMED_NON_WELD_IDS);
 const rejectedKeys=new Set(['merge:W0034|0;W0035|0','unit:W0034|0','unit:W0035|0','unit:W0002|1','unit:W0002|2','unit:W0079|0']);
-export function isConfirmedNonWeld(weld){return rejectedIds.has(weld.id)||weld.source==='extracted'&&!weld.mergedInto&&weld.sourceSha256===MODEL_SHA&&rejectedKeys.has(weld.processingKey);}
+export function isConfirmedNonWeldKey(sourceSha256,key){return sourceSha256===MODEL_SHA&&rejectedKeys.has(key);}
+export function isConfirmedNonWeld(weld){return rejectedIds.has(weld.id)||weld.source==='extracted'&&!weld.mergedInto&&isConfirmedNonWeldKey(weld.sourceSha256,weld.processingKey);}
 export function excludeConfirmedNonWelds(draft){
   const modelName=typeof draft.model==='string'?draft.model.replace(/\\/g,'/').split('/').at(-1).toLowerCase():'';
   const modelSha=draft.stepModel?.sourceSha256??(modelName==='111.step'?MODEL_SHA:draft.geometryProcessing?.sourceSha256);
