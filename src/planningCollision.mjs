@@ -30,17 +30,17 @@ export function collisionReport(weld,result){
 export function inspectPlanningWeld(weld,workspace,scene,options){
  if(!weld.enabled||!weld.planned)return null;
  const layout=weldLayerLayout(weld,undefined,workspace.templates,workspace.processLibrary,options);
- const paths=weldLayerPassPaths(weld,layout,weld.strategyPlan,options.measureTemplateNeighborhood?.referenceNormalAt);
+ const paths=weldLayerPassPaths(weld,layout,weld.strategyPlan,options.measureTemplateNeighborhood?.referenceNormalAt,undefined,{collisionOnly:true});
  return paths.length?detectWeldCollision(paths,scene):null;
 }
 
-export async function resolvePlanningCollisions(workspace,scene,options,onProgress){
+export async function resolvePlanningCollisions(workspace,scene,options,onProgress,{idBase,idStep=1,assignOrder=true,yieldForProgress=true}={}){
  const welds=[],originals=[];
  const started=performance.now();
  let lastYield=started,detectionMs=0;
  const settings=settingsDefaults(options);
- let id=Math.max(10000,...workspace.welds.map(weld=>Number(weld.id.slice(1))||0));
- const nextId=()=> 'W'+String(++id);
+ let id=idBase??Math.max(10000,...workspace.welds.map(weld=>Number(weld.id.slice(1))||0));
+ const nextId=()=> 'W'+String(id+=idStep);
  const counts={checked:0,unchecked:0,downgraded:0,trimmed:0,removed:0};
  const inspect=weld=>{
   const start=performance.now();
@@ -94,11 +94,12 @@ export async function resolvePlanningCollisions(workspace,scene,options,onProgre
  for(const [index,original] of workspace.welds.entries()){
   if(performance.now()-lastYield>=50){
    onProgress?.(index,workspace.welds.length);
-   await new Promise(resolve=>setTimeout(resolve,0));
+   if(yieldForProgress)await new Promise(resolve=>setTimeout(resolve,0));
    lastYield=performance.now();
   }
   welds.push(...(!original.enabled||original.mergedInto||original.splitInto?[original]:process(original)));
   if(welds.length>MAX_PLANNING_WELDS)throw Error('碰撞打断后的焊缝数量超过工作区上限');
  }
- return {welds:assignWeldingOrder(welds,options),collisionOriginals:originals,counts,detectionMs,elapsedMs:performance.now()-started};
+ onProgress?.(workspace.welds.length,workspace.welds.length);
+ return {welds:assignOrder?assignWeldingOrder(welds,options):welds,collisionOriginals:originals,counts,detectionMs,elapsedMs:performance.now()-started};
 }

@@ -84,7 +84,7 @@ test('一键规划裁掉普通焊缝的已确认干涉区间，并重新检查�
  const options={planningRevision:3,topologyVersion:1,weldPreprocessing:{},activeDevice:{id:'device-a',applicability},
   trackingParameters:{laserEnabled:false,arcEnabled:false},
   actionParameters:{flatPose:{advance:0,work:45,rotation:0}},
-  interferenceEndParameters:{startAngle:0,endAngle:0,startDistance:0,endDistance:0}};
+  interferenceEndParameters:{startAngle:38,endAngle:38,startDistance:35,endDistance:35}};
  const [planned]=planWorkspace([weld],[],[p],options);
  assert.equal(planned.planned,true);
  const scene={toolExtent:0,query(head){
@@ -97,6 +97,8 @@ test('一键规划裁掉普通焊缝的已确认干涉区间，并重新检查�
  assert.equal(result.welds.length,2);
  assert(result.welds.every(part=>part.planned&&part.collisionFragment));
  assert(result.welds.every(part=>part.collisionState!=='检测到碰撞'));
+ assert.equal(result.counts.trimmed,1);
+ assert(result.welds.every(part=>part.strategyPlan.passes[0].points.every(point=>point.pose.advance===0)));
  assert(result.welds[0].segments[0].pathPoints.at(-1)[0]<45);
  assert(result.welds[1].segments[0].pathPoints[0][0]>55);
  const retained=await resolvePlanningCollisions(workspace,scene,{...options,splitParameters:{autoDeleteUnavoidable:false}});

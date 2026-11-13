@@ -26,6 +26,8 @@ Use PF (立向上焊) for all vertical welds. Migrate legacy PG positions withou
 
 Use the same calibrated tool pose for the pass preview and collision checks. Check the head body and current camera cover against the workpiece, exclude the field-of-view volume, and trim only the calibrated wire terminal. Check swept intervals as well as the sampled endpoints. Report contact or near clearance by part and weld station. Start one-click planning with collision trimming enabled by default. U to L produces two L welds and preserves both halves of the connector. Removing a wrap disconnects the selected joint and preserves its segments. Recheck the resulting paths. The pass preview plays at the configured welding speed and can seek to a collision interval.
 
+Show collision progress by completed weld count during one-click planning. The collision stage performance target is below 1000 ms for 100 welds of 500 mm each, including required trimming and rechecking after the workpiece and head meshes are ready.
+
 ## Platform identity
 
 The local platform at http://localhost:5236/ is called “原版工艺规划平台” and uses the browser tab title “weldone”. Keep changes for this platform in weldone-platform.

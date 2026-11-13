@@ -146,7 +146,9 @@ export function generateStrategyPlan(weld, process, rawSettings) {
   const segmentAt=at=>at>=total-EPS?segments.length-1:Math.max(0,stations.findIndex(value=>value>at+EPS)-1);
   if(stations.slice(1).some((station,index)=>station-stations[index]<=EPS))return null;
   const sample=prepareWeldSeamFrames(segments,directed.cornerReferenceNormal,closed,rawSettings?.measureTemplateNeighborhood?.referenceNormalAt);
-  const isInterference = facts => facts && (['间隙打断','过焊孔打断','避障打断'].includes(facts.breakReason??facts.type) ||
+  // A collision cut already has a checked path on its retained side. Keep
+  // the welding posture at this new boundary instead of introducing a tilt.
+  const isInterference = facts => facts && (['间隙打断','过焊孔打断'].includes(facts.breakReason??facts.type) ||
     facts.junctionType === '三面交' && (!facts.hasHole || facts.holeSize < settings.wrapParameters.passHoleThreshold));
   const flatInterference=[segments[0],segments.at(-1)].map((segment,index)=>weldPositionCode(segment.position)==='PB'&&isInterference(ends[index]));
   const endpointActions = closed ? ['none','none'] : ends.map((facts, index) => {

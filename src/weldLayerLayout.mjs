@@ -247,6 +247,13 @@ function strategyPoseAt(layout,pass,path,plan){
  };
  resolve.sample=sample;
  resolve.stations=samples.map(([station])=>station);
+ resolve.fixedPose=samples.every(([,point])=>{
+  const baseline=samples[0][1];
+  return ['advance','work','rotation'].every(key=>point.pose?.[key]===baseline.pose?.[key])&&
+   !point.flatLWrap&&point.kind!=='corner'&&point.kind!=='wrap'&&
+   (point.wireOffset??0)===(baseline.wireOffset??0)&&
+   axes.every((_,i)=>(point.pathOffset?.[i]??0)===(baseline.pathOffset?.[i]??0));
+ });
  resolve.speedAt=station=>{
   const at=closed&&total>0?((station%total)+total)%total:station;
   let lo=0,hi=samples.length-1;
@@ -315,7 +322,7 @@ export function updateWeldLayoutPoint(layout,passId,record,add=false){
 }
 
 // Keep the CAD path's vertices and interpolate the authored point offsets along it.
-export function weldLayerPassPaths(weld,layout,plan=weld?.strategyPlan,referenceNormalAt,process=weld?.processParameters){
+export function weldLayerPassPaths(weld,layout,plan=weld?.strategyPlan,referenceNormalAt,process=weld?.processParameters,{collisionOnly=false}={}){
  if(!weld?.enabled||!layout.length||
   !weld.segments?.every(segment=>segment.pathPoints?.length>=2))return [];
  const target=targetFromWeld(weld),path=previewPath(target.segments,'xy',[],target.closure);
@@ -382,6 +389,19 @@ export function weldLayerPassPaths(weld,layout,plan=weld?.strategyPlan,reference
    const position=referenceAt(station,pose,offset,height,strategy,frame)
     .map((value,i)=>value+left.delta[i]+(right.delta[i]-left.delta[i])*t);
    return [resolveWeldToolPose({...frame,position,pose,distance:station})];
+  }
+  if(collisionOnly){
+   const straight=target.closure!=='closed'&&target.segments.length===1&&target.segments[0].pathPoints.length===2&&
+    target.segments[0].geometry==='直线'&&controls.length===2&&(!poseAt||poseAt.fixedPose)&&
+    angles.every(key=>start.pose[key]===end.pose[key]);
+   let collisionStations=stations;
+   if(straight){
+    const first=frameFor(start.station,poseAt?.sample(start.station));
+    const last=frameFor(end.station,poseAt?.sample(end.station));
+    if(['tangent','normal','up','offsetNormal'].every(key=>distance(first[key],last[key])<1e-10))
+     collisionStations=[start.station,end.station];
+   }
+   return {id:pass.id,startStation:start.station,endStation:end.station,stations:collisionStations,posesAt};
   }
   const samples=stations.flatMap(station=>posesAt(station)).filter((entry,i,all)=>!i||distance(entry.position,all[i-1].position)>1e-8);
   if(samples.length<2)return null;

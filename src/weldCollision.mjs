@@ -82,6 +82,25 @@ export function createWeldCollisionScene(model,toolParts){
  return {
   toolExtent,
   sweep:(from,to)=>sweepLinearMeshes(parts,tools,origin,from,to,clearance,mergeCollisionRanges),
+  contact({position:xyz,quaternion}){
+   position.fromArray(xyz).sub(origin);
+   transform.compose(position,rotation.fromArray(quaternion),scale);
+   const point=new Vector3();
+   for(const tool of tools){
+    bounds.copy(tool.boundingBox).applyMatrix4(transform);
+    for(const {name,geometry:part} of parts){
+     if(!bounds.intersectsBox(part.boundingBox))continue;
+     const intersectsTriangles=(partFace,toolFace)=>{
+      if(!partFace.intersectsTriangle(toolFace))return false;
+      partFace.closestPointToPoint(toolFace.a,point);
+      return true;
+     };
+     if(part.boundsTree.bvhcast(tool.boundsTree,transform,{intersectsTriangles}))
+      return {distance:0,part:name,point:point.add(origin).toArray(),collision:true};
+    }
+   }
+   return this.containment({position:xyz,quaternion});
+  },
   containment({position:xyz,quaternion}){
    position.fromArray(xyz).sub(origin);
    transform.compose(position,rotation.fromArray(quaternion),scale);
@@ -158,9 +177,9 @@ export function mergeCollisionRanges(ranges){
 export function detectWeldCollision(paths,scene){
  const passes=[];
  for(const pass of paths){
-  const stations=[...new Set([pass.startStation,...pass.toolPoses.map(pose=>pose.distance),pass.endStation])]
+  const stations=[...new Set([pass.startStation,...(pass.stations??pass.toolPoses.map(pose=>pose.distance)),pass.endStation])]
    .filter(at=>at>=pass.startStation&&at<=pass.endStation).sort((a,b)=>a-b);
-  const cache=new Map(),distances=new WeakMap(),ranges=[],uncertain=[];
+  const cache=new Map(),distances=new WeakMap(),contacts=new WeakMap(),ranges=[],uncertain=[];
   let closest=null,contact=null;
   const at=distance=>{
    if(!cache.has(distance))cache.set(distance,pass.posesAt(distance));
@@ -174,6 +193,13 @@ export function detectWeldCollision(paths,scene){
    if(hit.collision)contact??={station:pose.distance,...hit};
    if(hit.distance<=clearance&&(!closest||hit.distance<closest.distance))closest={station:pose.distance,...hit};
    return hit;
+  };
+  const intersects=pose=>{
+   if(!scene.contact)return query(pose,clearance).collision;
+   if(!contacts.has(pose))contacts.set(pose,scene.contact(pose.head));
+   const hit=contacts.get(pose);
+   if(hit)contact??={station:pose.distance,...hit};
+   return !!hit;
   };
   const first=new Quaternion(),last=new Quaternion();
   const motion=(a,b)=>{
@@ -192,19 +218,24 @@ export function detectWeldCollision(paths,scene){
    const margin=closest?0:clearance;
    if(scene.sweptCandidate&&to-from<=12){
     const quarter=at((from+mid)/2)[0],threeQuarter=at((mid+to)/2)[0];
-    if(quarter&&threeQuarter&&!scene.sweptCandidate(a,m,b,[quarter,threeQuarter]))return;
+    if(quarter&&threeQuarter&&!scene.sweptCandidate(a,m,b,[quarter,threeQuarter])){
+     const contained=scene.containment?.(m.head);
+     if(contained){contact??={station:mid,...contained};ranges.push([from,to]);}
+     return;
+    }
    }
-   const sample=!scene.sweptCandidate||to-from<=tolerance?query(m,bound+margin):null;
+   const leaf=to-from<=tolerance||depth>=24;
+   const sample=scene.sweptCandidate?null:query(m,bound+margin);
    if(sample?.distance>bound+margin&&to-from<=12)return;
-   if(to-from<=tolerance||depth>=24){
-    if(sample?.collision||query(a,clearance).collision||query(b,clearance).collision)ranges.push([from,to]);
-    else if(!sample||sample.distance<=bound)uncertain.push([from,to]);
+   if(leaf){
+    if(intersects(m)||intersects(a)||intersects(b))ranges.push([from,to]);
+    else if(scene.sweptCandidate||!sample||sample.distance<=bound)uncertain.push([from,to]);
     return;
    }
    visit(a,m,depth+1);
    visit(m,b,depth+1);
   }
-  function linearRun(begin,end){
+  function linearRun(begin,end,sweep=true){
    const a=at(stations[begin]).at(-1),b=at(stations[end])[0];
    if(!scene.sweep||!a||!b)return false;
    const from=a.distance,to=b.distance;
@@ -224,6 +255,7 @@ export function detectWeldCollision(paths,scene){
      if(!pose||!linear(pose))return false;
     }
    }
+   if(!sweep)return true;
    const result=scene.sweep(a.head,b.head);
    for(const [lo,hi] of result.ranges){
     ranges.push([Math.max(from,from+(to-from)*lo-tolerance),Math.min(to,from+(to-from)*hi+tolerance)]);
@@ -246,11 +278,11 @@ export function detectWeldCollision(paths,scene){
   }
   for(let i=0;i<stations.length;i++){
    const current=at(stations[i]);
-   if(!i&&stations.length>1&&current.length===1&&at(stations.at(-1)).length===1&&linearRun(0,stations.length-1))break;
-   for(const pose of current){
-    if(query(pose,clearance).collision)ranges.push([Math.max(pass.startStation,pose.distance-tolerance),Math.min(pass.endStation,pose.distance+tolerance)]);
+   if(current.length>1||stations.length===1){
+    for(const pose of current){
+     if(query(pose,clearance).collision)ranges.push([Math.max(pass.startStation,pose.distance-tolerance),Math.min(pass.endStation,pose.distance+tolerance)]);
+    }
    }
-   if(i&&current.length&&at(stations[i-1]).length&&!linearRun(i-1,i))visit(at(stations[i-1]).at(-1),current[0]);
    if(current.length>1){
     // Equal-station controls may rotate through a collision. Check the
     // shortest rigid transition without inventing weld distance.
@@ -263,13 +295,30 @@ export function detectWeldCollision(paths,scene){
      function testTransition(from,to){
       const m=(from+to)/2,mid=at(m);
       if(scene.sweptCandidate&&!scene.sweptCandidate(at(from),mid,at(to),[at((from+m)/2),at((m+to)/2)]))return false;
-      if(query(mid,clearance).collision)return true;
+      if(intersects(mid))return true;
       if((to-from)*travel<=tolerance)return false;
       return testTransition(from,m)||testTransition(m,to);
      }
      if(testTransition(0,1))ranges.push([Math.max(pass.startStation,a.distance-tolerance),Math.min(pass.endStation,a.distance+tolerance)]);
     }
    }
+   if(i===stations.length-1)break;
+   const next=at(stations[i+1]);
+   if(!current.length||!next.length){uncertain.push([stations[i],stations[i+1]]);continue;}
+   if(i===0&&current.length===1&&linearRun(0,stations.length-1))break;
+   if(!linearRun(i,i+1,false)){visit(current.at(-1),next[0]);continue;}
+   let end=i+1;
+   // Expand geometrically so checking a long fixed-pose run stays linear.
+   let step=1;
+   while(end<stations.length-1){
+    const candidate=Math.min(stations.length-1,end+step);
+    if(!linearRun(i,candidate,false)){
+     if(step===1)break;
+     step=Math.floor(step/2);
+    }else{end=candidate;step*=2;}
+   }
+   linearRun(i,end);
+   i=end-1;
   }
   passes.push({id:pass.id,ranges:mergeCollisionRanges(ranges),uncertain:mergeCollisionRanges(uncertain),contact,closest});
  }

@@ -23,8 +23,7 @@ import './geometryProcessing.css';
 import {EXAMPLE_MODEL,useStepExample,validManualWeldPath} from './manualWeldModel.mjs';
 import {cacheStepMesh,cacheStepNeighborhood,isDemoModel,loadStepNeighborhood,stepModelKey,switchStepWorkspace,validStepModel} from './stepModelStore.mjs';
 import {splitWeldWrap,weldWrapJunctions} from './weldWrapJunctions.mjs';
-import {loadWeldCollisionScene} from './weldCollision.mjs';
-import {resolvePlanningCollisions} from './planningCollision.mjs';
+import {createPlanningCollisionPool} from './planningCollisionPool.mjs';
 import {loadWorkspaceDraft,saveWorkspaceDraft} from './workspaceDraftStore.mjs';
 import ViewCube from './ViewCube';
 import TemplateLibrary, {TemplateEditor} from './TemplateLibrary';
@@ -90,6 +89,7 @@ function Workspace({initialData}) {
     const [weldFilter,setWeldFilter]=useState('all'),[batchSelect,setBatchSelect]=useState(false);
     const [templateDraft,setTemplateDraft]=useState(null);
     const [precisionCoverOpen,setPrecisionCoverOpen]=useState(false);
+    const collisionPool=useMemo(createPlanningCollisionPool,[]);
     const [cameraFieldOfView,setCameraFieldOfView]=useState(false);
     const [segmentSeparation,setSegmentSeparation]=useState(null);
     const [templateDuplicate,setTemplateDuplicate]=useState(null);
@@ -138,6 +138,11 @@ function Workspace({initialData}) {
     const [stepImporting,setStepImporting]=useState(''),[stepError,setStepError]=useState(''),[modelLoadRevision,setModelLoadRevision]=useState(0);
     const demoModel=isDemoModel(data);
     const deviceControl=useMemo(()=>data.deviceControl??migrateDeviceControl(undefined,data.deviceCapabilities),[data.deviceControl,data.deviceCapabilities]);
+    useEffect(()=>{
+      if(!data.model||(!data.stepModel&&!isDemoModel(data))){collisionPool.dispose();return;}
+      const timer=setTimeout(()=>collisionPool.prepare(data,precisionCoverOpen),0);
+      return ()=>clearTimeout(timer);
+    },[data.model,data.stepModel,precisionCoverOpen,collisionPool]);
     const [neighborhood,setNeighborhood]=useState(null),[neighborhoodError,setNeighborhoodError]=useState('');
     const [importedNeighborhood,setImportedNeighborhood]=useState(null);
     const neighborhoodRef=useRef(neighborhood);
@@ -411,7 +416,7 @@ function Workspace({initialData}) {
       window.addEventListener('beforeunload',waitForSave);
       return ()=>window.removeEventListener('beforeunload',waitForSave);
     },[savingWorkspace]);
-    useEffect(() => () => {clearTimeout(toastTimer.current);geometryWorker.current?.terminate();stepImportWorker.current?.terminate();}, []);
+    useEffect(() => () => {clearTimeout(toastTimer.current);geometryWorker.current?.terminate();stepImportWorker.current?.terminate();collisionPool.dispose();}, [collisionPool]);
     async function commitWorkspace(persisted,apply){
       if(workspaceSave.current)throw Error('正在保存本机工作区，请稍后重试');
       workspaceSave.current=true;
@@ -462,6 +467,7 @@ function Workspace({initialData}) {
       setGeometryProgress({phase:'extract',stage:'准备提取焊道',percent:0});
       log('一键规划开始：提取焊道。');
       worker.onerror=()=>fail('焊道提取失败，请重试');
+      worker.onmessageerror=()=>fail('无法读取焊道提取结果，请重试');
       worker.onmessage=async({data:message})=>{
         if(message.type==='progress'){
           setGeometryProgress({phase:'extract',...message.progress});
@@ -492,8 +498,9 @@ function Workspace({initialData}) {
           if(JSON.stringify(options)!==JSON.stringify(geometryOptionsForPlanning(DEFAULT_GEOMETRY_OPTIONS,settings))){
             throw Error('提取设置已变更，请重新运行一键规划');
           }
-          if(reference&&message.result.neighborhood){
-            const geometry=message.result.neighborhood,sha=reference.sourceSha256;
+          const geometry=message.result.neighborhood;
+          if(reference&&geometry){
+            const sha=reference.sourceSha256;
             measure=createTemplateNeighborhoodMeasurer(geometry);
             setImportedNeighborhood({sha,measure});
             cacheStepNeighborhood(sha,geometry).catch(()=>{});
@@ -516,7 +523,7 @@ function Workspace({initialData}) {
           if(!valid(extracted))throw Error('焊道提取结果未通过工作区校验');
           const count=extracted.welds.filter(weld=>weld.source==='extracted'&&removablePlanningWeld(weld)).length;
           log(`焊道提取完成：${count} 条。开始工艺规划。`);
-          await executePlan(extracted,settings,measure);
+          await executePlan(extracted,settings,measure,geometry);
           setView(view=>({...view,welds:true}));
           finish();
         }catch(error){fail(error.message);}
@@ -650,31 +657,32 @@ function Workspace({initialData}) {
     catch (e) {
         notify(e.message);
     } }
-    async function executePlan(workspace,settings,measure){
+    async function executePlan(workspace,settings,measure,geometry){
       const options={...settings,measureTemplateNeighborhood:measure};
       const source=[...workspace.welds.filter(weld=>!weld.collisionFragment),...(workspace.collisionOriginals??[])];
       const planned=planWorkspace(source.map(weld=>({...weld,collisionPasses:undefined,collisionState:undefined,collisionResult:undefined})),workspace.templates,workspace.processLibrary,options);
       let welds=planned,collisionOriginals=[];
       if(workspace.stepModel||isDemoModel(workspace)){
-        setGeometryProgress({phase:'plan',stage:'正在检查机头与工件碰撞'});
+        setGeometryProgress({phase:'collision',percent:0,stage:'正在准备机头与工件网格'});
         try{
-          const scene=await loadWeldCollisionScene(workspace,{coverOpen:precisionCoverOpen});
-          try{
-            const result=await resolvePlanningCollisions({...workspace,welds:planned},scene,options,(index,total)=>
-              setGeometryProgress({phase:'plan',stage:'正在检查机头与工件碰撞 '+index+'/'+total}));
-            ({welds,collisionOriginals}=result);
-            const {checked,unchecked,downgraded,trimmed,removed}=result.counts;
-            for(const original of collisionOriginals){
-              const collision=original.collisionPasses?.find(pass=>pass.contact)?.contact;
-              if(collision)log(original.id+' · '+collision.part+' · '+collision.station.toFixed(1)+' mm 发生碰撞，已调整焊缝。');
-            }
-            log('碰撞检测完成：检测与复检 '+(result.detectionMs/1000).toFixed(2)+' s，含裁剪总耗时 '+(result.elapsedMs/1000).toFixed(2)+' s，'+checked+' 条已检测，'+unchecked+' 条无可检测路径，'+downgraded+' 条包角降级，'+trimmed+' 次碰撞裁剪，'+removed+' 条整道移除。');
-          }finally{scene.dispose();}
+          const result=await collisionPool.run({...workspace,welds:planned},options,precisionCoverOpen,(index,total)=>
+            setGeometryProgress(current=>{
+              const percent=total?Math.floor(index/total*100):100;
+              return current?.phase==='collision'&&current.percent===percent?current:
+                {phase:'collision',percent,stage:'正在检查机头与工件碰撞 '+index+'/'+total};
+            }),geometry);
+          ({welds,collisionOriginals}=result);
+          const {checked,unchecked,downgraded,trimmed,removed}=result.counts;
+          for(const original of collisionOriginals){
+            const collision=original.collisionPasses?.find(pass=>pass.contact)?.contact;
+            if(collision)log(original.id+' · '+collision.part+' · '+collision.station.toFixed(1)+' mm 发生碰撞，已调整焊缝。');
+          }
+          log('碰撞检测完成：检测与复检 '+(result.detectionMs/1000).toFixed(2)+' s，含裁剪总耗时 '+(result.elapsedMs/1000).toFixed(2)+' s，'+checked+' 条已检测，'+unchecked+' 条无可检测路径，'+downgraded+' 条包角降级，'+trimmed+' 次碰撞裁剪，'+removed+' 条整道移除。');
         }catch(error){
           log('碰撞检测未完成：'+error.message);
           notify('碰撞检测未完成，保留本次焊道。');
           welds=planned.map(weld=>({...weld,collisionState:'未检测'}));
-        }finally{setGeometryProgress(null);}
+        }
       }
       if(!valid({...workspace,welds,collisionOriginals}))throw Error('规划结果未通过工作区校验');
       const ready=welds.filter(weld=>weld.enabled&&weld.planned).length;
@@ -691,7 +699,10 @@ function Workspace({initialData}) {
       if(stepImportWorker.current){notify('请等待 STEP 模型导入完成');return;}
       if(!demoModel&&!data.stepModel&&!data.welds.length){notify('请先导入 STEP 模型');return;}
       try{
-        if(demoModel||data.stepModel){extractAndPlan(geometryOptionsForPlanning(DEFAULT_GEOMETRY_OPTIONS,context),data);return;}
+        if(demoModel||data.stepModel){
+          collisionPool.prepare(data,precisionCoverOpen);
+          extractAndPlan(geometryOptionsForPlanning(DEFAULT_GEOMETRY_OPTIONS,context),data);return;
+        }
         log('当前模型暂无自动提取数据，使用已有焊道进行工艺规划。');
         await executePlan(data,context);
       }catch(error){notify(error.message);}
@@ -880,7 +891,7 @@ function Workspace({initialData}) {
        <nav className="app-nav" aria-label="主导航">{modules.map(name=><button type="button" key={name} aria-current={page===name?'page':undefined} onClick={()=>navigate(name)}>{name}</button>)}</nav>
        <details className="app-help"><summary aria-label="帮助菜单" title="帮助"><CircleHelp size={20}/></summary><div>{[['帮助','help'],['快捷键','shortcuts'],['关于 Weldone','about']].map(([label,target])=><button key={label} type="button" onClick={event=>{event.currentTarget.closest('details').open=false;setDialog(target);}}>{label}</button>)}</div></details>
       </header>
-      <main id="main-content" tabIndex={-1}>{!libraryEditing&&page!=='焊接模板库'&&page!=='设备控制'&&page!=='生产统计'&&<PageHeader title={page} actions={<><Btn icon={Settings} aria-label={page==='工艺参数库'?'设备信息配置':'工艺规划设置'} onClick={()=>page==='工艺参数库'?window.dispatchEvent(new Event('process-device-settings')):setDialog('settings')}>{page==='工艺参数库'?'设备配置':'设置'}</Btn>{page==='工艺规划' ? <><Btn onClick={() => setDialog('import')}>导入模型</Btn><Btn primary aria-label="一键规划" aria-busy={!!geometryProgress} title={geometryProgress?.stage??(data.model?'提取焊道并进行工艺规划':'请先导入模型')} data-tooltip={!data.model?'请先导入模型':undefined} disabled={!data.model||!!geometryProgress} onClick={plan}><span aria-live="polite">{geometryProgress?.phase==='extract'?'提取焊道 '+geometryProgress.percent+'%':geometryProgress?'工艺规划中…':'一键规划'}</span></Btn><Btn onClick={()=>taskFile.current?.click()}>导入 PF 文件</Btn><Btn disabled={!data.model} title={!data.model?'请先导入模型':undefined} onClick={exportTask}>导出任务</Btn></> : <Btn primary onClick={()=>setProcessRequest({fromWeld:false})}><img src="/assets/process-library/plus.svg" alt=""/>新建工艺参数</Btn>}</>}/> }
+      <main id="main-content" tabIndex={-1}>{!libraryEditing&&page!=='焊接模板库'&&page!=='设备控制'&&page!=='生产统计'&&<PageHeader title={page} actions={<><Btn icon={Settings} aria-label={page==='工艺参数库'?'设备信息配置':'工艺规划设置'} onClick={()=>page==='工艺参数库'?window.dispatchEvent(new Event('process-device-settings')):setDialog('settings')}>{page==='工艺参数库'?'设备配置':'设置'}</Btn>{page==='工艺规划' ? <><Btn onClick={() => setDialog('import')}>导入模型</Btn><Btn primary aria-label="一键规划" aria-busy={!!geometryProgress} title={geometryProgress?.stage??(data.model?'提取焊道并进行工艺规划':'请先导入模型')} data-tooltip={!data.model?'请先导入模型':undefined} disabled={!data.model||!!geometryProgress} onClick={plan}><span aria-live="polite">{geometryProgress?.phase==='extract'?'提取焊道 '+geometryProgress.percent+'%':geometryProgress?.phase==='collision'?'碰撞检测 '+geometryProgress.percent+'%':geometryProgress?'工艺规划中…':'一键规划'}</span></Btn><Btn onClick={()=>taskFile.current?.click()}>导入 PF 文件</Btn><Btn disabled={!data.model} title={!data.model?'请先导入模型':undefined} onClick={exportTask}>导出任务</Btn></> : <Btn primary onClick={()=>setProcessRequest({fromWeld:false})}><img src="/assets/process-library/plus.svg" alt=""/>新建工艺参数</Btn>}</>}/> }
     {page==='工艺规划' ? <div className={'workspace planning-workspace'+(collapsed?' collapsed':'')+(inspectorOpen?' inspector-open':'')}><aside className="structure"><div className="panel-tabs"><button className="icon rail-button" aria-label="收起结构树" title="收起结构树" ref={treeToggle} onClick={()=>{flushSync(()=>setCollapsed(true));modelTreeToggle.current?.focus();}}><PanelLeftClose size={17}/></button>{['结构树', '零件管理'].map(t => <button key={t} className={leftTab === t ? 'active' : ''} onClick={() => setLeftTab(t)}>{t}</button>)}</div>{!data.model ? <Empty model text="请导入模型"/> : <><div className="tree-search"><Search size={14}/><input aria-label="搜索焊缝" title="焊缝来源：灰色为几何提取，蓝色为合并，橙色为手工" placeholder="搜索名称 / 编号" value={search} onChange={e => setSearch(e.target.value)}/></div><div className="tree-root"><ChevronDown size={14}/><FolderOpen size={15}/><strong>{data.model}</strong></div>{leftTab === '零件管理' ? <div className="parts-list">{(modelInfo?.parts||[]).map((p, i) => <div key={i}><Box size={15}/><span>{p}</span><small>P00{i + 1}</small></div>)}</div> : <><div className="tree-section"><ChevronDown size={13}/>焊缝 <small>({data.welds.length})</small></div>{page==='工艺规划'&&<div className="weld-filter-tools">
  <label className="weld-filter-label">筛选<select aria-label="筛选焊缝" value={weldFilter} onChange={event=>setWeldFilter(event.target.value)}><option value="all">全部焊缝</option><option value="template">未匹配模板</option><option value="process">未匹配工艺参数</option></select></label>
  <button type="button" className="btn" aria-pressed={batchSelect} onClick={()=>{setBatchSelect(!batchSelect);if(batchSelect&&modelEditMode!=='merge')setMergeIds([]);}}>批量选择</button>
