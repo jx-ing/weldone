@@ -941,6 +941,7 @@ def analyze(source, out, contact_tolerance=0.5, section_tolerance=0.001, mesh_de
             preview_only=False, companion_step=None, coordinate_frame=None, native_spf_geometry=False):
     from recognize_boundaries import recognize_boundaries, recognize_weld_endpoints
     from candidate_support import refine_support_sample
+    from opposite_groove import recover_opposite_grooves
 
     started = time.perf_counter()
     source_sha256 = hashlib.sha256(source.read_bytes()).hexdigest()
@@ -1045,7 +1046,7 @@ def analyze(source, out, contact_tolerance=0.5, section_tolerance=0.001, mesh_de
         print('Preview ready; weld extraction has not run', flush=True)
         return analysis
 
-    contacts, welds, near_gaps, failures, audit = [], [], [], [], []
+    contacts, welds, opposite_grooves, near_gaps, failures, audit = [], [], [], [], [], []
     excluded, eligible, broadphase, tested, unsupported = 0, 0, 0, 0, 0
     for i, part_a in enumerate(parts):
         leaf_a, _, _, contact_a, faces_a, bounds_a = internals[i]
@@ -1091,7 +1092,7 @@ def analyze(source, out, contact_tolerance=0.5, section_tolerance=0.001, mesh_de
                 section.Build()
                 if not section.IsDone():
                     raise ValueError('BRep section computation failed')
-                seen = set()
+                seen, pair_welds = set(), []
                 section_edges = shapes(section.Shape(), TopAbs_ShapeEnum.TopAbs_EDGE)
                 record['sectionEdgeCount'] = len(section_edges)
                 for raw in section_edges:
@@ -1118,8 +1119,17 @@ def analyze(source, out, contact_tolerance=0.5, section_tolerance=0.001, mesh_de
                         record['rejectedSupportCount'] += 1
                         continue
                     sampled = refined
-                    welds.append(candidate_weld(part_a, part_b, fa, fb, sampled, gap))
+                    weld = candidate_weld(part_a, part_b, fa, fb, sampled, gap)
+                    welds.append(weld)
+                    pair_welds.append(weld)
                     record['candidateCount'] += 1
+                if source.suffix.lower() in ('.step', '.stp') and workpiece_type in ('other', 'small', 'middle'):
+                    additions = list(recover_opposite_grooves(part_a, part_b, faces_a, faces_b,
+                        contact_a, contact_b, pair_welds, sample_edge=sample_edge, shapes=shapes,
+                        candidate_weld=candidate_weld, tolerance=section_tolerance))
+                    opposite_grooves.extend(additions)
+                    if additions:
+                        record['oppositeGrooveCount'] = len(additions)
             except Exception as error:
                 failures.append({'parts': pair, 'error': str(error)})
         if (i + 1) % 10 == 0:
@@ -1127,6 +1137,7 @@ def analyze(source, out, contact_tolerance=0.5, section_tolerance=0.001, mesh_de
                   f'{len(failures)} failures, {time.perf_counter() - started:.1f}s', flush=True)
 
     welds.sort(key=lambda w: (w['mainPartId'], w['subPartId'], w['start'], w['end']))
+    welds.extend(sorted(opposite_grooves,key=lambda w: (w['mainPartId'], w['subPartId'], w['start'], w['end'])))
     for index, weld in enumerate(welds):
         weld['id'] = f'W{index + 1:04d}'
         weld['properties']['id'] = weld['id']

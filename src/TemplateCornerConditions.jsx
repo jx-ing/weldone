@@ -1,3 +1,4 @@
+import NumericInput from './NumericInput.jsx';
 import React from 'react';
 import { Plus,Trash2 } from 'lucide-react';
 import {CORNER_SIDES,cornerSide,changeCornerSide,changeCornerStandard} from './templateCornerAngles.mjs';
@@ -12,8 +13,8 @@ export default function CornerConditions({ template, onChange, onAdd,onRemove,re
       {template.corners.map((corner,index) => <tr key={index}>
         <td><b>转角 {index+1}</b><small className="tpl-corner-segments">第 {index+1} → {index+2} 段</small></td>
         <td><select aria-label={`转角${index+1}内角外角`} disabled={readOnlyStandard} value={cornerSide(corner)} onChange={e=>update(index,'angleSide',e.target.value)}>{Object.entries(CORNER_SIDES).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></td>
-        <td><span className="tpl-number"><input type="number" step="any" min={0} max={360} aria-label={`转角${index+1}标准角度`} disabled={readOnlyStandard||template.type!=='whole'&&template.closure==='closed'&&index===template.segments.length-2} title={readOnlyStandard?'标准角度来自模型焊道':template.type!=='whole'&&template.closure==='closed'&&index===template.segments.length-2?'闭合收尾角度随轮廓自动计算':undefined} value={corner.standard} onChange={e => update(index,'standard',e.target.value)}/><small>°</small></span></td>
-        <td><span className="tpl-number"><small className="tpl-tolerance-prefix">±</small><input type="number" step="any" min={0} max={360} aria-label={`转角${index+1}角度容差`} value={corner.tolerance} onChange={e => update(index,'tolerance',e.target.value)}/><small>°</small></span></td>
+        <td><span className="tpl-number"><NumericInput step="any" min={0} max={360} aria-label={`转角${index+1}标准角度`} disabled={readOnlyStandard||template.type!=='whole'&&template.closure==='closed'&&index===template.segments.length-2} title={readOnlyStandard?'标准角度来自模型焊道':template.type!=='whole'&&template.closure==='closed'&&index===template.segments.length-2?'闭合收尾角度随轮廓自动计算':undefined} value={corner.standard} onChange={e => update(index,'standard',e.target.value)}/><small>°</small></span></td>
+        <td><span className="tpl-number"><small className="tpl-tolerance-prefix">±</small><NumericInput step="any" min={0} max={360} aria-label={`转角${index+1}角度容差`} value={corner.tolerance} onChange={e => update(index,'tolerance',e.target.value)}/><small>°</small></span></td>
         <td className="tpl-corner-range">{Number.isFinite(corner.standard) && Number.isFinite(corner.tolerance) ? `${Math.max(0,Math.round((corner.standard-corner.tolerance)*100)/100)}° ～ ${Math.min(360,Math.round((corner.standard+corner.tolerance)*100)/100)}°` : '待填写'}</td>
         <td>{onRemove&&<button className="icon" type="button" aria-label={`删除转角${index+1}`} onClick={()=>onRemove(index)}><Trash2 size={13}/></button>}</td>
       </tr>)}

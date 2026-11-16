@@ -143,7 +143,7 @@
     },
     {
       "path": "src/lib/weldSplit.ts",
-      "sha256": "3c5dec21c4b5687b048394eb76bb9f2bcf0dca988dd361be5d2bb34f0be4e035"
+      "sha256": "290b84f3b71c123bcce9bcbc169782243140ef7d017b6c4691a0d665a432d47a"
     },
     {
       "path": "src/lib/geometryWrapBoundary.ts",
@@ -191,7 +191,7 @@
     },
     {
       "path": "src/lib/processedGeometryPlan.ts",
-      "sha256": "87dac765b50c863cda2e3cdc408ef40ce2093c0180c40c84508f9272739391e3"
+      "sha256": "778e061d0c45714d1f9e6767e0f18412e7e0fd08336851ce08f05ecca668eb30"
     },
     {
       "path": "src/lib/weldSplitAsync.ts",
@@ -199,7 +199,7 @@
     },
     {
       "path": "scripts/analyze_step_model.py",
-      "sha256": "27ad1561ac54b70937f91faac3ba1bf2c7c790d91c7b1d0fe16ae183a18e2c6c"
+      "sha256": "7a5a53d949b2df552ea7c6ed4a6402cd73d148e8d28ce883607cb1a46bea7d28"
     },
     {
       "path": "scripts/candidate_support.py",
@@ -215,11 +215,11 @@
     },
     {
       "path": "scripts/classify_weld_process.py",
-      "sha256": "97cb61204edaeb77e9d9b6cc6ab6d634e1d3dc97507dd2fb37efea983dcfa376"
+      "sha256": "8b12ff1f9ce94330dcde6f16ea4cd1dd532656360b349cfb7df7bd0b770d1bf3"
     },
     {
       "path": "scripts/clip_gap_candidates.py",
-      "sha256": "b47f3ff3cdf4fb25c4b7382e3d044957f307c2a7a6bc7f71520e6702912c5d4c"
+      "sha256": "c791935d2a9b2d24c516f522c31ac15210aacce9756d5ab5d83c60a68d299d64"
     },
     {
       "path": "scripts/collar_geometry.py",
@@ -244,6 +244,10 @@
     {
       "path": "scripts/measure_groove_geometry.py",
       "sha256": "d9c5d4101b6ace77047d3fc3dc3bb58bdf7d17c916d5203a22487c609979e04e"
+    },
+    {
+      "path": "scripts/opposite_groove.py",
+      "sha256": "5c18c1cd0fd2efbbb4088125a06f4e9884da2d8cc625da205b0e04bc77276da0"
     },
     {
       "path": "scripts/recognize_boundaries.py",

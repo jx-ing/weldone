@@ -5,6 +5,31 @@ import {templateMatchParameters,templateForMatching} from '../src/templateMatchi
 
 function target(template){return {id:'W001',name:'参数测试',enabled:true,closure:template.closure,leg:template.leg,segments:structuredClone(template.segments),cornerAngles:template.corners.map(c=>c.standard),groove:structuredClone(template.groove),completeStart:true,completeEnd:true,startHole:template.startHole,endHole:template.endHole};}
 
+test('30 mm 及以上的段可独立启用长度范围，关闭后忽略已填写范围',()=>{
+ const original={...addTemplateCorner(newTemplate('whole')),name:'多段长度匹配',shortSegmentMatch:true};
+ original.segments[1]={...original.segments[1],length:30};
+ const parameters=templateMatchParameters(original);
+ Object.assign(parameters.segments[0],{lengthMatchEnabled:true,minLength:95,maxLength:105});
+ const template={...original,matchParameters:parameters};
+ const options={planningRevision:3};
+ const weld=target(original);
+ weld.segments[0].length=105;
+ weld.segments[1].length=90;
+ assert.equal(matchTemplate(template,weld,options).ok,true);
+ weld.segments[0].length=105.01;
+ const result=matchTemplate(template,weld,options);
+ assert.equal(result.ok,false);
+ assert.match(result.reasons.join(' '),/第 1 段.*大于最大长度/);
+ assert.equal(migrateTemplate(JSON.parse(JSON.stringify(template))).matchParameters.segments[0].lengthMatchEnabled,true);
+ parameters.segments[1]={...parameters.segments[1],lengthMatchEnabled:true,minLength:25,maxLength:35};
+ weld.segments[0].length=100;
+ assert.equal(matchTemplate(template,weld,options).ok,false);
+ parameters.segments[1].lengthMatchEnabled=false;
+ assert.equal(matchTemplate(template,weld,options).ok,true);
+ parameters.segments[0].maxLength=null;
+ assert.ok(validateTemplate(template).some(error=>error.includes('长度匹配范围')));
+});
+
 test('长度仅按适用范围匹配，不再受历史标准长度或容差限制，来源几何及点位独立',()=>{
  const original={...newTemplate('whole'),name:'匹配参数测试',mode:'exact'},weld=target(original);weld.leg=8;weld.segments[0].length=250;
  const before=structuredClone(original),parameters=templateMatchParameters(original);parameters.leg=8;Object.assign(parameters.segments[0],{minLength:200,maxLength:300});
@@ -35,7 +60,7 @@ test('无覆盖的旧模板沿用原规则，非法覆盖和长度范围阻止�
 test('旧版精确条件保留至显式保存新版；混合段的基本条件不被默认覆盖',()=>{
  const original={...newTemplate('whole'),name:'旧版参数',mode:'exact'},legacy={...original,matchParameters:{version:1,leg:6,mode:'exact',segments:original.segments.map(segment=>({...segment,length:100,lengthTolerance:0,minLength:.1,maxLength:null})),corners:[],groove:original.groove,startHole:false,endHole:false}},weld=target(original);weld.segments[0].length=150;
  assert.equal(matchTemplate(legacy,weld).ok,false);const saved={...legacy,matchParameters:templateMatchParameters(legacy)};assert.equal(matchTemplate(saved,weld).ok,true);assert.equal(legacy.matchParameters.version,1);
- const mixed=addTemplateCorner(original);mixed.segments[1]={...mixed.segments[1],position:'PF · 立向上焊',joint:'搭接接头'};const parameters=templateMatchParameters(mixed);assert.equal(parameters.position,null);assert.equal(parameters.joint,null);assert.deepEqual(templateForMatching({...mixed,matchParameters:parameters}).segments.map(segment=>[segment.position,segment.joint]),mixed.segments.map(segment=>[segment.position,segment.joint]));
+ const mixed=addTemplateCorner(original);mixed.segments[1]={...mixed.segments[1],position:'PF · 立向上焊',joint:'搭接接头'};const parameters=templateMatchParameters(mixed);assert.equal(parameters.position,null);assert.equal(Object.hasOwn(parameters,'joint'),false);assert.deepEqual(templateForMatching({...mixed,matchParameters:parameters}).segments.map(segment=>segment.position),mixed.segments.map(segment=>segment.position));
 });
 
 test('转角角度范围兼容旧标准与容差边界，保存新范围并拒绝倒置或越界值',()=>{

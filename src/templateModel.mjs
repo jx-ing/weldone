@@ -1,29 +1,34 @@
-import {geometryRuleErrors,geometryRuleMismatches,shortSegmentRange,SHORT_SEGMENT_MM} from './templateGeometryRules.mjs';
-import {GROOVE_TYPES,grooveType,grooveValue,validGroove} from './grooveModel.mjs';
+import {formatDecimal} from './numericPrecision.mjs';
+import {migrateDeviceControl} from './deviceControlModel.mjs';
+import {legacyPlanningDevice} from './processDeviceModel.mjs';
+import {geometryRuleErrors,geometryRuleMismatches,needsGeometryMeasurements,shortSegmentRange,SHORT_SEGMENT_MM,endpointType,normalizeEndpointFacts} from './templateGeometryRules.mjs';
+import {GROOVE_TYPES,grooveType,grooveValue,validGroove,normalizeWeldGroove} from './grooveModel.mjs';
 import {normalizeLegacyMergeGaps} from './mergeIntersectionGeometry.mjs';
-import {directedWeld} from './weldDirectionGeometry.mjs';
+import {directedWeld,reverseWeldTraversal,normalizeVerticalWeld,verticalTraversal,verticalTraversalIssue} from './weldDirectionGeometry.mjs';
 import {curveDimensions} from './curveDimensions.mjs';
 import { previewPath, previewPoint, samplePath, segmentShape } from './weldPathGeometry.mjs';
 import { syncControlPoints, isAnchor } from './templatePointAnchors.mjs';
-import {validPassOffsets,resolvePassPoint} from './templatePassOffsets.mjs';
+import {passOffsetWithLayer,validPassOffsets,resolvePassPoint} from './templatePassOffsets.mjs';
 import {ensureLayers} from './templateLayers.mjs';
 import {CORNER_SIDES,cornerSide,cornerMeasuredAngle} from './templateCornerAngles.mjs';
 import {templateForMatching,matchingParameterShapeErrors} from './templateMatchingParameters.mjs';
 import {sampleManualWeldPath,horizontalWeldNormal} from './manualWeldModel.mjs';
-export const POSITIONS = ['PA · 平焊', 'PB · 横角焊', 'PC · 横焊', 'PD · 仰角焊', 'PE · 仰焊', 'PF · 立向上焊', 'PG · 立向下焊'];
-export const JOINTS = ['T 形接头', '对接接头', '搭接接头', '角接接头', '端接接头'];
+import {migrateProcessWeldForms,weldForm,withoutLegacyJoint,normalizeWeldPosition,VERTICAL_WELD_POSITION} from './planningRequirements.mjs';
+import {withoutRetiredFillSettings} from './planningSettingsModel.mjs';
+export const POSITIONS = ['PA · 平焊', 'PB · 横角焊', 'PC · 横焊', 'PD · 仰角焊', 'PE · 仰焊', VERTICAL_WELD_POSITION];
 export const GEOMETRIES = ['直线', '圆弧', '曲线'];
 export const GROOVES = GROOVE_TYPES;
 export const TRACKING = ['无跟踪', '电弧跟踪', '激光跟踪'];
 export const OVERRIDES = { current: ['电流', 'A', 0.1], voltage: ['电压', 'V', 0.1], speed: ['速度', 'mm/min', 0.1], amplitude: ['摆动幅度', 'mm', 0], frequency: ['摆动频率', 'Hz', 0], dwellLeft: ['左停留', 's', 0], dwellRight: ['右停留', 's', 0] };
 export const uid = () => crypto.randomUUID();
-export const segment = (source = {}) => ({ position: source.position || POSITIONS[1], joint: source.joint || JOINTS[0], geometry: source.geometry || '直线', length: source.length ?? 100, ...(source.minLength!==undefined?{minLength:source.minLength}:{}),...(source.maxLength!==undefined?{maxLength:source.maxLength}:{}) });
+export const segment = (source = {}) => ({ position: source.position || POSITIONS[1], geometry: source.geometry || '直线', length: source.length ?? 100, ...(source.minLength!==undefined?{minLength:source.minLength}:{}),...(source.maxLength!==undefined?{maxLength:source.maxLength}:{}) });
 export const point = (kind = 'control', seg = 1, percent = 50, name = '控制点1') => ({ id: uid(), kind, name, segment: seg, percent, ...(kind==='control'?{referenceId:''}:{}), offset: { x: 0, y: 0, z: 0 }, angles: { advance: 0, rotation: 0, work: 45 }, tracking: '无跟踪', overrides: {} });
 export const defaultCorner = () => ({ standard: 90, tolerance: 5 });
 export const geometryOptions = closure => closure === 'closed' ? ['直线', '曲线', '圆弧'] : ['直线', '曲线'];
 export const isModelWholeTemplate = t => t.type==='whole'&&!!t.sourceWeld;
 export const segmentLengthTolerance = (t,s) => s.lengthTolerance ?? t.tolerance ?? 10;
 export function independentWeldTemplate(template){
+  template=withoutTemplateJoint(template);
   if(template.type!=='whole')return template;
   const {baseProcessId,baseProcessSnapshot,baseProcess,...rest}=template;
   return rest;
@@ -87,7 +92,7 @@ export function newTemplate(type = 'whole', source = {}) {
   const segments = source.segments?.length ? source.segments.map(s => segment(s)) : type === 'local' ? [segment(source), segment(source)] : [segment(source)];
   const cornerCount = type === 'local' ? segments.length - 1 : 0;
   const closure=source.closure|| (segments.some(s=>s.geometry==='圆弧')?'closed':'open');
-  const result=syncControlPoints({ ...(type==='local'?{localControlPointsVersion:1,baseProcessId:''}:{}), id: uid(), name: '', type, closure, mode: 'standard', leg: source.leg ?? 6, cornerCount, corners: Array.from({ length: cornerCount }, defaultCorner), segments, groove: { type: '无坡口', angle: 0, depth: 0 }, startHole: false, endHole: false, tolerance: 10, points: [point('start', 1, 0, '起点'), point('end', segments.length, 100, '终点')], current: source.current ?? 210, voltage: source.voltage ?? 24.5, speed: source.speed ?? 340, joint: segments[0].joint, position: segments[0].position });
+  const result=syncControlPoints({ ...(type==='local'?{localControlPointsVersion:1,baseProcessId:''}:{}), id: uid(), name: '', type, closure, mode: 'standard', leg: source.leg ?? 6, cornerCount, corners: Array.from({ length: cornerCount }, defaultCorner), segments, groove: { type: '无坡口', angle: 0, depth: 0 }, startHole: false, endHole: false, tolerance: 10, points: [point('start', 1, 0, '起点'), point('end', segments.length, 100, '终点')], current: source.current ?? 210, voltage: source.voltage ?? 24.5, speed: source.speed ?? 340, position: segments[0].position });
   return closure==='closed'?changeTemplateClosure(withoutLocalLengthBounds(result),'closed'):ensureLayers(withoutLocalLengthBounds(result));
 }
 export function wholeWeldSourceIssues(model,weld) {
@@ -97,26 +102,43 @@ export function wholeWeldSourceIssues(model,weld) {
   if(typeof weld.id!=='string'||!weld.id.trim()||typeof weld.name!=='string')issues.push('所选焊道缺少有效编号或名称');
   if(weld.completeStart!==true||weld.completeEnd!==true)issues.push('所选焊道必须具有完整起点和终点');
   if(!Array.isArray(weld.segments)||!weld.segments.length||weld.segments.length>30)issues.push('所选焊道缺少有效的焊缝段数据');
-  else if(!weld.segments.every(s=>s&&POSITIONS.includes(s.position)&&JOINTS.includes(s.joint)&&geometryOptions(weld.closure).includes(s.geometry)&&Number.isFinite(s.length)&&s.length>=.1))issues.push('请完善所选焊道各段的焊接位置、接头、几何类型和长度');
+  else if(!weld.segments.every(s=>s&&POSITIONS.includes(s.position)&&geometryOptions(weld.closure).includes(s.geometry)&&Number.isFinite(s.length)&&s.length>=.1))issues.push('请完善所选焊道各段的焊接位置、几何类型和长度');
   if(!['open','closed'].includes(weld.closure))issues.push('所选焊道缺少开放／闭合属性');
-  if(!Number.isFinite(weld.leg)||weld.leg<.5||!Number.isInteger(weld.leg*2))issues.push('所选焊道缺少有效焊脚，步长应为 0.5 mm');
+  if(!Number.isFinite(weld.leg)||weld.leg<=0||!weld.calculatedLeg&&(weld.leg<.5||!Number.isInteger(weld.leg*2)))issues.push('所选焊道缺少有效焊脚，步长应为 0.5 mm');
   if(!Array.isArray(weld.cornerAngles)||weld.cornerAngles.length>(weld.segments?.length||0)-1||!weld.cornerAngles.every(a=>Number.isFinite(a)&&a>=0&&a<=360))issues.push('所选焊道缺少有效转角数据');
   if(!validGroove(weld.groove))issues.push('所选焊道缺少有效坡口数据');
   if(typeof weld.startHole!=='boolean'||typeof weld.endHole!=='boolean')issues.push('所选焊道缺少起点或终点过焊孔信息');
   if(weld.closure==='closed'&&Array.isArray(weld.segments)&&weld.segments.every(s=>s?.geometry==='直线')&&weld.segments.length<3)issues.push('闭合直线焊道至少需要三段');
   return issues;
 }
-export function newWholeTemplateFromWeld(model,welds,weldId,copy) {
+export function newWholeTemplateFromWeld(model,welds,weldId,copy,options={}) {
   const original=welds.find(w=>w.id===weldId),issues=wholeWeldSourceIssues(model,original);
   if(issues.length)throw Error(issues.join('；'));
-  const weld=targetFromWeld(original);
-  if(weld.cornerDirections?.some(c=>c.reason))throw Error('所选焊道路径几何无效');
-  const t={...newTemplate('whole'),name:copy?`${copy.name.slice(0,72)} · 副本`:'',sourceWeld:{model,id:weld.id,name:weld.name},...(weld.cornerReferenceNormal?{cornerReferenceNormal:structuredClone(weld.cornerReferenceNormal)}:{}),closure:weld.closure,leg:weld.leg,mode:'exact',segments:weld.segments.map(s=>({...structuredClone(s),lengthTolerance:10})),cornerCount:weld.cornerAngles.length,corners:weld.cornerAngles.map((standard,i)=>({standard,tolerance:5,angleSide:weld.cornerDirections?.[i]?.angleSide==='outer'?'outer':standard>180?'outer':'inner'})),groove:structuredClone(weld.groove),startHole:weld.startHole,endHole:weld.endHole};
-  t.joint=t.segments[0].joint;t.position=t.segments[0].position;
+  const weld=targetFromWeld(original,options);
+  const cornerIssue=weld.cornerDirections?.findIndex(c=>c.reason);
+  if(cornerIssue>=0)throw Error(`转角 ${cornerIssue+1}：${weld.cornerDirections[cornerIssue].reason}`);
+  const t={...newTemplate('whole'),name:copy?`${copy.name.slice(0,72)} · 副本`:'',sourceWeld:{model,id:weld.id,name:weld.name},...(weld.cornerReferenceNormal?{cornerReferenceNormal:structuredClone(weld.cornerReferenceNormal)}:{}),closure:weld.closure,leg:weld.leg,...(weld.calculatedLeg?{calculatedLeg:true}:{}),mode:'exact',segments:weld.segments.map(s=>({...structuredClone(withoutLegacyJoint(s)),lengthTolerance:10})),cornerCount:weld.cornerAngles.length,corners:weld.cornerAngles.map((standard,i)=>({standard,tolerance:5,angleSide:weld.cornerDirections?.[i]?.angleSide==='outer'?'outer':standard>180?'outer':'inner'})),groove:structuredClone(weld.groove),startHole:weld.startHole,endHole:weld.endHole};
+  t.position=t.segments[0].position;
   if(copy){t.points=structuredClone(copy.points);t.layers=structuredClone(copy.layers);}
   return independentWeldTemplate(ensureLayers(syncControlPoints(t)));
 }
+function withoutTemplateJoint(template){
+  const value=withoutLegacyJoint(template);
+  if(value.position!==undefined)value.position=normalizeWeldPosition(value.position);
+  value.groove=normalizeWeldGroove(value.groove);
+  if(value.baseProcessSnapshot)value.baseProcessSnapshot=migrateProcessWeldForms(value.baseProcessSnapshot);
+  if(Array.isArray(value.segments))value.segments=value.segments.map(migrateWeldSegment);
+  if(value.requirementsMatch){
+    const {start,end,...rules}=value.requirementsMatch;
+    value.requirementsMatch={...rules,start:{...start,type:endpointType(start)},end:{...end,type:endpointType(end)}};
+  }
+  if(Array.isArray(value.matchParameters?.segments)){
+    value.matchParameters={...withoutLegacyJoint(value.matchParameters),segments:value.matchParameters.segments.map(migrateWeldSegment)};
+  }
+  return value;
+}
 export function migrateTemplate(t) {
+  t=withoutTemplateJoint(t);
   if (t.type) {
     const { angleMin, angleMax, ...result } = structuredClone(t);
     if (result.corners === undefined) {
@@ -133,7 +155,100 @@ export function migrateTemplate(t) {
   result.points.forEach(p => { p.overrides = { current: t.current, voltage: t.voltage, speed: t.speed }; });
   return ensureLayers(syncControlPoints(result,true));
 }
-export function migrateDraft(v) { return { ...v, processLibrary:v.processLibrary??[], processDeviceProfiles:v.processDeviceProfiles??[], welds: v.welds?.map(w => v.model === '肋板组件 A' ? { ...w, completeStart:w.completeStart??true,completeEnd:w.completeEnd??true,closure:w.closure??'open',segments:w.segments??[segment(w)],cornerAngles:w.cornerAngles??[],groove:w.groove??{type:'无坡口',angle:0,depth:0},startHole:w.startHole??false,endHole:w.endHole??false } : normalizeLegacyMergeGaps(w)), templates: v.templates.map(migrateTemplate), fixedTemplates: (v.fixedTemplates || []).map(f=>{
+function migrateStrategyPlan(weld){
+  const plan=weld.strategyPlan;
+  if(!Array.isArray(plan?.passes))return;
+  const containsRetiredMotion=plan.endpointActions?.includes('fill')||plan.passes.some(pass=>
+    pass.points?.some(point=>point.kind==='crater'||point.kind==='holeFill')
+  );
+  const recipe=weld.processParameters;
+  const passes=recipe?.processLayers?.flatMap(layer=>layer.passes)??[recipe];
+  const hasLegacyCornerOffset=passes.some(pass=>Object.values(pass?.cornerOffsets??{}).some(value=>
+    value&&typeof value==='object'&&Object.values(value).some(axis=>Number.isFinite(axis)&&axis!==0)
+  ));
+  if(containsRetiredMotion||hasLegacyCornerOffset||plan.attitudeVersion===1){
+    delete weld.strategyPlan;
+    weld.planned=false;
+    return;
+  }
+  weld.strategyPlan={...plan,passes:plan.passes.map(({crater,...pass})=>pass)};
+}
+function migrateWeldSegment(segment){
+  const value=withoutLegacyJoint(segment);
+  if(value.position!==undefined)value.position=normalizeWeldPosition(value.position);
+  if(value.endpointFacts)value.endpointFacts=normalizeEndpointFacts(value.endpointFacts);
+  return value;
+}
+function migrateWeld(weld){
+  const value={...withoutLegacyJoint(weld),weldType:weldForm(weld),groove:normalizeWeldGroove(weld.groove)};
+  if(value.position!==undefined)value.position=normalizeWeldPosition(value.position);
+  if(weld.endpointFacts)value.endpointFacts=normalizeEndpointFacts(weld.endpointFacts);
+  if(weld.segments)value.segments=weld.segments.map(migrateWeldSegment);
+  if(Array.isArray(weld.mergeHistory?.originals))value.mergeHistory={...weld.mergeHistory,originals:weld.mergeHistory.originals.map(migrateWeld)};
+  migrateStrategyPlan(value);
+  if(weld.processParameters)value.processParameters=migrateProcessWeldForms(weld.processParameters);
+  if(weld.templateSnapshot)value.templateSnapshot=withoutTemplateJoint(weld.templateSnapshot);
+  if(weld.localApplications)value.localApplications=weld.localApplications.map(application=>({
+    ...application,
+    ...(application.templateSnapshot?{templateSnapshot:withoutTemplateJoint(application.templateSnapshot)}:{}),
+    ...(application.baseProcessParameters?{baseProcessParameters:migrateProcessWeldForms(application.baseProcessParameters)}:{})
+  }));
+  if(weld.attributeOverrides){
+    const previous=weld.attributeOverrides;
+    const overrides=withoutLegacyJoint(previous);
+    if(previous.joint!==undefined)overrides.weldType=value.weldType;
+    if(overrides.position!==undefined)overrides.position=normalizeWeldPosition(overrides.position);
+    if(value.segments?.some(segment=>segment.position===VERTICAL_WELD_POSITION))delete overrides.direction;
+    if(previous.endpointFacts)overrides.endpointFacts=normalizeEndpointFacts(previous.endpointFacts);
+    if(Object.hasOwn(previous,'groove'))overrides.groove=normalizeWeldGroove(previous.groove);
+    if(previous.segments)overrides.segments=previous.segments.map(migrateWeldSegment);
+    value.attributeOverrides=overrides;
+  }
+  const normalized=normalizeVerticalWeld(value);
+  const vertical=verticalTraversal(value.segments,value.position);
+  const oldVerticalPlan=value.strategyPlan&&!value.strategyPlan.verticalUpOnly&&
+    value.segments?.some(segment=>segment.position===VERTICAL_WELD_POSITION);
+  if(oldVerticalPlan||vertical==='conflict'||normalized.direction!==value.direction){
+    delete normalized.strategyPlan;
+    normalized.planned=false;
+  }
+  return normalized;
+}
+function migratePlanningSettings(settings){
+  const clean=withoutRetiredFillSettings(settings);
+  const restorePose=pose=>{
+    if(!pose||!('alpha' in pose||'beta' in pose))return pose;
+    const {alpha,beta,...previous}=pose;
+    if(previous.work==null&&Number.isFinite(alpha))previous.work=90-alpha;
+    if(previous.rotation==null&&Number.isFinite(beta))previous.rotation=beta;
+    return previous;
+  };
+  const restoreGroup=(group,keys)=>({...group,...Object.fromEntries(keys.filter(key=>Object.hasOwn(group,key)).map(key=>[key,restorePose(group[key])]))});
+  const {actionParameters,wrapParameters,interferenceEndParameters,...rest}=clean;
+  const {startAttitude,endAttitude,...ends}=interferenceEndParameters??{};
+  const {verticalDown,...motion}=actionParameters??{};
+  return {...rest,
+    ...(actionParameters?{actionParameters:restoreGroup(motion,['flatPose','verticalPose'])}:{}),
+    ...(wrapParameters?{wrapParameters:restoreGroup(wrapParameters,['flatLPose','uPose','verticalLPose'])}:{}),
+    ...(interferenceEndParameters?{interferenceEndParameters:ends}:{})};
+}
+export function migrateDraft(v) {
+  const history={};
+  for(const key of ['previousExample','previousGeometryProcessing']){
+    if(Array.isArray(v[key]?.welds))history[key]={...v[key],welds:v[key].welds.map(migrateWeld)};
+  }
+  if(Array.isArray(v.rejectedGeometryWelds))history.rejectedGeometryWelds=v.rejectedGeometryWelds.map(migrateWeld);
+  if(Array.isArray(v.manualSplitHistory))history.manualSplitHistory=v.manualSplitHistory.map(entry=>({...entry,original:migrateWeld(entry.original)}));
+  if(Array.isArray(v.deletedProcessDevices))history.deletedProcessDevices=v.deletedProcessDevices.map(entry=>({...entry,entries:entry.entries.map(migrateProcessWeldForms)}));
+  const settings={};
+  const {planningDevice,...workspace}=v;
+  const legacyDevice=planningDevice??legacyPlanningDevice(v.processDeviceProfiles);
+  if(legacyDevice&&v.deviceControl===undefined)settings.deviceControl=migrateDeviceControl(legacyDevice,v.deviceCapabilities);
+  if(v.planningSettings)settings.planningSettings=migratePlanningSettings(v.planningSettings);
+  if(v.projectPlanning)settings.projectPlanning=Object.fromEntries(Object.entries(v.projectPlanning).map(([name,profile])=>[
+    name,profile.planningSettings?{...profile,planningSettings:migratePlanningSettings(profile.planningSettings)}:profile
+  ]));
+  return { ...workspace, ...history, ...settings, processLibrary:(v.processLibrary??[]).map(migrateProcessWeldForms), processDeviceProfiles:v.processDeviceProfiles??[], welds: v.welds?.map(migrateWeld).map(w => v.model === '肋板组件 A' ? { ...w, completeStart:w.completeStart??true,completeEnd:w.completeEnd??true,closure:w.closure??'open',segments:w.segments??[segment(w)],cornerAngles:w.cornerAngles??[],groove:w.groove??{type:'无坡口',angle:0,depth:0},startHole:w.startHole??false,endHole:w.endHole??false } : normalizeLegacyMergeGaps(w)), templates: v.templates.map(migrateTemplate), fixedTemplates: (v.fixedTemplates || []).map(f=>{
   const migratePoints=points=>syncControlPoints({type:'local',segments:Array.from({length:f.segmentCount},()=>segment()),points},true,true).points.map(({id,kind,name,segment,percent,referenceId,location,anchorRole,autoRole})=>({id,kind,name,segment,percent,...(anchorRole?{anchorRole}:{}),...(autoRole?{autoRole}:{}),...(referenceId!==undefined?{referenceId}:{}),...(location?{location}: {})}));
   return {...f,...(f.definition?{definition:migrateTemplate(f.definition)}:{}),points:migratePoints(f.points),...(f.layers?{layers:f.layers.map(l=>({...l,passes:l.passes.map(p=>({...p,points:migratePoints(p.points)}))}))}:{})};
 }) }; }
@@ -178,7 +293,7 @@ export function validateTemplate(t) {
   if (typeof t.id !== 'string' || !t.name?.trim() || t.name.length > 80) e.push('请输入 1–80 字模板名称');
   if (!['whole', 'local'].includes(t.type) || n < 1 || n > (t.type === 'local' ? 3 : 30)) e.push('局部模板最多 3 段，焊缝模板最多 30 段');
   if(!['open','closed'].includes(t.closure)) e.push('请选择开放或闭合');
-  if (!finite(t.leg, 0.5) || !Number.isInteger(t.leg * 2)) e.push('焊脚必须为正数，步长 0.5 mm');
+  if (t.calculatedLeg?!(Number.isFinite(t.leg)&&t.leg>0):(!finite(t.leg, 0.5) || !Number.isInteger(t.leg * 2))) e.push('焊脚必须为正数，步长 0.5 mm');
   if (!Number.isInteger(t.cornerCount) || !finite(t.cornerCount, 0, n - 1)) e.push('转角数量必须为 0 到 n−1 的整数');
   if (!Array.isArray(t.corners) || t.corners.length !== t.cornerCount) e.push('每个转角需要一组标准角度与角度容差');
   else t.corners.forEach((c,i)=>{if(c?.angleSide!==undefined&&!Object.hasOwn(CORNER_SIDES,c.angleSide))e.push(`转角 ${i+1} 请选择内角或外角`);if(c?.pathStandard!==undefined&&!finite(c.pathStandard,0,360))e.push(`转角 ${i+1} 形状角度无效`);});
@@ -186,7 +301,7 @@ export function validateTemplate(t) {
   if (!['standard', 'exact'].includes(t.mode) || !finite(t.tolerance, 0)) e.push('匹配模式或长度误差无效');
   if(t.type==='whole')t.segments.forEach((s,i)=>{if(!finite(segmentLengthTolerance(t,s),0))e.push(`第 ${i+1} 段长度容差必须为大于等于 0 的数值`);});
   if(t.sourceWeld&&(!isModelWholeTemplate(t)||!t.sourceWeld.model?.trim()||!t.sourceWeld.id?.trim()||typeof t.sourceWeld.name!=='string'))e.push('焊缝模板的来源焊道信息无效');
-  if (!t.segments.every(s => POSITIONS.includes(s.position) && JOINTS.includes(s.joint) && GEOMETRIES.includes(s.geometry) && finite(s.length, 0.1))) e.push('请完善每段的焊接位置、接头类型、几何类型和正数长度');
+  if (!t.segments.every(s => POSITIONS.includes(s.position) && GEOMETRIES.includes(s.geometry) && finite(s.length, 0.1))) e.push('请完善每段的焊接位置、几何类型和正数长度');
   if(!t.segments.every(s=>geometryOptions(t.closure).includes(s.geometry)))e.push('开放焊道仅支持直线、曲线；圆弧仅可用于闭合焊道');
   t.segments.forEach((s,i)=>{const shape=segmentShape(s,t.closure==='closed'&&n===1);if(s.geometry!=='直线'&&(!['left','right'].includes(shape.direction)||!finite(shape.bend,0,100)||!finite(shape.width,.1)||!finite(shape.height,.1)))e.push(`第 ${i+1} 段形状参数无效`);if(s.geometry==='圆弧'&&(!finite(shape.radius,.1)||!finite(shape.arcAngle,1,360)))e.push(`第 ${i+1} 段圆弧半径或角度无效`);});
   t.segments.forEach((s,i)=>{if(s.shape&&[['bend',0,100],['width',.1,1e6],['height',.1,1e6],['radius',.1,1e6],['arcAngle',1,360]].some(([k,min,max])=>s.shape[k]!==undefined&&!finite(s.shape[k],min,max)))e.push(`第 ${i+1} 段形状参数需填写有效数值`);});
@@ -194,11 +309,11 @@ export function validateTemplate(t) {
   if(t.closure==='closed'&&t.segments.every(s=>s.geometry==='直线')&&n<3)e.push('闭合直线轮廓至少需要三段');
   if (!validGroove(t.groove)) e.push('坡口参数无效');
   if (typeof t.startHole !== 'boolean' || typeof t.endHole !== 'boolean') e.push('过焊孔条件无效');
-  if(t.type==='whole')t.segments.forEach((s,i)=>{const min=segmentMinLength(t,s),max=segmentMaxLength(t,s);if(!finite(min,.1))e.push(`第 ${i+1} 段适用最小长度必须大于等于0.1 mm`);if(max!==null&&!finite(max,.1))e.push(`第 ${i+1} 段适用最大长度必须大于等于0.1 mm，或留空表示不限`);if(finite(min,.1)&&finite(max,.1)&&max<min)e.push(`第 ${i+1} 段适用最大长度不能小于最小长度`);});
+  if(t.type==='whole')t.segments.forEach((s,i)=>{if(s.length>=SHORT_SEGMENT_MM&&s.lengthMatchEnabled===false)return;const min=segmentMinLength(t,s),max=segmentMaxLength(t,s);if(!finite(min,.1))e.push(`第 ${i+1} 段适用最小长度必须大于等于0.1 mm`);if(max!==null&&!finite(max,.1))e.push(`第 ${i+1} 段适用最大长度必须大于等于0.1 mm，或留空表示不限`);if(finite(min,.1)&&finite(max,.1)&&max<min)e.push(`第 ${i+1} 段适用最大长度不能小于最小长度`);});
   if(!Array.isArray(t.layers)||!t.layers.length)e.push('请至少设置一层一道');
   else {
     if(new Set(t.layers.map(l=>l.id)).size!==t.layers.length)e.push('层编号不能重复');
-    for(const l of t.layers){if(!l.name?.trim()||!finite(l.height)||!Array.isArray(l.passes)||!l.passes.length){e.push('每层需要名称、高度和至少一道');continue;}
+    for(const l of t.layers){if(!l.name?.trim()||!finite(l.height)||!finite(l.offsetY??0)||!Array.isArray(l.passes)||!l.passes.length){e.push('每层需要名称、有效的层偏移和至少一道');continue;}
       if(new Set(l.passes.map(p=>p.id)).size!==l.passes.length)e.push('焊道编号不能重复');
       for(const p of l.passes){if(!p.name?.trim()||!validPassOffsets(p.offset))e.push(`${l.name}：焊道名称或偏移无效`);e.push(...validatePoints(p.points,n,false,t.type).map(error=>`${l.name}/${p.name}：${error}`));}
     }
@@ -213,7 +328,7 @@ export function validateFixed(f) {
   if(!f||typeof f.id!=='string'||!f.name?.trim()||f.name.length>80||!Number.isInteger(f.segmentCount)||!finite(f.segmentCount,1,3))return ['固定模板结构无效'];
   const issues=validatePoints(f.points,f.segmentCount,true,'local');
   if(f.definition){if(f.definition.type!=='local'||f.definition.id!==f.id||f.definition.name!==f.name||f.definition.segments?.length!==f.segmentCount)issues.push('固定模板编辑内容与点位骨架不一致');issues.push(...validateTemplate(f.definition));}
-  if(f.layers!==undefined){if(!Array.isArray(f.layers)||!f.layers.length)issues.push('固定模板至少需要一层一道');else for(const l of f.layers){if(!l.name?.trim()||!finite(l.height)||!Array.isArray(l.passes)||!l.passes.length){issues.push('固定模板层道位置无效');continue;}for(const p of l.passes){if(!validPassOffsets(p.offset))issues.push('固定模板焊道偏移无效');issues.push(...validatePoints(p.points,f.segmentCount,true,'local'));}}}
+  if(f.layers!==undefined){if(!Array.isArray(f.layers)||!f.layers.length)issues.push('固定模板至少需要一层一道');else for(const l of f.layers){if(!l.name?.trim()||!finite(l.height)||!finite(l.offsetY??0)||!Array.isArray(l.passes)||!l.passes.length){issues.push('固定模板层道位置无效');continue;}for(const p of l.passes){if(!validPassOffsets(p.offset))issues.push('固定模板焊道偏移无效');issues.push(...validatePoints(p.points,f.segmentCount,true,'local'));}}}
   return [...new Set(issues)];
 }
 export function reuseLayout(t, f) {
@@ -225,23 +340,39 @@ export function reuseLayout(t, f) {
   }
   resized.reusedFromFixed={id:f.id,name:f.name};
   function positions(points){const ids=new Map(points.map(p=>[p.id,uid()]));return points.map(p=>({...point(p.kind,p.segment,p.percent,p.name),id:ids.get(p.id),...(p.anchorRole?{anchorRole:p.anchorRole}:{}),...(p.autoRole?{autoRole:p.autoRole}:{}),...(p.referenceId!==undefined?{referenceId:ids.get(p.referenceId)||''}:{}),offset:{x:p.location?.along||0,y:p.location?.normal||0,z:p.location?.height||0}}));}
-  if(f.layers){const layers=f.layers.map(l=>({id:uid(),name:l.name,height:l.height,passes:l.passes.map(p=>({id:uid(),name:p.name,offset:structuredClone(p.offset),points:positions(p.points)}))}));return ensureLayers(syncControlPoints({...resized,layers,points:layers[0].passes[0].points}));}
+  if(f.layers){const layers=f.layers.map(l=>({id:uid(),name:l.name,height:l.height,offsetY:l.offsetY,passes:l.passes.map(p=>({id:uid(),name:p.name,offset:structuredClone(p.offset),points:positions(p.points)}))}));return ensureLayers(syncControlPoints({...resized,layers,points:layers[0].passes[0].points}));}
   return ensureLayers(syncControlPoints({...resized,points:positions(f.points)}));
 }
-export function targetFromWeld(w) {
+export function targetFromWeld(w,options={}) {
   if (!w) return null;
-  w=directedWeld(w);
+  w=directedWeld(w,options.measureTemplateNeighborhood?.measureCorner);
   return { ...w, closure:w.closure||(w.closed===true?'closed':'open'), segments: w.segments || [segment(w)], cornerAngles: w.cornerAngles || [], completeStart: w.completeStart === true, completeEnd: w.completeEnd === true, atConnection: w.atConnection === true, groove: w.groove || { type: '无坡口', angle: 0, depth: 0 }, startHole: w.startHole ?? false, endHole: w.endHole ?? false };
 }
 export function matchTemplate(t, target, options={}) {
   if(t.enabled===false)return {ok:false,reasons:['模板已停用，不参与匹配']};
   if (!target) return { ok: false, reasons: ['请先加载模型并选择焊道'] };
-  target=directedWeld(target);
+  if(verticalTraversal(target.segments,target.position)==='conflict')return {ok:false,reasons:[verticalTraversalIssue]};
+  target=directedWeld(target,options.measureTemplateNeighborhood?.measureCorner);
   const invalid=[...validateTemplate(t),...geometryRuleErrors(t)];if(invalid.length)return {ok:false,reasons:invalid.map(v=>'模板参数无效：'+v)};
   const shortOnly=options.planningRevision===3||!!t.requirementsMatch||t.shortSegmentMatch===true;
   const hasShortRanges=!!t.requirementsMatch||t.shortSegmentMatch===true;
   t=templateForMatching(t);
-  const reasons = t.requirementsMatch?geometryRuleMismatches(t.requirementsMatch,target):[], n = t.segments?.length, value=v=>v===undefined||v===null||v===''?'未提供':String(v);
+  const forward=matchTemplateOrder(t,target,options,shortOnly,hasShortRanges);
+  if(forward.ok||!target.cornerGeometryMeasured||target.closure==='closed'||target.segments?.length!==t.segments.length)return forward;
+  const reversed=matchTemplateOrder(t,reverseWeldTraversal(target),options,shortOnly,hasShortRanges);
+  if(reversed.ok)return {...reversed,reversed:true};
+  return reversed.reasons.length<forward.reasons.length?
+    {...reversed,reasons:['按倒序核对时仍有以下条件不匹配',...reversed.reasons]}:forward;
+}
+function matchTemplateOrder(t,target,options,shortOnly,hasShortRanges) {
+  const rules=t.requirementsMatch;
+  let neighborhood=null,measurementError;
+  if(needsGeometryMeasurements(rules)){
+    try{neighborhood=options.measureTemplateNeighborhood?.(target,rules.captureRange);}
+    catch(error){measurementError=error.message;}
+  }
+  const reasons = rules?geometryRuleMismatches(rules,target,neighborhood):[], n = t.segments?.length, value=v=>v===undefined||v===null||v===''?'未提供':formatDecimal(v);
+  if(measurementError&&reasons.length)reasons.unshift('局部几何测量失败：'+measurementError);
   const compare=(label,expected,actual,unit='')=>reasons.push(`${label}不一致（模板 ${value(expected)}${unit} / 焊道 ${value(actual)}${unit}）`);
   if((target.closure||'open')!==t.closure)compare('开放／闭合属性',t.closure==='closed'?'闭合':'开放',target.closure==='closed'?'闭合':'开放');
   if (t.type === 'whole' && (!target.completeStart || !target.completeEnd)) reasons.push(`焊缝模板要求完整的起点、终点（缺少${[!target.completeStart?'完整起点':'',!target.completeEnd?'完整终点':''].filter(Boolean).join('、')}）`);
@@ -251,19 +382,20 @@ export function matchTemplate(t, target, options={}) {
   else target.cornerAngles.forEach((a, i) => {
     const c=t.corners[i],side=cornerSide(c),actual=target.cornerDirections?.[i],measured=cornerMeasuredAngle(a);
     if(actual?.reason){reasons.push(`转角 ${i+1} 无法判定内角/外角：${actual.reason}`);return;}
-    if(actual?.angleSide&&actual.angleSide!=='straight'&&actual.angleSide!==side)reasons.push(`转角 ${i+1} 转向类型不一致（模板 ${CORNER_SIDES[side]} / 焊道 ${CORNER_SIDES[actual.angleSide]}，沿焊接方向${actual.angleSide==='inner'?'左转':'右转'}）`);
-    if (!finite(a,0,360)||Math.abs(measured-c.standard)>c.tolerance+1e-9)reasons.push(`转角 ${i+1} 超出 ${c.standard}° ±${c.tolerance}°（${CORNER_SIDES[side]}；焊道 ${value(Number.isFinite(measured)?Math.round(measured*10000)/10000:a)}°）`);
+    if(actual?.angleSide&&actual.angleSide!=='straight'&&actual.angleSide!==side)reasons.push(`转角 ${i+1} ${actual.cornerSource==='solid'?'实体角型':'转向类型'}不一致（模板 ${CORNER_SIDES[side]} / 焊道 ${CORNER_SIDES[actual.angleSide]}，沿焊接方向${actual.turn>0?'左转':'右转'}）`);
+    if (!finite(a,0,360)||Math.abs(measured-c.standard)>c.tolerance+1e-9)reasons.push(`转角 ${i+1} 超出 ${value(c.standard)}° ±${value(c.tolerance)}°（${CORNER_SIDES[side]}；焊道 ${value(Number.isFinite(measured)?measured:a)}°）`);
   });
   t.segments.forEach((s, i) => {
     const other = target.segments?.[i];if (!other) return;
-    for (const [key, label] of [['position', '焊接位置'], ['joint', '接头类型'], ['geometry', '几何类型']]) if (s[key] !== other[key]) compare(`第 ${i + 1} 段${label}`,s[key],other[key]);
+    for (const [key, label] of [['position', '焊接位置'], ['geometry', '几何类型']]) if (s[key] !== other[key]) compare(`第 ${i + 1} 段${label}`,s[key],other[key]);
     if(t.type==='local'&&!finite(other.length,.1))reasons.push(`第 ${i+1} 段焊接长度必须为大于等于0.1 mm的有效数值`);
-    if(shortOnly&&s.length>=SHORT_SEGMENT_MM)return;
+    if(s.length>=SHORT_SEGMENT_MM&&(s.lengthMatchEnabled===false||shortOnly&&s.lengthMatchEnabled!==true))return;
     const range=shortOnly?shortSegmentRange(s):null;
-    const min=shortOnly?(hasShortRanges?s.minLength??range.minLength:range.minLength):t.type==='local'?.1:segmentMinLength(t,s),max=shortOnly?(hasShortRanges?s.maxLength??range.maxLength:range.maxLength):t.type==='local'?null:segmentMaxLength(t,s);
-    if(!finite(other.length,min-1e-9))reasons.push(`第 ${i+1} 段小于最小长度（模板至少 ${min} mm / 焊道 ${value(other.length)} mm）`);
-    if(max!==null&&finite(other.length)&&other.length>max+1e-9)reasons.push(`第 ${i+1} 段大于最大长度（模板至多 ${max} mm / 焊道 ${value(other.length)} mm）`);
-    if (!shortOnly && t.type === 'whole' && t.mode === 'exact' && (!finite(other.length) || Math.abs(s.length - other.length) > segmentLengthTolerance(t,s)+1e-9)) reasons.push(`第 ${i + 1} 段长度超出 ±${segmentLengthTolerance(t,s)} mm（模板 ${s.length} mm / 焊道 ${value(other.length)} mm）`);
+    const matchSavedRange=hasShortRanges||s.lengthMatchEnabled===true;
+    const min=shortOnly?(matchSavedRange?s.minLength??range.minLength:range.minLength):t.type==='local'?.1:segmentMinLength(t,s),max=shortOnly?(matchSavedRange?s.maxLength??range.maxLength:range.maxLength):t.type==='local'?null:segmentMaxLength(t,s);
+    if(!finite(other.length,min-1e-9))reasons.push(`第 ${i+1} 段小于最小长度（模板至少 ${value(min)} mm / 焊道 ${value(other.length)} mm）`);
+    if(max!==null&&finite(other.length)&&other.length>max+1e-9)reasons.push(`第 ${i+1} 段大于最大长度（模板至多 ${value(max)} mm / 焊道 ${value(other.length)} mm）`);
+    if (!shortOnly && t.type === 'whole' && t.mode === 'exact' && (!finite(other.length) || Math.abs(s.length - other.length) > segmentLengthTolerance(t,s)+1e-9)) reasons.push(`第 ${i + 1} 段长度超出 ±${value(segmentLengthTolerance(t,s))} mm（模板 ${value(s.length)} mm / 焊道 ${value(other.length)} mm）`);
   });
   if (!target.groove || grooveType(target.groove.type) !== grooveType(t.groove.type))compare('坡口类型',t.groove.type,target.groove?.type);
   else if(t.groove.type!=='无坡口'){
@@ -275,14 +407,46 @@ export function matchTemplate(t, target, options={}) {
   return { ok: reasons.length === 0, reasons };
 }
 export function applyTemplateToWeld(w, t, options={}) {
-  const target = targetFromWeld(w), match = matchTemplate(t, target, options);
-  if (!match.ok) throw new Error(match.reasons.join('；'));
-  const previewTarget={...target,segments:target.segments.map((s,i)=>({...s,shape:s.shape||t.segments[i].shape})),corners:t.corners};
-  const path=previewPath(previewTarget.segments,'xy',t.corners,t.closure);
-  const layers=t.layers.map(layer=>({...structuredClone(layer),passes:layer.passes.map(pass=>({...structuredClone(pass),controlPoints:pass.points.map(p=>{
-    const resolved=resolvePassPoint(previewTarget,p,pass.points,pass.offset,layer.height,path);
-    return {...structuredClone(p),angles:resolved.angles,distance:resolved.distance,actualSegment:resolved.actualSegment,originalSegment:(target.sourceSegmentIndices?.[resolved.actualSegment-1]??resolved.actualSegment-1)+1,position:{x:resolved.position[0],y:resolved.position[1],z:resolved.position[2]}};
-  }).sort((a,b)=>a.distance-b.distance)}))}));
+  const target = targetFromWeld(w,options), match = matchTemplate(t, target, options);
+  if (!match.ok) throw Object.assign(new Error(match.reasons.join('；')),{reasons:match.reasons});
+  const corners=match.reversed?t.corners.slice().reverse():t.corners;
+  const count=target.segments.length;
+  const previewTarget={...target,segments:target.segments.map((s,i)=>({...s,shape:s.shape||t.segments[match.reversed?count-i-1:i].shape})),corners};
+  const path=previewPath(previewTarget.segments,'xy',corners,t.closure);
+  const layers=t.layers.map(sourceLayer=>{
+   const layer=structuredClone(sourceLayer);
+   if(match.reversed&&Number.isFinite(layer.offsetY))layer.offsetY=-layer.offsetY;
+   layer.passes=layer.passes.map(pass=>{
+    if(match.reversed){
+     pass.points=reverseTemplatePoints(pass.points,count);
+     if(Number.isFinite(pass.offset?.y))pass.offset.y=-pass.offset.y;
+    }
+    return {...pass,controlPoints:pass.points.map(p=>{
+     const resolved=resolvePassPoint(previewTarget,p,pass.points,passOffsetWithLayer(pass.offset,layer),0,path);
+     return {...structuredClone(p),angles:resolved.angles,distance:resolved.distance,actualSegment:resolved.actualSegment,originalSegment:(target.sourceSegmentIndices?.[resolved.actualSegment-1]??resolved.actualSegment-1)+1,position:{x:resolved.position[0],y:resolved.position[1],z:resolved.position[2]}};
+    }).sort((a,b)=>a.distance-b.distance)};
+   });
+   return layer;
+  });
   const controlPoints=layers[0].passes[0].controlPoints;
   return { ...w, template: t.name, templateId: t.id, controlPoints,layers, planned: false };
+}
+
+function reverseTemplatePoints(points,count){
+ const start=points.find(p=>p.kind==='start'),end=points.find(p=>p.kind==='end');
+ const moved=points.map(point=>{
+  const endpoint=point.kind==='start'||point.kind==='end';
+  const segment=point.kind==='start'?1:point.kind==='end'?count:
+    point.kind==='junction'&&point.percent===100?Math.max(1,count-point.segment):count+1-point.segment;
+  const percent=point.kind==='start'?0:point.kind==='end'||point.kind==='junction'&&point.percent===100?100:100-point.percent;
+  const offset=point.offset&&{...point.offset,x:endpoint?point.offset.x:-point.offset.x,y:-point.offset.y};
+  const location=point.location&&{...point.location,along:endpoint?point.location.along:-(point.location.along??0),normal:-(point.location.normal??0)};
+  const referenceId=start&&end?(point.referenceId===start.id?end.id:point.referenceId===end.id?start.id:point.referenceId):point.referenceId;
+  return {...point,segment,percent,offset,location,referenceId,
+   ...(point.kind==='junction'&&point.percent===100?{name:'段连接点'+segment}:{})};
+ });
+ return moved.map(point=>{
+  const reference=point.kind==='control'&&moved.find(p=>p.id===point.referenceId);
+  return reference?{...point,segment:reference.segment,percent:reference.percent}:point;
+ });
 }

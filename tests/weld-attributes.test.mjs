@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {patchWeldGroup,patchWeldSegment,patchWeldGroove,segmentName} from '../src/weldAttributeModel.mjs';
+import {patchWeldGroup,patchWeldSegment,patchWeldGroove,segmentName,weldPrecisionMethod} from '../src/weldAttributeModel.mjs';
+test('精测量方式随相机默认，保留已有焊缝选择',()=>{
+ assert.equal(weldPrecisionMethod({}, {laserPrecision:true,structuredLightPrecision:false}),'laserSweep');
+ assert.equal(weldPrecisionMethod({}, {laserPrecision:false,structuredLightPrecision:true}),'fixedPhoto');
+ assert.equal(weldPrecisionMethod({}, {laserPrecision:false,structuredLightPrecision:false}),'');
+ assert.equal(weldPrecisionMethod({precisionMethod:''}, {structuredLightPrecision:true}),'fixedPhoto');
+ assert.equal(weldPrecisionMethod({precisionMethod:'manual'}, {laserPrecision:true}),'manual');
+ assert.equal(weldPrecisionMethod({mode:'laser'}, {structuredLightPrecision:true}),'laserSweep');
+});
 test('组属性同时更新各段，单段特征跟踪和包角独立保存，保留几何和原对象',()=>{
  const weld={segments:[{joint:'T 形接头',position:'PB · 横角焊',length:100,pathPoints:[[0,0,0],[100,0,0]],tracking:'无跟踪'},{joint:'T 形接头',position:'PB · 横角焊',length:80,pathPoints:[[100,0,0],[100,80,0]],tracking:'电弧跟踪'}]};
  const group=patchWeldGroup(weld,'joint','搭接接头');assert.deepEqual(group.map(s=>s.joint),['搭接接头','搭接接头']);assert.equal(weld.segments[0].joint,'T 形接头');assert.strictEqual(group[0].pathPoints,weld.segments[0].pathPoints);

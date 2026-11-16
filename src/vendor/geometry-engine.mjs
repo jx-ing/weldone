@@ -6820,6 +6820,7 @@ function boundaryProjectionSpans(weld, boundary, distance6) {
         const first = at(interval2[0]);
         const last = at(interval2[1]);
         const uMin = residualDelta.lengthSq() > 1e-20 ? THREE11.MathUtils.clamp(-residual.dot(residualDelta) / residualDelta.lengthSq(), interval2[0], interval2[1]) : interval2[0];
+        const closest = at(uMin);
         const minDistance = residual.clone().addScaledVector(residualDelta, uMin).length();
         const [left, right] = first.s <= last.s ? [first, last] : [last, first];
         pieces.push({
@@ -6831,6 +6832,8 @@ function boundaryProjectionSpans(weld, boundary, distance6) {
           endBoundaryPoint: right.boundaryPoint,
           startDistance: left.distance,
           endDistance: right.distance,
+          minPoint: closest.point,
+          minBoundaryPoint: closest.boundaryPoint,
           minDistance
         });
       }
@@ -6847,7 +6850,11 @@ function mergeBoundarySpans(pieces) {
       merged.push({ ...span });
       continue;
     }
-    previous.minDistance = Math.min(previous.minDistance, span.minDistance);
+    if (span.minDistance < previous.minDistance) {
+      previous.minDistance = span.minDistance;
+      previous.minPoint = span.minPoint;
+      previous.minBoundaryPoint = span.minBoundaryPoint;
+    }
     if (span.endS > previous.endS) {
       previous.endS = span.endS;
       previous.endPoint = span.endPoint;
@@ -7421,7 +7428,7 @@ function rememberDistance(cache3, distance6, result) {
   if (cache3.size >= 8 && !cache3.has(distance6)) cache3.delete(cache3.keys().next().value);
   cache3.set(distance6, result);
 }
-function computeBoundaryOffsetSpans(weld, edgesData, distance6) {
+function computeBoundaryOffsetSpans(weld, edgesData, distance6, clipBoundary) {
   let byWeld = boundarySpanCache.get(edgesData);
   if (!byWeld) {
     byWeld = /* @__PURE__ */ new WeakMap();
@@ -7433,7 +7440,7 @@ function computeBoundaryOffsetSpans(weld, edgesData, distance6) {
     byWeld.set(weld, byDistance);
   }
   const cached = byDistance.get(distance6);
-  if (cached) return cached;
+  if (cached && !clipBoundary) return cached;
   const poly = weldPolyline(weld);
   const groups = /* @__PURE__ */ new Map();
   const relevant = /* @__PURE__ */ new Set([
@@ -7444,14 +7451,15 @@ function computeBoundaryOffsetSpans(weld, edgesData, distance6) {
     const key = `${edge.partId}|${edge.faceIndex}|${edge.wire === "inner" && edge.wireId ? edge.wireId : edge.boundaryId ?? `edge:${edge.edgeIndex}`}`;
     const plannedBoundary = boundaryPoints(edge, weld);
     if (nativeArcBoundaryOutsideOffset(weld, edge, plannedBoundary, distance6)) continue;
-    const spans = boundaryProjectionSpans(poly, plannedBoundary, distance6).filter((span) => boundarySpanInOffsetDirection(weld, edge, span));
+    const boundaries = clipBoundary ? clipBoundary(plannedBoundary) : [plannedBoundary];
+    const spans = boundaries.flatMap(points => boundaryProjectionSpans(poly, points, distance6)).filter((span) => boundarySpanInOffsetDirection(weld, edge, span));
     if (!spans.length) continue;
     const group = groups.get(key);
     if (group) group.spans.push(...spans);
     else groups.set(key, { edge, spans });
   }
   const result = [...groups.values()].map((group) => ({ ...group, spans: mergeBoundarySpans(group.spans) }));
-  rememberDistance(byDistance, distance6, result);
+  if (!clipBoundary) rememberDistance(byDistance, distance6, result);
   return result;
 }
 function computeAxialDetection(weld, edgesData) {
@@ -10332,8 +10340,8 @@ function computeWeldSplit(weld, meshData, partsData, edgesData, contactPairs, of
         for (const segment of Object.values(edgePerp[gKey]["\u5B54/\u8FB9\u7F18"])) {
           const d1 = segment.\u8D77\u70B9\u5230\u710A\u7F1D\u7684\u8DDD\u79BB;
           const d2 = segment.\u7EC8\u70B9\u5230\u710A\u7F1D\u7684\u8DDD\u79BB;
-          if (d1 < edgeThreshold) addSplitAt(segment.\u6295\u5F71\u70B91, { \u89C4\u5219: "offset\u5C0F\u4E8E\u9608\u503C", \u5173\u8054\u96F6\u4EF6: partId, \u8DDD\u79BB: d1 });
-          if (d2 < edgeThreshold) addSplitAt(segment.\u6295\u5F71\u70B92, { \u89C4\u5219: "offset\u5C0F\u4E8E\u9608\u503C", \u5173\u8054\u96F6\u4EF6: partId, \u8DDD\u79BB: d2 });
+          if (d1 < edgeThreshold) addSplitAt(segment.\u6295\u5F71\u70B91, { \u89C4\u5219: "offset\u5C0F\u4E8E\u9608\u503C", \u5173\u8054\u96F6\u4EF6: partId, \u8DDD\u79BB: d1, edgeBoundaryBreak: true });
+          if (d2 < edgeThreshold) addSplitAt(segment.\u6295\u5F71\u70B92, { \u89C4\u5219: "offset\u5C0F\u4E8E\u9608\u503C", \u5173\u8054\u96F6\u4EF6: partId, \u8DDD\u79BB: d2, edgeBoundaryBreak: true });
         }
       }
     }
@@ -10341,7 +10349,7 @@ function computeWeldSplit(weld, meshData, partsData, edgesData, contactPairs, of
       const boundaryResults = computeBoundaryOffsetSpans(weld, edgesData, Math.min(edgeOffset, edgeThreshold));
       for (const { edge, spans } of boundaryResults) for (const span of spans) {
         if (span.minDistance >= edgeThreshold - 1e-9) continue;
-        const trigger = { \u89C4\u5219: "offset\u5C0F\u4E8E\u9608\u503C", \u5173\u8054\u96F6\u4EF6: edge.partId, \u8DDD\u79BB: r13(span.minDistance) };
+        const trigger = { \u89C4\u5219: "offset\u5C0F\u4E8E\u9608\u503C", \u5173\u8054\u96F6\u4EF6: edge.partId, \u8DDD\u79BB: r13(span.minDistance), edgeBoundaryBreak: true };
         const outer = edge.wire === "outer";
         const startTail = outer && span.startPoint.distanceTo(poly[0]) <= 0.02;
         const endTail = outer && span.endPoint.distanceTo(poly.at(-1)) <= 0.02;
@@ -10382,20 +10390,21 @@ function computeWeldSplit(weld, meshData, partsData, edgesData, contactPairs, of
       \u89C4\u5219: sp.\u89C4\u5219,
       \u5173\u8054\u96F6\u4EF6: sp.\u5173\u8054\u96F6\u4EF6,
       \u8DDD\u79BB: sp.\u8DDD\u79BB,
-      ...sp.subplateContact ? { subplateContact: true } : {}
+      ...sp.subplateContact ? { subplateContact: true } : {},
+      ...sp.edgeBoundaryBreak ? { edgeBoundaryBreak: true } : {}
     }
   });
   const stripExt = (c) => c ? { \u89C4\u5219: c.\u89C4\u5219, \u5173\u8054\u96F6\u4EF6: c.\u5173\u8054\u96F6\u4EF6, \u8DDD\u79BB: c.\u8DDD\u79BB, \u5EF6\u4F38\u5230: c.\u5EF6\u4F38\u5230 } : null;
   const buildSub = (index, pts, length3, closed, t0v, t1v) => ({
     id: `${weld.id}-${index}`,
     index,
-    length: r13(length3),
+    length: r13(length3) || length3,
     closed,
-    start: [r23(pts[0].x), r23(pts[0].y), r23(pts[0].z)],
-    end: [r23(pts[pts.length - 1].x), r23(pts[pts.length - 1].y), r23(pts[pts.length - 1].z)],
+    start: (length3 < 0.1 ? pts[0].toArray() : [r23(pts[0].x), r23(pts[0].y), r23(pts[0].z)]),
+    end: (length3 < 0.1 ? pts[pts.length - 1].toArray() : [r23(pts[pts.length - 1].x), r23(pts[pts.length - 1].y), r23(pts[pts.length - 1].z)]),
     startTangent: r2vecT(t0v),
     endTangent: r2vecT(t1v),
-    points: pts.map((p) => [r23(p.x), r23(p.y), r23(p.z)]),
+    points: pts.map((p) => (length3 < 0.1 ? p.toArray() : [r23(p.x), r23(p.y), r23(p.z)])),
     \u8D77\u70B9\u6765\u6E90: { \u7C7B\u578B: "\u6253\u65AD\u70B9" },
     \u7EC8\u70B9\u6765\u6E90: { \u7C7B\u578B: "\u6253\u65AD\u70B9" }
   });
@@ -12178,7 +12187,6 @@ var DEFAULT_PROCESSED_GEOMETRY_PLAN_CONFIG = {
   offsetThreshold: 50,
   endpointMinimumMm: 40,
   wrapDistanceRatio: 2 / 3,
-  minimumWeldLength: 50,
   thicknessWeldThresholdMm: DEFAULT_THICKNESS_WELD_THRESHOLD_MM,
   mergeParams: { ...DEFAULT_MERGE_PARAMS },
   legSettings: { ...DEFAULT_GEOMETRY_LEG_SETTINGS },
@@ -12214,47 +12222,12 @@ function activeWelds(data, config) {
   }) };
 }
 function automaticMerges(data, welds, splits, config) {
-  const roleIds = recognizedRoleWeldIds(data.weldsData.welds, data.partsData.parts);
-  const lugKeys = retainedLugContourUnitKeys(data.weldsData, splits, config.minimumWeldLength);
-  const deletedUnitKeys = /* @__PURE__ */ new Set();
-  for (const split of splits.values()) split.subWelds.forEach((sub4, index) => {
-    const key = `${split.weldId}|${index}`;
-    const independent = sub4.geometryProperties?.\u63A5\u5934\u5F62\u5F0F?.\u677F\u539A\u5F62\u6210\u72EC\u7ACB\u710A\u7F1D;
-    if (!sub4.geometryObstruction && independent === true) return;
-    if (independent === false) {
-      deletedUnitKeys.add(key);
-      return;
-    }
-    if (sub4.geometryObstruction || !sub4.geometryRetainTerminal && !lugKeys.has(key) && !isIntermittentSubWeld(sub4) && shouldHideShortWeld(sub4.length, split.weldId, true, roleIds, config.minimumWeldLength)) deletedUnitKeys.add(key);
+  const deletedUnitKeys = new Set();
+  for (const split of splits.values()) split.subWelds.forEach((sub, index) => {
+    if (sub.geometryObstruction) deletedUnitKeys.add(split.weldId + "|" + index);
   });
   const raw = computeMerges(splits, welds, data.partsData, config.mergeParams, deletedUnitKeys);
-  const deletedGroupUnitKeys = /* @__PURE__ */ new Set();
-  const kept = raw.groups.filter((group) => {
-    if (!group.members.some((member) => lugKeys.has(member.key) || member.\u677F\u539A\u72EC\u7ACB === true || splits.get(member.weldId)?.subWelds[member.subIndex]?.geometryRetainTerminal || isIntermittentSubWeld(splits.get(member.weldId)?.subWelds[member.subIndex] ?? {})) && shouldHideShortGroup(group, true, roleIds, config.minimumWeldLength)) {
-      group.members.forEach((member) => deletedGroupUnitKeys.add(member.key));
-      return false;
-    }
-    return true;
-  });
-  const groups = kept.map((group, index) => ({ ...group, id: `M${String(index + 1).padStart(3, "0")}` }));
-  const mergedUnitKeys = new Set(groups.flatMap((group) => group.members.map((member) => member.key)));
-  const units = raw.units.filter((unit5) => !deletedGroupUnitKeys.has(unit5.key));
-  const aliveIds = new Set(units.map((unit5) => unit5.id));
-  const result = {
-    groups,
-    units,
-    mergedUnitKeys,
-    decisions: raw.decisions.filter((decision) => aliveIds.has(decision.a) && aliveIds.has(decision.b)),
-    \u540C\u6E90\u963B\u65AD: raw.\u540C\u6E90\u963B\u65AD,
-    \u8840\u7F18\u963B\u65AD: raw.\u8840\u7F18\u963B\u65AD,
-    \u91CD\u5408\u963B\u65AD: raw.\u91CD\u5408\u963B\u65AD,
-    \u5355\u5143\u603B\u6570: units.length,
-    \u5408\u5E76\u540E\u603B\u6570: groups.length + units.length - mergedUnitKeys.size,
-    \u5220\u9664\u7EC4\u6570: raw.groups.length - groups.length,
-    \u5220\u9664\u7EC4\u6210\u5458\u6570: deletedGroupUnitKeys.size,
-    deletedGroupUnitKeys
-  };
-  return { result, deletedUnitKeys };
+  return { result: { ...raw, 删除组数: 0, 删除组成员数: 0, deletedGroupUnitKeys: new Set() }, deletedUnitKeys };
 }
 function computeProcessedGeometryPlan(data, sourceSplits, inputConfig = {}) {
   const config = processedGeometryPlanConfig(inputConfig);
@@ -12400,4 +12373,4 @@ export {
   processedGeometryPlanConfig
 };
 
-export { computeAxialDetection as measurePlanningAxial, computeBoundaryOffsetSpans as measurePlanningBoundaries };
+export { computeAxialDetection as measurePlanningAxial, computeBoundaryOffsetSpans as measurePlanningBoundaries, getPartGeometryIndex as planningPartGeometryIndex };

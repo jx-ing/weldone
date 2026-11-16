@@ -1,8 +1,13 @@
 import {pathLength,pathGeometry} from './manualWeldModel.mjs';
 import {directedWeld} from './weldDirectionGeometry.mjs';
 import {reconcileTemplateGeometry} from './templateModel.mjs';
+import {isDemoModel,validStepModel} from './stepModelStore.mjs';
 
-export const hasTemplateModelPath=template=>template.sourceWeld?.model==='111.step'&&template.segments?.every(segment=>segment.pathPoints?.length>=2);
+export function hasTemplateModelPath(template){
+ const source=template.sourceWeld;
+ return !!source&&(isDemoModel(source)||validStepModel(source.stepModel))&&
+  !!template.segments?.length&&template.segments.every(segment=>segment.pathPoints?.length>=2);
+}
 export function templatePathNodes(template){
  if(!hasTemplateModelPath(template))return [];
  const nodes=[{index:0,name:template.closure==='closed'?'闭合连接点':'起点',position:[...template.segments[0].pathPoints[0]]},...template.segments.slice(0,-1).map((segment,index)=>({index:index+1,name:`段连接点${index+1}`,position:[...segment.pathPoints.at(-1)]}))];

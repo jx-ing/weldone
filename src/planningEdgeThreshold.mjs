@@ -3,7 +3,7 @@
 export function resolveEdgeBreakThreshold(parameters={},weld={}){
  const explicit=parameters.edgeThreshold;
  if(explicit!==null&&explicit!==undefined&&explicit!==''){
-  if(!Number.isInteger(explicit)||explicit<=0)throw Error('边缘打断阈值须为大于0的整数');
+  if(!Number.isFinite(explicit)||explicit<=0||Math.abs(explicit*10-Math.round(explicit*10))>=1e-8)throw Error('边缘打断阈值须为大于0的一位小数');
   return explicit;
  }
  const leg=weld.leg??weld.properties?.焊脚;

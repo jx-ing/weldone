@@ -1,6 +1,47 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {geometryOptionsForPlanning,mergeParameterErrors,mergeAngleRange} from '../src/planningConfiguration.mjs';
+import {configuredWrapDistance,geometryOptionsForPlanning,mergeParameterErrors,mergeAngleRange,wrapParameterErrors} from '../src/planningConfiguration.mjs';
 import {DEFAULT_GEOMETRY_OPTIONS,convertGeometryPlan} from '../src/geometryProcessingModel.mjs';
+import {serializeSettings,settingsDefaults} from '../src/planningSettingsModel.mjs';
+
+test('L 形包角调整偏移保存为非负一位小数，旧配置和空白默认零',()=>{
+ const legacy=settingsDefaults({wrapParameters:{lDistanceRatio:'1/2'}});
+ assert.equal(legacy.wrapParameters.lDistanceOffset,0);
+ assert.equal(configuredWrapDistance(12,legacy.wrapParameters,'L'),6);
+ assert.equal(serializeSettings({wrapParameters:{lDistanceOffset:''}}).wrapParameters.lDistanceOffset,0);
+ const saved=serializeSettings({wrapParameters:{lDistanceRatio:'2/3',lDistanceOffset:'2.5'}});
+ assert.equal(settingsDefaults(saved).wrapParameters.lDistanceOffset,2.5);
+ assert.equal(configuredWrapDistance(12,saved.wrapParameters,'L'),10.5);
+ assert.equal(configuredWrapDistance(12,saved.wrapParameters,'vertical'),8);
+ assert.equal(wrapParameterErrors(saved.wrapParameters).length,0);
+ for(const lDistanceOffset of [-0.1,1.25,NaN,Infinity])assert.ok(wrapParameterErrors({lDistanceOffset}).length);
+});
+test('L 形包角保存拖动比例，按板厚限长，并保留固定档偏移',()=>{
+ const saved=serializeSettings({wrapParameters:{lDistanceRatio:'1/2',lDistanceOffset:'4.5',lDistanceCustomRatio:.735}});
+ const wrap=settingsDefaults(saved).wrapParameters;
+ assert.equal(wrap.lDistanceCustomRatio,.735);
+ assert.equal(wrap.lDistanceOffset,4.5);
+ assert.equal(configuredWrapDistance(20,wrap,'L'),14.7);
+ assert.equal(configuredWrapDistance(12,wrap,'vertical'),6);
+ assert.equal(geometryOptionsForPlanning(DEFAULT_GEOMETRY_OPTIONS,saved).wrapDistanceRatio,.735);
+ assert.equal(configuredWrapDistance(6,{...wrap,lDistanceCustomRatio:null},'L'),6);
+ assert.equal(configuredWrapDistance(12,{...wrap,lDistanceCustomRatio:0},'L'),0);
+ assert.equal(configuredWrapDistance(12,{...wrap,lDistanceCustomRatio:1},'L'),12);
+ for(const lDistanceCustomRatio of [-.001,1.001])assert.ok(wrapParameterErrors({...wrap,lDistanceCustomRatio}).length);
+});
+test('立焊上包角独立保存板厚比例与毫米偏移，两者之和不超过板厚',()=>{
+ const saved=serializeSettings({wrapParameters:{lDistanceRatio:'1/2',lDistanceCustomRatio:.8,verticalDistanceRatio:'2/3',verticalDistanceCustomRatio:.375,verticalDistanceOffset:'1.5'}});
+ const wrap=settingsDefaults(saved).wrapParameters;
+ assert.equal(wrap.verticalDistanceCustomRatio,.375);
+ assert.equal(wrap.verticalDistanceOffset,1.5);
+ assert.equal(configuredWrapDistance(8,wrap,'vertical'),4.5);
+ assert.equal(configuredWrapDistance(2,wrap,'vertical'),2);
+ assert.equal(configuredWrapDistance(8,{...wrap,verticalDistanceCustomRatio:null},'vertical'),8*(2/3)+1.5);
+ assert.equal(configuredWrapDistance(8,wrap,'L'),6.4);
+ assert.equal(configuredWrapDistance(6,{verticalDistance:8},'vertical'),6);
+ assert.equal(configuredWrapDistance(12,{lDistanceRatio:'1/2'},'vertical'),6);
+ assert.ok(wrapParameterErrors({...wrap,verticalDistanceOffset:-1}).length);
+ assert.ok(wrapParameterErrors({...wrap,verticalDistanceCustomRatio:1.1}).length);
+});
 test('合并参数留空沿用原规则，明确角度转换为最大转角并限制每组合并个数',()=>{
  const defaults=structuredClone(DEFAULT_GEOMETRY_OPTIONS);assert.deepEqual(geometryOptionsForPlanning(defaults),defaults);
  const o=geometryOptionsForPlanning(defaults,{mergeParameters:{angle:45,count:3}});assert.equal(o.mergeParams.夹角阈值下限,135);assert.equal(o.mergeParams.夹角阈值上限,180);assert.equal(o.maxMergeCount,3);assert.deepEqual(defaults,DEFAULT_GEOMETRY_OPTIONS);

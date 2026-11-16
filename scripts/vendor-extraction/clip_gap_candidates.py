@@ -338,7 +338,7 @@ def _edge_clearances(clip_leaf, profile_leaf, exposed, profile_faces, source_edg
             # does not prove a matching edge joint and stays excluded.
             if curve.GetType()!=GeomAbs_CurveType.GeomAbs_Circle:continue
             length=_length(curve,first,last)
-            if length<.01 or not math.isfinite(length):continue
+            if length <= 0 or not math.isfinite(length):continue
             covered=[c['gapEvidence']['retainedCurveParameters'] for c in face_candidates
                      if c['gapEvidence']['sourceEdgeIndex']==index]
             # Ordinary whole source lines/curves are already fully face-backed.
@@ -374,7 +374,7 @@ def _edge_clearances(clip_leaf, profile_leaf, exposed, profile_faces, source_edg
                 valid=[accepts(float(p)) for p in parameters]
                 for kept_first,kept_last in _runs(parameters,valid,accepts):
                     retained_length=_length(curve,kept_first,kept_last)
-                    if retained_length<.01:continue
+                    if retained_length <= 0 or not math.isfinite(retained_length):continue
                     sampled=_sample(curve,kept_first,kept_last)
                     if sampled is None or _same_curve(sampled,existing_samples):continue
                     midpoint=witness((kept_first+kept_last)/2)
@@ -461,7 +461,7 @@ def extract_clip_gap_candidates(clip_leaf, profile_leaf, clip_faces, profile_fac
             curve = BRepAdaptor_Curve(edge)
             first, last = curve.FirstParameter(), curve.LastParameter()
             length = _length(curve, first, last)
-            if not math.isfinite(length) or length < .01:
+            if not math.isfinite(length) or length <= 0:
                 continue
             # A .5 mm maximum arc-length verification step is a local sampling
             # guarantee, not a claim to mathematically certify unvisited points.

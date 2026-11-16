@@ -1,3 +1,4 @@
+import NumericInput from './NumericInput.jsx';
 import React from 'react';
 import {Combine,Scissors,X,RotateCcw} from 'lucide-react';
 import {multiSplitPreview,splitWeldPreview} from './manualSplitModel.mjs';
@@ -12,14 +13,15 @@ export default function PlanningModelTools({
   if(splitByFace){if(faceStations.length)preview=multiSplitPreview(weld,faceStations);}
   else if(splitAt!=='')preview=splitWeldPreview(weld,Number(splitAt));
  }catch(reason){problem=reason.message;}
- const input=(label,value,onChange)=><label className="planning-setting-row"><span>{label}</span><span className="planning-value"><input
-  aria-label={label} type="number" min="0" max={weld?.length} step="any" disabled={!editable} value={value}
+ const input=(label,value,onChange)=><label className="planning-setting-row"><span>{label}</span><span className="planning-value"><NumericInput
+  aria-label={label} min="0" max={weld?.length} step="any" disabled={!editable} value={value}
   onChange={event=>onChange(event.target.value)}/><small>mm</small></span></label>;
  const endDistance=editable&&splitAt!==''?Number((weld.length-Number(splitAt)).toFixed(4)):'';
+ if(!weld&&!mode&&!canUndo)return null;
  return <div className="planning-model-tools">
   <div className="planning-model-actions" role="group" aria-label="模型焊道编辑">
    <button type="button" className={mode==='merge'?'active':''} aria-pressed={mode==='merge'} disabled={disabled} onClick={()=>onMode(mode==='merge'?'':'merge')}><Combine size={15}/>手动合并</button>
-   <button type="button" className={mode==='split'?'active':''} aria-pressed={mode==='split'} disabled={disabled} onClick={()=>onMode(mode==='split'?'':'split')}><Scissors size={15}/>手动打断</button>
+   <button type="button" className={mode==='split'?'active':''} aria-pressed={mode==='split'} disabled={disabled||!editable} onClick={()=>onMode(mode==='split'?'':'split')}><Scissors size={15}/>手动打断</button>
    <button type="button" disabled={!canUndo||disabled} onClick={onUndo}><RotateCcw size={14}/>撤销</button>
   </div>
   {mode&&<section className="planning-model-editor" aria-label={mode==='merge'?'手动合并设置':'手动打断设置'}>

@@ -1,4 +1,8 @@
+import {deviceControlCapabilities} from './deviceControlModel.mjs';
+import {DEFAULT_INTERFERENCE_DISTANCE,planningOuterClearance} from './planningConfiguration.mjs';
+
 export const MAX_PLANNING_WELDS = 2500;
+export const VERTICAL_WELD_POSITION = 'PF · 立向上焊';
 
 export function roundWeldLeg(value) {
   return Number.isFinite(value) && value > 0 ? Math.max(0.5, Math.round(value * 2) / 2) : null;
@@ -6,24 +10,70 @@ export function roundWeldLeg(value) {
 
 export function weldPositionCode(value) {
   const position = String(value ?? '').trim();
-  if (/^[A-Z]{2}(?:\s|$)/.test(position)) return position.slice(0, 2);
+  if (/^[A-Z]{2}(?:\s|$)/.test(position)) return position.startsWith('PG') ? 'PF' : position.slice(0, 2);
   if (['平角焊', '横角焊'].includes(position)) return 'PB';
-  if (['立焊', '立角焊', '立向上焊'].includes(position)) return 'PF';
-  if (position === '立向下焊') return 'PG';
+  if (['立焊', '立角焊', '立向上焊', '立向上焊位置', '立向下焊', '立向下焊位置'].includes(position)) return 'PF';
   return position;
 }
 
+export const normalizeWeldPosition=position=>weldPositionCode(position)==='PF'?VERTICAL_WELD_POSITION:position;
+
+export function legacyWeldForm(value) {
+  if (value === '搭接' || value === '搭接接头') return '搭接焊缝';
+  if (value === '对接' || value === '对接接头') return '对接焊缝';
+  return '角焊缝';
+}
+
 export function weldForm(weld) {
-  return weld.weldType || (weld.joint === '搭接接头' ? '搭接焊缝' : weld.joint === '对接接头' ? '对接焊缝' : '角焊缝');
+  return weld.weldType || legacyWeldForm(weld.joint ?? weld.segments?.[0]?.joint);
+}
+
+export function processWeldForms(recipe) {
+  return recipe.weldForms ?? [recipe.joint === '端接接头' ? '其他焊缝' : legacyWeldForm(recipe.joint)];
+}
+
+export function normalizeCornerOffsets(offsets) {
+  if(!offsets||typeof offsets!=='object'||Array.isArray(offsets))return offsets;
+  return Object.fromEntries(Object.entries(offsets).map(([side,value])=>[side,value&&typeof value==='object'&&!Array.isArray(value)?null:value]));
+}
+
+function migrateProcessPass({crater,holeFill,...pass}) {
+  if(pass.cornerOffsets!==undefined)pass.cornerOffsets=normalizeCornerOffsets(pass.cornerOffsets);
+  return pass;
+}
+
+export function migrateProcessPasses(recipe) {
+  const value=migrateProcessPass(recipe);
+  if(value.position!==undefined)value.position=normalizeWeldPosition(value.position);
+  if(Array.isArray(value.processLayers))value.processLayers=value.processLayers.map(layer=>({...layer,passes:layer.passes.map(migrateProcessPass)}));
+  return value;
+}
+
+export function migrateProcessWeldForms(recipe) {
+  const {joint,joints,...value}=migrateProcessPasses(recipe);
+  return {...value,weldForms:processWeldForms(recipe)};
+}
+
+export function withoutLegacyJoint(value) {
+  const {joint,...rest}=value;
+  return rest;
 }
 
 export function planningContext(workspace) {
-  return {
-    ...workspace.planningSettings,
-    planningRevision:3,
-    deviceCapabilities:workspace.deviceCapabilities ?? {},
-    activeDevice:workspace.processDeviceProfiles?.find(profile => profile.enabled) ?? null
-  };
+  const activeDevice=workspace.processDeviceProfiles?.find(profile=>profile.enabled)??null;
+  const hardware=workspace.planningDevice;
+  const deviceCapabilities={...workspace.deviceCapabilities};
+  if(hardware?.trackingModes){
+    deviceCapabilities.laserTracking=hardware.trackingModes.includes('laser');
+    deviceCapabilities.arcTracking=hardware.trackingModes.includes('arc');
+  }
+  if(hardware?.precisionCameras){
+    deviceCapabilities.laserPrecision=hardware.precisionCameras.laser?.enabled===true;
+    deviceCapabilities.structuredLightPrecision=hardware.precisionCameras.structuredLight?.enabled===true;
+  }
+  if(workspace.deviceControl)Object.assign(deviceCapabilities,deviceControlCapabilities(workspace.deviceControl));
+  const settings=workspace.planningSettings??{},merge=settings.mergeParameters??{};
+  return {...settings,topologyVersion:1,weldPreprocessing:{...settings.weldPreprocessing,outerClearance:planningOuterClearance(settings)},mergeParameters:{...merge,enabled:true,angleEnabled:true,grooveEnabled:true},planningRevision:3,deviceCapabilities,activeDevice,requireLibraryTemplate:true};
 }
 
 const deviceFields = ['welderModel','robotModel','material','wireType','wireDiameter','gas'];
@@ -35,18 +85,16 @@ export function belongsToDevice(process, profile) {
 }
 
 export function strategyScopeIssue(weld, settings) {
-  if (Array.isArray(weld.intermittentRanges)&&!weld.intermittentRanges.length) return '间断焊设置下没有有效焊接区间';
-  if (weld.templateRequired) return '合并段的工艺条件不同，仅支持焊接模板规划';
+  if (weld.templateRequired) return '合并段的工艺条件不同，需匹配焊接模板覆盖工艺';
   const segments = weld.segments?.length ? weld.segments : [weld];
   if (!['角焊缝', '搭接焊缝'].includes(weldForm(weld)) ||
-      segments.some(s => !['PB', 'PF', 'PG'].includes(weldPositionCode(s.position ?? weld.position)) ||
-        !['T 形接头', '角接头', '搭接接头'].includes(s.joint ?? weld.joint)) ||
+      segments.some(s => !['PB', 'PF'].includes(weldPositionCode(s.position ?? weld.position))) ||
       !['无坡口', 'I形', 'I 形', 'V形', 'V 形', '喇叭形'].includes(weld.groove?.type ?? '无坡口')) {
-    return '该焊缝超出策略规划范围，请创建或选择焊接模板';
+    return '该焊缝的工艺条件需通过焊接模板覆盖';
   }
   const ends = settings.interferenceEndParameters ?? {};
-  const vertical = segments.some(s => ['PF', 'PG'].includes(weldPositionCode(s.position ?? weld.position)));
-  const limit = vertical ? ends.verticalStartDistance ?? 20 : Math.max(ends.startDistance ?? 0, ends.endDistance ?? 0);
-  if (weld.length < limit) return '焊缝长度小于端点变姿态距离，仅支持焊接模板规划';
+  const vertical = segments.some(s => weldPositionCode(s.position ?? weld.position)==='PF');
+  const limit = vertical ? ends.verticalStartDistance ?? 20 : Math.max(ends.startDistance ?? DEFAULT_INTERFERENCE_DISTANCE, ends.endDistance ?? DEFAULT_INTERFERENCE_DISTANCE);
+  if (!weld.collisionFragment && weld.length < limit) return '焊缝长度小于端点变姿态距离，需匹配焊接模板覆盖工艺';
   return '';
 }

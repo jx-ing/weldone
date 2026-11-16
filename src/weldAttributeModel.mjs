@@ -1,5 +1,10 @@
 import {grooveType} from './grooveModel.mjs';
-export const WELD_TYPES=[['角焊缝','T 形接头'],['搭接焊缝','搭接接头'],['对接焊缝','对接接头']];
+export const WELD_TYPES=['角焊缝','搭接焊缝','对接焊缝'];
+export function weldPrecisionMethod(scan={},capabilities={}){
+ if(scan.precisionMethod)return scan.precisionMethod;
+ if(scan.mode==='laser'||capabilities.laserPrecision===true)return 'laserSweep';
+ return capabilities.structuredLightPrecision===true?'fixedPhoto':'';
+}
 export function workFacesForType(type){return type==='小组立'?['上','下']:['中组立','护板'].includes(type)?['上']:[];}
 export function patchWeldGroup(weld,key,value){return weld.segments.map(segment=>({...segment,[key]:value}));}
 export function patchWeldSegment(weld,index,key,value){return weld.segments.map((segment,i)=>i===index?{...segment,[key]:value}:segment);}

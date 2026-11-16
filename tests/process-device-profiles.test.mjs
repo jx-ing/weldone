@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {newDeviceProfile,initialDeviceProfiles,updateDeviceProfile,activeDeviceApplicability,validateDeviceProfiles,validDeviceProfileStore} from '../src/processDeviceModel.mjs';
+import {newDeviceProfile,initialDeviceProfiles,updateDeviceProfile,activeDeviceApplicability,deviceApplicability,validateDeviceProfiles,validDeviceProfileStore} from '../src/processDeviceModel.mjs';
+import {belongsToDevice} from '../src/planningRequirements.mjs';
 import {migrateDraft} from '../src/templateModel.mjs';
 
 const values=()=>({welderModel:'Lincoln PowerWave R450',material:'Q345不锈钢',wireType:'药芯焊丝',wireDiameter:1.2,gas:'CO2',robotModel:'ABB IRB1600',deviceRemark:'设备备注',method:'MAG'});
@@ -30,4 +31,13 @@ test('配置确认复制完整参数，不会随后续配置修改而重写工�
  profile.applicability.welderModel='其他焊机';assert.equal(applied.welderModel,'Lincoln PowerWave R450');
  assert.equal(activeDeviceApplicability([]),null);
  assert.match(validateDeviceProfiles([{...profile,applicability:{...values(),robotModel:''}}]),/机器人/);
+});
+test('在未启用的设备配置下创建工艺，按配置编号归属',()=>{
+ const first=newDeviceProfile(values(),true),second=newDeviceProfile(values());
+ const recipe={applicability:deviceApplicability(second)};
+ assert.equal(recipe.applicability.deviceProfileId,second.id);
+ assert.equal(belongsToDevice(recipe,first),false);
+ const devices=updateDeviceProfile([first,second],second.id,{enabled:true,name:'车间设备'});
+ assert.equal(belongsToDevice(recipe,devices[1]),true);
+ assert.equal(belongsToDevice(recipe,devices[0]),false);
 });

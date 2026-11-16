@@ -1,7 +1,10 @@
-import {MAX_PLANNING_WELDS,weldForm} from './planningRequirements.mjs';
-import {sameGroove} from './grooveModel.mjs';
+import {MAX_PLANNING_WELDS,weldForm,weldPositionCode} from './planningRequirements.mjs';
+import {normalizeWeldGroove,sameGroove,noGroove} from './grooveModel.mjs';
 import {connectSegmentIntersections,mergeCornerAngles} from './mergeIntersectionGeometry.mjs';
-import {distance,EXAMPLE_MODEL} from './manualWeldModel.mjs';
+import {verticalTraversal,verticalTraversalIssue,normalizeVerticalWeld} from './weldDirectionGeometry.mjs';
+import {classifyManualMergeWraps} from './weldPreprocessing.mjs';
+import {settingsDefaults} from './planningSettingsModel.mjs';
+import {distance} from './manualWeldModel.mjs';
 function boundarySegment(w,end,previous){const list=w.segments.filter(s=>!s.connectionGap),segment=structuredClone(end?list.at(-1):list[0]);if(previous?!end:!!end)segment.pathPoints.reverse();return segment;}
 const endpoint=(w,e)=>e?w.segments.at(-1).pathPoints.at(-1):w.segments[0].pathPoints[0];
 export function mergeWeldPreview(welds,ids,maxGap=.001,settings){
@@ -10,9 +13,9 @@ export function mergeWeldPreview(welds,ids,maxGap=.001,settings){
   if(ids.length<2||new Set(ids).size!==ids.length)return {ok:false,errors:['请至少选择两条不同焊道']};
   if(ids.length>30)return {ok:false,errors:['一次最多合并30条焊道']};
   if(selected.some(w=>!w||!w.enabled||w.mergedInto||w.splitInto))return {ok:false,errors:['仅可合并当前启用且未被合并的焊道']};
-  if(selected.some(w=>w.model!==EXAMPLE_MODEL||!w.segments?.length||w.segments.some(s=>!s.pathPoints?.length)))return {ok:false,errors:['所选焊道必须来自同一模型并具有真实路径']};
+  if(selected.some(w=>!w.model||w.model!==selected[0].model||!w.segments?.length||w.segments.some(s=>!s.pathPoints?.length)))return {ok:false,errors:['所选焊道必须来自同一模型并具有真实路径']};
   if(selected.some(w=>w.closure==='closed'))errors.push('闭合焊道不能再与其他焊道串接');
-  const requiresTemplate=selected.some(w=>w.leg!==selected[0].leg||w.position!==selected[0].position||w.joint!==selected[0].joint||weldForm(w)!==weldForm(selected[0]));
+  const requiresTemplate=selected.some(w=>w.leg!==selected[0].leg||w.position!==selected[0].position||weldForm(w)!==weldForm(selected[0]));
   if(!modern&&selected.some(w=>w.leg!==selected[0].leg))errors.push('所选焊道焊脚不一致');
   if(errors.length)return {ok:false,errors};
   for(let i=0;i<selected.length;i++)for(let j=i+1;j<selected.length;j++){const a=selected[i].segments.flatMap(s=>s.pathPoints),b=selected[j].segments.flatMap(s=>s.pathPoints);if(a.length===b.length&&(a.every((p,k)=>distance(p,b[k])<.01)||a.every((p,k)=>distance(p,b[b.length-1-k])<.01)))return {ok:false,errors:['所选焊道包含重叠的重复路径，不能合并']};}
@@ -41,15 +44,29 @@ export function mergeWeldPreview(welds,ids,maxGap=.001,settings){
   let segments=[];
   for(const row of order){let next=structuredClone(row.weld.segments).map(s=>({...s,...(!s.referenceNormal&&row.weld.cornerReferenceNormal?{referenceNormal:row.weld.cornerReferenceNormal}:{})}));if(row.reverse)next=next.reverse().map(s=>({...s,pathPoints:s.pathPoints.reverse(),startReferenceNormal:s.endReferenceNormal,endReferenceNormal:s.startReferenceNormal}));segments.push(...next);}
   let joined;try{joined=connectSegmentIntersections(segments,{closed});}catch(error){return {ok:false,errors:[error.message]};}
-  segments=joined.segments;if(segments.length>30)return {ok:false,errors:['合并后超过30段，请减少选择']};
+  segments=joined.segments;
+  if(verticalTraversal(segments)==='conflict')return {ok:false,errors:[verticalTraversalIssue]};
+  if(segments.length>30)return {ok:false,errors:['合并后超过30段，请减少选择']};
   return {ok:true,errors:[],requiresTemplate:modern&&requiresTemplate,order,...joined,closed,gapCheckEnabled:maxGap!==null,cornerAngles:mergeCornerAngles(segments)};
 }
 export function mergeSelectedWelds(d,ids,settings){
   const preview=mergeWeldPreview(d.welds,ids,.001,settings);if(!preview.ok)throw Error(preview.errors.join('；'));
   if(d.welds.length>=MAX_PLANNING_WELDS)throw Error('工作区已达到焊道上限，请先另存');
   let n=settings?.planningRevision===3?Math.max(0,...d.welds.map(w=>Number(w.id.slice(1))||0))+1:1;const used=new Set(d.welds.map(w=>w.id));while(used.has('W'+String(n).padStart(3,'0')))n++;
-  const id='W'+String(n).padStart(3,'0'),first=preview.order[0],last=preview.order.at(-1),grooves=preview.order.map(r=>r.weld.groove),groove=grooves.every(g=>sameGroove(g,grooves[0]))?structuredClone(grooves[0]):{type:'待确认',angle:null,depth:null};
-  const merged={id,name:`多选合并 ${ids.length} 条`,...(settings?.planningRevision===3?{templateRequired:preview.requiresTemplate,weldType:weldForm(first.weld),machineCount:first.weld.machineCount,endpointFacts:{start:first.weld.endpointFacts?.[first.reverse?'end':'start'],end:last.weld.endpointFacts?.[last.reverse?'start':'end']}}:{}),source:'manual-merge',model:d.model,enabled:true,planned:false,completeStart:true,completeEnd:true,closure:preview.closed?'closed':'open',length:preview.length,leg:first.weld.leg,position:preview.segments.every(s=>s.position===preview.segments[0].position)?preview.segments[0].position:'混合位置（逐段设置）',mergeIntersections:preview.connections,gapConnectionMode:'intersection',joint:preview.segments.every(s=>s.joint===preview.segments[0].joint)?preview.segments[0].joint:'待确认',segments:preview.segments,cornerAngles:preview.cornerAngles,groove,startHole:!!first.weld[first.reverse?'endHole':'startHole'],endHole:!!last.weld[last.reverse?'startHole':'endHole'],atConnection:true,current:null,voltage:null,speed:null,template:'',direction:'正向',mergedFrom:preview.order.map(r=>({id:r.weld.id,name:r.weld.name,reversed:r.reverse})),mergeHistory:{originals:structuredClone(preview.order.map(r=>r.weld)),selected:d.selected}};
-  return {...d,welds:[...d.welds.map(w=>ids.includes(w.id)?{...w,enabled:false,planned:false,mergedInto:id}:w),merged],selected:id,...(settings?.planningRevision===3?{manualEditHistory:[...(d.manualEditHistory??[]),{kind:'merge',id}]}:{})};
+  const id='W'+String(n).padStart(3,'0'),first=preview.order[0],last=preview.order.at(-1),grooves=preview.order.map(r=>normalizeWeldGroove(r.weld.groove)),groove=grooves.every(g=>sameGroove(g,grooves[0]))?grooves[0]:noGroove();
+  const merged={id,name:`多选合并 ${ids.length} 条`,...(settings?.planningRevision===3?{templateRequired:preview.requiresTemplate,machineCount:first.weld.machineCount,endpointFacts:{start:first.weld.endpointFacts?.[first.reverse?'end':'start'],end:last.weld.endpointFacts?.[last.reverse?'start':'end']}}:{}),source:'manual-merge',model:d.model,enabled:true,planned:false,completeStart:true,completeEnd:true,closure:preview.closed?'closed':'open',length:preview.length,leg:first.weld.leg,weldType:weldForm(first.weld),position:preview.segments.every(s=>s.position===preview.segments[0].position)?preview.segments[0].position:'混合位置（逐段设置）',mergeIntersections:preview.connections,gapConnectionMode:'intersection',segments:preview.segments,cornerAngles:preview.cornerAngles,groove,startHole:!!first.weld[first.reverse?'endHole':'startHole'],endHole:!!last.weld[last.reverse?'startHole':'endHole'],atConnection:true,current:null,voltage:null,speed:null,template:'',direction:'正向',mergedFrom:preview.order.map(r=>({id:r.weld.id,name:r.weld.name,reversed:r.reverse})),mergeHistory:{originals:structuredClone(preview.order.map(r=>r.weld)),selected:d.selected}};
+  let withWraps=normalizeVerticalWeld(merged);
+  if(settings?.planningRevision===3){
+    const {weldPreprocessing,wrapParameters}=settingsDefaults(settings);
+    const upright=merged.segments.find(segment=>weldPositionCode(segment.position)==='PF');
+    const sameJoint=upright&&merged.segments.every(segment=>segment.joint===upright.joint)&&
+      grooves.every(g=>sameGroove(g,groove))&&preview.order.every(row=>weldForm(row.weld)===merged.weldType);
+    if(sameJoint){
+      merged.uniformJoint=true;
+      upright.weldLeg??=preview.order.find(row=>row.weld.segments.some(segment=>weldPositionCode(segment.position)==='PF'))?.weld.leg;
+    }
+    withWraps=classifyManualMergeWraps(merged,weldPreprocessing,wrapParameters,settings.measureTemplateNeighborhood?.measureCorner);
+  }
+  return {...d,welds:[...d.welds.map(w=>ids.includes(w.id)?{...w,enabled:false,planned:false,mergedInto:id}:w),withWraps],selected:id,...(settings?.planningRevision===3?{manualEditHistory:[...(d.manualEditHistory??[]),{kind:'merge',id}]}:{})};
 }
 export function undoManualMerge(d,id){const merged=d.welds.find(w=>w.id===id);if(!merged?.mergeHistory)throw Error('未找到可撤销的合并记录');if(merged.mergedInto||merged.splitInto)throw Error('请先撤销包含此焊道的后续合并或打断');const originals=merged.mergeHistory.originals,restored=new Map(originals.map(w=>[w.id,w]));const welds=d.welds.filter(w=>w.id!==id).map(w=>restored.get(w.id)||w);for(const w of originals)if(!welds.some(x=>x.id===w.id))welds.push(w);return {...d,welds,selected:originals[0].id};}

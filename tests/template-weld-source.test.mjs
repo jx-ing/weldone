@@ -20,7 +20,7 @@ test('自动逐项带入模型焊道的条件和几何，不携带原焊道工�
   assert.deepEqual(t.sourceWeld,{model:'已提取模型',id:'W001',name:w.name});assert.equal(t.mode,'exact');
   for(const k of ['leg','closure','groove','startHole','endHole'])assert.deepEqual(t[k],w[k]);
   assert.equal(t.cornerCount,1);assert.deepEqual(t.corners,[{standard:120,tolerance:5,angleSide:'inner'}]);
-  assert.deepEqual(t.segments,w.segments.map(s=>({...s,lengthTolerance:10})));assert.equal(t.points.filter(p=>p.kind==='junction').length,1);
+  assert.deepEqual(t.segments,w.segments.map(({joint,...s})=>({...s,lengthTolerance:10})));assert.equal(t.points.filter(p=>p.kind==='junction').length,1);
   assert.deepEqual(t.points[0].overrides,{});assert.equal(matchTemplate(t,w).ok,true);
   w.segments[0].length=999;assert.equal(t.segments[0].length,180);
 });

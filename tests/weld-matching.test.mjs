@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createManualWeld,appendPickedEdge} from '../src/manualWeldModel.mjs';
 import {newTemplate,newWholeTemplateFromWeld,resizeSegments} from '../src/templateModel.mjs';
 import {newProcessEntry,ensureProcessLayers,addProcessLayer,applyProcessEntry} from '../src/processParameterModel.mjs';
-import {analyzeWeldMatch,planWorkspace,planWeldFromMatch,canPreviewWeld,localTemplateWindows,applySelectedTemplate,restorePlanningState,resolveTemplateBase} from '../src/weldMatching.mjs';
+import {analyzeWeldMatch,planWorkspace,planWeldFromMatch,canPreviewWeld,localTemplateWindows,applySelectedTemplate,restorePlanningState,resolveTemplateBase,clearMissingWeldTemplates} from '../src/weldMatching.mjs';
 const settings={name:'匹配焊道',leg:6,position:'PB · 横角焊',joint:'T 形接头',groove:{type:'无坡口',angle:0,depth:0},startHole:false,endHole:false};
 function weld(count=1){let segments=[];const pts=[[0,0,0],[100,0,0],[100,100,0],[200,100,0],[200,200,0]];for(let i=0;i<count;i++)segments=appendPickedEdge(segments,{id:'e'+i,points:[pts[i],pts[i+1]]});return createManualWeld([],segments,settings);}
 function whole(w){return {...newWholeTemplateFromWeld('111.step',[w],w.id),name:'整道方案'};}
@@ -37,5 +37,35 @@ test('缺少连接点标记不阻止两三段局部组合，其他匹配条件�
 
 test('停用焊缝模板排除旧应用快照，恢复启用后再次参与匹配',()=>{const w=weld(),t=whole(w),planned=planWeldFromMatch(w,analyzeWeldMatch(w,[t],[])),off={...t,enabled:false};assert.equal(analyzeWeldMatch(w,[off],[]).ready,false);assert.equal(analyzeWeldMatch(planned,[off],[]).route,'blocked');assert.equal(canPreviewWeld(planned,[off],[process()]),false);assert.equal(analyzeWeldMatch(planned,[{...off,enabled:true}],[]).route,'whole');assert.equal(planned.templateSnapshot.enabled,undefined);});
 test('局部模板停用后旧快照不能继续应用，重新规划改用自动路径',()=>{const w=weld(2),t=local(),p=process(),planned=planWeldFromMatch(w,analyzeWeldMatch(w,[t],[p])),off={...t,enabled:false};assert.equal(analyzeWeldMatch(planned,[off],[p]).route,'automatic');assert.equal(canPreviewWeld(planned,[off],[p]),false);const updated=planWeldFromMatch(planned,analyzeWeldMatch(planned,[off],[p]));assert.equal(updated.localApplications.length,0);assert.equal(canPreviewWeld(updated,[off],[p]),true);});
+
+test('工作区删除已应用模板后重新匹配，并在读取旧任务时清除失效引用',()=>{
+ const w=weld(),removed=whole(w),replacement={...whole(w),name:'候补模板'};
+ const options={requireLibraryTemplate:true,planningRevision:3};
+ const planned=planWeldFromMatch(w,analyzeWeldMatch(w,[removed],[],options),options);
+ assert.equal(canPreviewWeld(planned,[removed],[],options),true);
+ assert.equal(canPreviewWeld(planned,[replacement],[],options),false);
+ assert.equal(analyzeWeldMatch(planned,[replacement],[],options).whole.id,replacement.id);
+ assert.equal(analyzeWeldMatch(planned,[],[],options).ready,false);
+ const restored=restorePlanningState(JSON.parse(JSON.stringify({templates:[],welds:[planned]}))).welds[0];
+ assert.equal(restored.templateSnapshot,undefined);
+ assert.equal(restored.templateId,undefined);
+ assert.equal(restored.matchPlan,undefined);
+ assert.equal(restored.planned,false);
+ assert.deepEqual(restored.controlPoints,[]);
+ assert.deepEqual(restored.segments,w.segments);
+ const next=planWeldFromMatch(restored,analyzeWeldMatch(restored,[replacement],[],options),options);
+ assert.equal(next.templateId,replacement.id);
+ assert.equal(canPreviewWeld(next,[replacement],[],options),true);
+});
+
+test('删除局部模板会移除其应用并保留独立的主工艺',()=>{
+ const w=weld(2),t=local(),p=process(),options={requireLibraryTemplate:true};
+ const planned=planWeldFromMatch(w,analyzeWeldMatch(w,[t],[p],options),options);
+ const cleaned=clearMissingWeldTemplates(planned,[]);
+ assert.deepEqual(cleaned.localApplications,[]);
+ assert.equal(cleaned.localTemplateId,undefined);
+ assert.equal(cleaned.processParameters.id,p.id);
+ assert.equal(analyzeWeldMatch(cleaned,[],[p],options).route,'automatic');
+});
 
 test('旧匹配决策中的基础工艺也不会进入新焊缝规划或修改独立快照',()=>{const w=weld(),t=whole(w),p=process(),decision={...analyzeWeldMatch(w,[t]),baseProcess:p},planned=planWeldFromMatch(w,decision);assert.equal(planned.processParameters,undefined);assert.equal(planned.templateSnapshot.baseProcessSnapshot,undefined);assert.equal(planned.matchPlan.processId,undefined);assert.equal(planned.current,t.current);});

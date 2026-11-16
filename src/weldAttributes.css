@@ -11,16 +11,20 @@
 .wa-segments>button{height:30px;min-width:52px;padding:0 10px;border:0;background:transparent;color:#777;font-size:13px;border-radius:8px;white-space:nowrap}
 .wa-segments>button.active{background:white;color:#fa8c16;box-shadow:0 1px 4px #0000000d}
 .wa-template-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
-.wa-match-card{min-width:0}
-.wa-choose-match{width:100%;border:0;border-radius:8px;background:#f8f8f8;min-width:0;height:70px;padding:9px 12px;text-align:left}
-.wa-create-match{display:block;width:100%;margin-top:5px;padding:5px 8px;border:0;border-radius:4px;background:#fff7e6;color:#874500;text-align:left;font-size:12px;line-height:17px;overflow-wrap:anywhere}
-button.wa-create-match:hover{background:#ffe7ba}
-.wa-pending-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:5px}
-.wa-pending-actions button{border:0;padding:2px 4px;color:#646464;font-size:11px;background:none}
-.wa-pending-actions button:hover{color:#ad4e00}
+.wa-match-card{position:relative;display:flex;align-items:flex-start;min-width:0;border-radius:8px;background:#f8f8f8}
+.wa-choose-match{flex:1;border:0;border-radius:8px;background:transparent;min-width:0;height:70px;padding:9px 12px;text-align:left}
+.wa-match-card:has(.wa-create-match) .wa-choose-match{padding-right:4px}
+.wa-create-match{display:grid;place-items:center;flex:0 0 24px;height:24px;margin:9px 6px 0 0;border:1px solid transparent;border-radius:4px;background:transparent;color:#ad4e00}
+.wa-template-cards .wa-create-match svg{color:inherit}
+.wa-create-match:hover,.wa-create-match:focus-visible{border-color:#ffd591;background:#fff7e6}
+.wa-create-match[aria-disabled=true]{color:#999;cursor:not-allowed}
+.wa-create-tooltip{position:absolute;top:36px;right:0;z-index:2;width:max-content;max-width:220px;padding:6px 9px;border-radius:4px;background:#262626;color:#fff;font-size:12px;line-height:1.5;visibility:hidden;pointer-events:none}
+.wa-match-card:first-child .wa-create-tooltip{left:0;right:auto}
+.wa-create-match:hover+.wa-create-tooltip,.wa-create-match:focus-visible+.wa-create-tooltip{visibility:visible}
 .weld-row .wa-pending-dot{background:#d97706}
 .wa-choose-match>span{display:flex;align-items:center;justify-content:space-between;gap:5px;color:#333;font-size:12px;line-height:18px}
 .wa-template-cards svg{color:#d2d4d6;flex-shrink:0}
+.wa-template-cards .wa-match-warning{color:#d97706}
 .wa-template-cards small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;line-height:16px;color:#999;margin-top:3px;font-weight:400}
 .wa-tabs{display:flex;align-items:center;justify-content:space-between;gap:9px;height:38px;margin:10px 0 4px}
 .wa-tabs>button{height:36px;padding:0 15px;border:0;background:transparent;color:#999;border-radius:8px;white-space:nowrap;font-size:14px}
@@ -42,6 +46,8 @@ button.wa-create-match:hover{background:#ffe7ba}
 .wa-readonly{display:flex;align-items:center;height:25px;padding:0 8px;color:#999;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wa-length{justify-content:space-between}
 .wa-length>small{padding-right:2px}
+.wa-tracking{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px}
+.wa-tracking label{display:flex;align-items:center;gap:4px;white-space:nowrap}
 .wa-toggle{display:flex;align-items:center;min-width:0;height:25px;background:#f6f6f6;border-radius:4px;padding:2px;gap:1px}
 .wa-toggle>button{flex:1;min-width:0;height:21px;padding:0 5px;border:0;background:transparent;border-radius:3px;font-size:13px;color:#999;white-space:nowrap}
 .wa-toggle>button:first-child{flex:0 0 36px}
@@ -62,10 +68,71 @@ button.wa-create-match:hover{background:#ffe7ba}
 
 .wa-select{position:relative;min-width:0;display:block;height:25px}.wa-select>select{appearance:none;-webkit-appearance:none;padding-right:28px;font-size:14px}.wa-select>svg{position:absolute;right:11px;top:7px;color:#666;pointer-events:none}.wa-select:has(select:disabled)>svg{color:#bbb}.wa-section-heading{margin-right:3px}.wa-number>input{font-size:14px}
 
-.wa-planning-points{padding:12px 16px 5px}.wa-planning-points>header{display:flex;align-items:center;justify-content:space-between;font-size:13px}.wa-planning-points>header>span{font-size:11px;color:#aaa}.wa-point-group h4{font-size:11px;font-weight:400;color:#999;line-height:1.7;margin:10px 0 5px;overflow-wrap:anywhere}.wa-point-group>button{width:100%;display:flex;align-items:center;gap:8px;text-align:left;padding:8px 6px;border:1px solid transparent;border-radius:4px;background:#fafafa;margin:4px 0;min-width:0}.wa-point-group>button.selected{border-color:#ffd69a;background:#fff8ee}.wa-point-index{width:22px;height:22px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:10px;color:#2099c7;background:#eaf6fb}.wa-point-group>button.template .wa-point-index{color:#43a178;background:#eff8f3}.wa-point-group>button>span:nth-child(2){min-width:0;flex:1}.wa-point-group strong{display:block;font-size:12px;font-weight:400;color:#555}.wa-point-group small{display:block;font-size:10px;color:#aaa;margin-top:3px;overflow-wrap:anywhere}.wa-point-group em{font-size:10px;font-style:normal;flex:none;color:#aaa}.planning-point-labels{position:absolute;inset:0;pointer-events:none;z-index:4;overflow:hidden}.planning-point-labels button{position:absolute;transform:translate(-50%,-100%);padding:3px 6px;background:#f5fcff;border:1px solid #42acd2;border-radius:3px;color:#2787a8;font-size:10px;white-space:nowrap;pointer-events:auto}.planning-point-labels button.template{background:#f5fff8;border-color:#66ba93;color:#34875f}.planning-point-labels button.selected{background:#fff5e7;border-color:#fa8c16;color:#d67a0d}
+.planning-point-labels{position:absolute;inset:0;pointer-events:none;z-index:4;overflow:hidden}.planning-point-labels button{position:absolute;transform:translate(-50%,-100%);padding:3px 6px;background:#f5fcff;border:1px solid #42acd2;border-radius:3px;color:#2787a8;font-size:10px;white-space:nowrap;pointer-events:auto}.planning-point-labels button.template{background:#f5fff8;border-color:#66ba93;color:#34875f}.planning-point-labels button.selected{background:#fff5e7;border-color:#fa8c16;color:#d67a0d}
 
-.wa-planning-points>header{position:sticky;top:0;z-index:1;background:#fff;padding:3px 0}.wa-point-group>button{scroll-margin-top:40px}
 
 .wa-group{height:auto;min-height:38px;flex-wrap:wrap}.wa-group .wa-segments{max-width:100%;height:auto;min-height:38px}.wa-group>input{flex:1;min-width:80px}.wa-segments>button{flex:none}
+.wa-group:has(.wa-separate-button) .wa-segments{flex-basis:100%}
+.wa-group .wa-separate-button{min-height:26px;padding:2px 10px;font-size:12px}
+.weld-segment-options{display:grid;gap:2px;max-height:min(350px,45vh);overflow:auto;margin-top:10px}
+.weld-segment-options label,.weld-segment-select-all{display:flex;align-items:center;gap:8px;padding:7px 0}
+.weld-segment-options small{margin-left:auto;color:#777}
 .wa-scan-settings .wa-row{grid-template-columns:112px minmax(0,1fr)}
-.wa-work-face-note{margin:6px 7px 10px;color:#b77926;font-size:11px;line-height:1.7}
+
+.wa-point-adjustment{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;border:1px solid #f0d6b6;border-radius:4px;margin:8px 0;padding:8px}.wa-point-adjustment label{display:grid;gap:3px;min-width:0;color:#555;font-size:11px}.wa-point-adjustment input{width:100%;min-width:0;height:25px;padding:2px 4px;border:1px solid #ddd;border-radius:3px}
+
+
+.weld-row .weld-row-main{min-width:0}
+.weld-list{overflow-anchor:none}
+.weld-row-main>span:first-of-type{min-width:0}
+.weld-row-main small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.weld-row .weld-point-action{flex:0 0 18px;justify-content:center;padding:3px 0}
+.weld-point-action[aria-expanded='false'] svg{transform:rotate(-90deg)}
+.weld-point-action:disabled{opacity:.4;cursor:not-allowed}
+.weld-point-tree{margin:0 3px 5px 18px;padding:0 0 0 5px;border-left:1px solid #e5e5e5}
+.weld-point-tree .weld-point-node{display:flex;align-items:center;gap:6px;min-width:0;width:100%;text-align:left;padding:5px 4px;border:0;border-radius:3px;background:transparent;color:#555;font-size:11px}
+.weld-point-node>svg{flex:none;color:#888}.weld-point-node>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.weld-point-node[aria-pressed='true']{background:#fff2dd;color:#ad4e00}.weld-point-node[aria-pressed='true']>svg{color:var(--orange)}
+.weld-point-pass,.weld-pass-points{margin-left:12px}.weld-point-layer{margin-top:3px}
+.wa-point-details{padding:12px 16px}.wa-point-details h3{font-size:14px;margin:0 0 10px}.wa-point-details h4{margin:16px 0 7px;font-size:12px}
+.wa-point-context{color:#666;font-size:12px;margin:0 0 9px;overflow-wrap:anywhere}
+.wa-point-values{margin:0;background:#f8f8f8;padding:5px 9px;border-radius:4px}
+.wa-point-values>div{display:flex;justify-content:space-between;gap:8px;padding:4px 0;font-size:12px}.wa-point-values dt{color:#666}.wa-point-values dd{margin:0;font-variant-numeric:tabular-nums}
+.wa-pass-preview{margin-bottom:16px}
+.wa-pass-preview label{display:grid;grid-template-columns:1fr auto;gap:6px;font-size:12px;color:#555}
+.wa-pass-preview output{font-variant-numeric:tabular-nums}
+.wa-pass-preview input{grid-column:1/-1;width:100%;accent-color:#fa8c16;margin:2px 0 8px}
+.wa-sample-ticks{position:relative;height:6px;margin:-5px 8px 8px}
+.wa-sample-ticks span{position:absolute;top:0;width:1px;height:4px;background:#a4a4a4}
+.wa-sample-ticks span.active{width:2px;height:6px;background:#d46b08}
+.wa-pass-preview .wa-sample-select{grid-template-columns:auto minmax(0,1fr);align-items:center;margin-bottom:8px}
+.wa-sample-select select{min-width:0;font-size:12px;font-variant-numeric:tabular-nums}
+.wa-point-edit{margin-top:16px}.wa-point-edit>summary{cursor:pointer;font-size:12px}
+.weld-control-point-form .dialog-body{max-height:calc(100dvh - 165px);overflow:auto}.weld-control-point-form h3{margin:16px 0 8px;font-size:14px}
+
+.weld-point-row{display:flex;align-items:center;gap:4px}
+.weld-point-row>.weld-point-node{flex:1;min-width:0}
+.wa-point-adjustment{border:0;margin:0 0 12px;padding:0;min-width:0}
+
+.wa-offset-row{display:grid;grid-template-columns:minmax(68px,1fr) minmax(0,.8fr) auto minmax(86px,1fr);align-items:center;gap:6px;padding:4px 0;color:#555;font-size:12px}
+.wa-offset-value{text-align:right;font-variant-numeric:tabular-nums}
+.wa-actual-pose{grid-template-columns:minmax(68px,1fr) minmax(0,.8fr) minmax(86px,1fr);column-gap:12px}
+.wa-actual-pose .wa-offset-value{color:#222}
+.wa-actual-pose-header{color:#666}
+.wa-actual-pose-header span:nth-child(2){text-align:right}
+.wa-offset-input{display:flex;align-items:center;gap:3px;border:1px solid #ddd;border-radius:3px;padding:0 4px;min-width:0}
+.wa-offset-input:focus-within{outline:1px solid #fa8c16;border-color:#fa8c16}
+.wa-offset-input input{width:100%;min-width:0;min-height:27px;border:0;background:transparent;padding:2px}
+.wa-offset-input>span{white-space:nowrap;font-size:10px;color:#666}
+.wa-point-tracking select{grid-column:2/-1;min-width:0}
+.wa-offset-status{color:#805022;font-size:12px}
+
+.wa-point-title{display:grid;grid-template-columns:68px minmax(0,1fr);align-items:center;gap:8px;margin-bottom:12px;color:#555;font-size:12px}
+.wa-point-title input{width:100%;min-width:0;height:29px;border:1px solid #ddd;border-radius:3px;padding:0 6px;font-weight:600}
+
+.weld-remove-action{opacity:.58}
+.weld-point-row:hover>.weld-remove-action,.weld-remove-action:focus-visible{opacity:1}
+.wa-playback{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-bottom:10px;font-size:12px;color:#555}
+.wa-playback p,.wa-playback label{flex-basis:100%;margin:0}
+.wa-playback label{grid-template-columns:auto minmax(0,1fr);align-items:center}
+.wa-playback .btn{min-height:25px;padding:0 7px}

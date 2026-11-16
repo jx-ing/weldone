@@ -1,9 +1,11 @@
 import {previewPath,previewPoint} from './templatePreviewGeometry.mjs';
+import {reverseWeldTraversal} from './weldDirectionGeometry.mjs';
 export const DEFAULT_LOCAL_MATCH_DISTANCE=100;
 export const localMatchDistance=options=>Number.isFinite(options?.localMatchDistance)&&options.localMatchDistance>0?options.localMatchDistance:DEFAULT_LOCAL_MATCH_DISTANCE;
 export function windowJunctionKeys(window){const ids=window.segmentIndices;return ids.slice(0,-1).map((id,i)=>id+'>'+ids[i+1]);}
 export function withinLocalSearch(window,options){
-  const distance=localMatchDistance(options),segments=window.target.segments,n=segments.length;
+  const distance=localMatchDistance(options),target=window.match?.reversed?reverseWeldTraversal(window.target):window.target;
+  const segments=target.segments,n=segments.length;
   if(n<2)return true;
   const path=previewPath(segments,'xy',window.template.corners,window.target.closure),first=path.frames[0].length,last=path.frames[n-1].distance;
   if(n===3&&path.frames[1].length>distance+1e-6)return false;

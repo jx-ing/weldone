@@ -1,0 +1,95 @@
+{
+ "modelId": "a1a",
+ "sourceFile": "a1a.step",
+ "sourcePath": "D:\\大界\\焊接标品\\weldone-platform\\public\\models\\a1a.step",
+ "sourceSha256": "e3fa12d40ff8dbe3226efb4a51397be3ba0d9726810d2ab98240cfd0be693c07",
+ "assemblyStage": "其他",
+ "phase": "extracted",
+ "workpieceType": "other",
+ "rule": "分析所有独立零件间的真实几何连接，不按小组立归属排除。",
+ "summary": {
+  "partCount": 21,
+  "smallAssemblyCount": 0,
+  "candidateWeldCount": 114,
+  "excludedInternalPartPairs": 0,
+  "analyzedPartPairs": 61,
+  "eligiblePartPairs": 210,
+  "broadphasePartPairs": 61,
+  "contactPairCount": 29,
+  "totalLengthMm": 87212.172465,
+  "surfaceOnlyPartCount": 0,
+  "recoveredSolidPartCount": 0,
+  "sourceSurfaceOnlyPartCount": 0,
+  "unsupportedCandidateCount": 0,
+  "failedPairCount": 0,
+  "refinedCandidateCount": 0,
+  "boundaryWireCount": 222,
+  "boundaryEdgeCount": 1061,
+  "boundaryEdgeTypes": {
+   "直线": 922,
+   "圆弧": 57,
+   "其他": 82
+  },
+  "circularBoundaryCount": 0,
+  "arcBoundaryCount": 57,
+  "inferredCircularBoundaryCount": 57,
+  "endpointFeatureTypes": {
+   "角": 181,
+   "平角": 24,
+   "圆": 23
+  },
+  "totalEndpointCount": 228,
+  "recognizedEndpointCount": 228,
+  "jointTypes": {
+   "搭接": 8,
+   "T接": 103,
+   "待确认": 1,
+   "角接": 2
+  },
+  "weldingPositions": {
+   "PG": 18,
+   "PE": 2,
+   "PA": 2,
+   "PB": 64,
+   "PD": 11,
+   "—": 17
+  },
+  "grooveTypes": {
+   "自然V形坡口": 48,
+   "单V形": 4,
+   "无坡口": 46,
+   "待确认": 3,
+   "自然喇叭形坡口": 13
+  },
+  "geometryIssueWeldCount": 0
+ },
+ "method": {
+  "kernel": "OCP 8.0.1.0",
+  "distanceToleranceMm": 0.5,
+  "sectionToleranceMm": 0.001,
+  "meshDeflectionMm": 0.3,
+  "curveDeflectionMm": 0.2,
+  "candidateUnit": "one analytic BRep section edge",
+  "boundaryRecognition": "ordered BRep wires; source polylines joined within measured CAD topology tolerances, fitted circle/arc semantics do not replace geometry",
+  "allowCoarseCircularHoles": false,
+  "supportVerification": "Exported endpoints, interior curve probes and sampled vertices must lie on both original trimmed faces; any endpoint refinement stays on the same source curve and within measured source vertex tolerance.",
+  "sourceDirection": "lexicographic endpoints; viewer applies agreed travel reversal once",
+  "processRecognition": "Measured local support normals, trimmed plate faces and solid material probes; position uses viewer +Z and its agreed reversed travel direction; geometry classification does not supply an approved welding procedure."
+ },
+ "limitations": [
+  "结果为 BRep 几何接触/截交边界候选，尚未根据焊接工艺审定，不等同于全部必须施焊的位置。",
+  "接头形式、焊接位置和坡口按真实实体局部几何识别，并保留逐项依据；几何识别不替代工艺审定，源文件未提供的焊脚、加工坡口参数和工艺尺寸保留未知。",
+  "未启用稀疏圆孔先验；边界仅在满足几何拟合条件时识别为圆或圆弧。",
+  "仅对封闭实体进行接触候选提取；有效闭壳经 BRep 校验后恢复实体，开放壳只保留显示及碰撞网格。",
+  "截交公差为 0.001mm；超出公差且无实际截交线的邻接对只记录距离，不凭空生成焊缝；未做工艺可达性筛选。",
+  "板厚仅由主导相对平面间距测得；未识别厚度记为未知，数值字段 0 仅用于旧数据格式兼容。",
+  "每条独立 BRep 边导出为一条候选，圆弧按 0.2mm 弦高采样，保留解析曲线长度。"
+ ],
+ "assemblyFile": "assembly.json",
+ "nearGapPairsWithoutCurve": [],
+ "supportRefinementFile": "support-refinement-audit.json",
+ "surfaceOnlyParts": [],
+ "failedPairs": [],
+ "elapsedSeconds": 6.615,
+ "processGeometryIssues": []
+}

@@ -1,42 +1,93 @@
+export const DEFAULT_MERGE_GAP=10;
+export const DEFAULT_MERGE_ANGLE_RANGE={angleMin:60,angleMax:120};
+export const DEFAULT_INTERFERENCE_ANGLE=38;
+export const DEFAULT_INTERFERENCE_DISTANCE=35;
 export const WORKPIECE_TYPES=['小组立','中组立','护板'];
 export const L_WRAP_DISTANCES=[['1/2','1/2板厚'],['2/3','2/3板厚']];
-export const INTERFERENCE_END_FIELDS=[['startDistance','起点变姿态距离','mm'],['endDistance','终点变姿态距离','mm']];
-export const INTERFERENCE_POSE_AXES=[['advance','前进角'],['work','工作角'],['rotation','旋转角']];
-export function interferenceEndValues(value={}){return {...value,...Object.fromEntries(INTERFERENCE_END_FIELDS.map(([key])=>[key,value[key]??''])),...Object.fromEntries(['startPose','endPose'].map(key=>[key,Object.fromEntries(INTERFERENCE_POSE_AXES.map(([axis])=>[axis,value[key]?.[axis]??'']))]))};}
-export const SAMPLING_AXES=[['advance','前进角',20,-45,45],['work','工作角',45,-40,50],['rotation','旋转角',0,-80,80]];
-export function samplingAvoidanceValues(value={}){return {...value,autoDeleteUnavoidable:value.autoDeleteUnavoidable??false,...Object.fromEntries(SAMPLING_AXES.map(([key,,,min,max])=>[key,{enabled:true,min,max,...value[key]}]))};}
-export function trackingParameterValues(value={}){return {laserEnabled:true,arcEnabled:true,minLineLength:160,minArcDiameter:160,...value};}
+export const INTERFERENCE_END_FIELDS=[['Angle','姿态','°'],['Distance','距离','mm'],['LineOffset','线偏移','mm']];
+export function planningOuterClearance(settings){
+ const legacyGap=settings.splitParameters?.gapThreshold;
+ return settings.weldPreprocessing?.outerClearance??settings.wrapParameters?.outerClearance??
+  (Number.isFinite(legacyGap)&&legacyGap>0?legacyGap:0);
+}
+export function cornerPathDefaults(parameters,side){
+ const override=parameters?.[side];
+ return {
+  before:override?.before??parameters?.before??30,
+  after:override?.after??parameters?.after??30,
+  offset:override?.offset??parameters?.offset??0,
+ };
+}
+const positiveTenth=value=>Number.isFinite(value)&&value>0&&Math.abs(value*10-Math.round(value*10))<1e-8;
 const filled=value=>value!==null&&value!==undefined&&value!=='';
 const hasRange=value=>'angleMin' in value||'angleMax' in value;
-export function wrapParameterErrors(value={}){
- const errors=[];
- for(const [key,label] of [['flatEnabled','平角焊包角'],['verticalEnabled','立角焊包角']])if(value[key]!==undefined&&typeof value[key]!=='boolean')errors.push(`${label}启用状态无效`);
- if(filled(value.independentLength)&&(!Number.isFinite(value.independentLength)||value.independentLength<=0))errors.push('独立焊缝长度应大于0 mm');
- if(filled(value.lDistanceRatio)&&!L_WRAP_DISTANCES.some(([ratio])=>ratio===value.lDistanceRatio))errors.push('L形包角距离请选择1/2板厚或2/3板厚');
+export const validWrapDistanceOffset=value=>Number.isFinite(value)&&value>=0&&
+ (Number.isInteger(value)||Math.round(value*10)/10===value);
+const validCustomWrapRatio=value=>Number.isFinite(value)&&value>=0&&value<=1;
+const validWrapPreset=value=>L_WRAP_DISTANCES.some(([ratio])=>ratio===value);
+export const hasCustomWrapRatio=(settings,kind='L')=>validCustomWrapRatio(kind==='vertical'?settings?.verticalDistanceCustomRatio:settings?.lDistanceCustomRatio);
+export const verticalWrapPreset=settings=>settings?.verticalDistanceRatio??settings?.lDistanceRatio??'2/3';
+export const usesLegacyVerticalWrapDistance=settings=>!hasCustomWrapRatio(settings,'vertical')&&!validWrapPreset(settings?.verticalDistanceRatio)&&
+ Number.isFinite(settings?.verticalDistance)&&settings.verticalDistance>0;
+export function wrapDistanceRatio(settings,kind='L'){
+ if(kind==='L'&&hasCustomWrapRatio(settings))return settings.lDistanceCustomRatio;
+ if(kind==='vertical'&&hasCustomWrapRatio(settings,kind))return settings.verticalDistanceCustomRatio;
+ const preset=kind==='vertical'?verticalWrapPreset(settings):settings?.lDistanceRatio;
+ return preset==='1/2'?.5:2/3;
+}
+export const hasVerticalWrapLength=settings=>usesLegacyVerticalWrapDistance(settings)||wrapDistanceRatio(settings,'vertical')>0||
+ (validWrapDistanceOffset(settings?.verticalDistanceOffset)&&settings.verticalDistanceOffset>0);
+export function configuredWrapDistance(thickness,settings,kind){
+ const hasThickness=Number.isFinite(thickness)&&thickness>0;
+ if(kind==='vertical'&&usesLegacyVerticalWrapDistance(settings))return hasThickness?Math.min(settings.verticalDistance,thickness):settings.verticalDistance;
+ if(!hasThickness)return null;
+ const ratioDistance=thickness*wrapDistanceRatio(settings,kind);
+ if(kind==='vertical'){
+  const offset=settings?.verticalDistanceOffset;
+  return Math.min(thickness,ratioDistance+(validWrapDistanceOffset(offset)?offset:0));
+ }
+ if(kind!=='L'||hasCustomWrapRatio(settings))return ratioDistance;
+ const offset=settings?.lDistanceOffset;
+ return Math.min(thickness,ratioDistance+(validWrapDistanceOffset(offset)?offset:0));
+}
+function wrapParameterIssues(value={},topology=false){
+ const issues=[],add=(key,message)=>issues.push({field:'wrapParameters.'+key,message});
+ for(const [key,label] of [['flatEnabled','平角焊包角'],['verticalEnabled','立角焊包角']])if(value[key]!==undefined&&typeof value[key]!=='boolean')add(key,`${label}启用状态无效`);
+ if((!topology||value.flatEnabled!==false)&&filled(value.independentLength)&&(!Number.isFinite(value.independentLength)||value.independentLength<=0))add('independentLength','独立焊缝长度应大于0 mm');
+ if((!topology||value.flatEnabled!==false)&&filled(value.lDistanceRatio)&&!L_WRAP_DISTANCES.some(([ratio])=>ratio===value.lDistanceRatio))add('lDistanceRatio','L形包角距离请选择1/2板厚或2/3板厚');
+ if(filled(value.lDistanceCustomRatio)&&!hasCustomWrapRatio(value))add('lDistanceRatio','自定义板厚比例须在0%至100%之间');
+ if(!hasCustomWrapRatio(value)&&filled(value.lDistanceOffset)&&!validWrapDistanceOffset(value.lDistanceOffset))add('lDistanceOffset','调整偏移须为大于等于0的一位小数');
+ if(filled(value.verticalDistanceRatio)&&!validWrapPreset(value.verticalDistanceRatio))add('verticalDistanceRatio','立焊上包角请选择固定比例或拖动末端设置自定义比例');
+ if(filled(value.verticalDistanceCustomRatio)&&!hasCustomWrapRatio(value,'vertical'))add('verticalDistanceRatio','立焊上包角自定义比例须在0%至100%之间');
+ if(!usesLegacyVerticalWrapDistance(value)&&filled(value.verticalDistanceOffset)&&!validWrapDistanceOffset(value.verticalDistanceOffset))add('verticalDistanceOffset','立焊上包角调整偏移须为大于等于0的一位小数');
  for(const [key,label] of [['advance','前进角'],['work','工作角'],['rotation','旋转角']]){
   const angle=value.uPose?.[key];
-  if(filled(angle)&&(!Number.isFinite(angle)||angle < -360||angle>360))errors.push(`U形控制姿态${label}应为-360–360°`);
+  if((!topology||value.flatEnabled!==false)&&filled(angle)&&(!Number.isFinite(angle)||angle < -360||angle>360))add('uPose.'+key,`U形控制姿态${label}应为-360–360°`);
  }
- return errors;
+ return issues;
 }
+export const wrapParameterErrors=value=>wrapParameterIssues(value).map(issue=>issue.message);
 export function mergeAngleRange(value={}){
  if(hasRange(value))return {angleMin:value.angleMin??'',angleMax:value.angleMax??''};
  return Number.isFinite(value.angle)?{angleMin:0,angleMax:value.angle}:{angleMin:'',angleMax:''};
 }
-export function mergeParameterErrors(value={}){
- const errors=[];
- if(value.lengthEnabled!==false&&filled(value.maxLength)&&(!Number.isFinite(value.maxLength)||value.maxLength<=0))errors.push('合并长度应为大于0的有效数值');
- if(filled(value.passHoleSize)&&(!Number.isFinite(value.passHoleSize)||value.passHoleSize<0))errors.push('合并过焊孔尺寸应为非负数');
- if(hasRange(value)){
+function mergeParameterIssues(value={},topology=false){
+ const issues=[],add=(key,message)=>issues.push({field:'mergeParameters.'+key,message});
+ const enabled=!topology||value.enabled!==false;
+ if(value.lengthEnabled!==false&&filled(value.maxLength)&&(!Number.isFinite(value.maxLength)||value.maxLength<=0))add('maxLength','合并长度应为大于0的有效数值');
+ if(enabled&&value.grooveEnabled!==false&&filled(value.gapThreshold)&&(!Number.isFinite(value.gapThreshold)||value.gapThreshold<0))add('gapThreshold',value.grooveEnabled===true?'最大合并槽隙应为非负数':'合并间隙阈值应为非负数');
+ if(filled(value.passHoleSize)&&(!Number.isFinite(value.passHoleSize)||value.passHoleSize<0))add('passHoleSize','合并过焊孔尺寸应为非负数');
+ if(enabled&&hasRange(value)&&value.angleEnabled!==false){
   const min=filled(value.angleMin),max=filled(value.angleMax);
-  if(min!==max)errors.push('请同时填写最小合并角度和最大合并角度');
-  if([value.angleMin,value.angleMax].some(v=>filled(v)&&(!Number.isFinite(v)||v<0||v>(value.rulesVersion===2?360:180))))errors.push(value.rulesVersion===2?'合并角度应为0–360°':'合并角度应为0–180°');
-  if(min&&max&&Number.isFinite(value.angleMin)&&Number.isFinite(value.angleMax)&&value.angleMin>value.angleMax)errors.push('最小合并角度不能大于最大合并角度');
- }else if(filled(value.angle)&&(!Number.isFinite(value.angle)||value.angle<0||value.angle>180))errors.push('合并角度应为0–180°');
- if(value.countEnabled!==false&&value.count!==null&&value.count!==undefined&&value.count!==''&&(!Number.isInteger(value.count)||value.count<2||value.rulesVersion!==2&&value.count>30))errors.push(value.rulesVersion===2?'合并数量应为不小于2的整数':'合并个数应为2–30的整数');
- if(value.countEnabled===true&&!filled(value.count))errors.push('请输入合并数量');
- return errors;
+  if(min!==max)add(min?'angleMax':'angleMin','请同时填写最小合并角度和最大合并角度');
+  for(const key of ['angleMin','angleMax'])if(filled(value[key])&&(!Number.isFinite(value[key])||value[key]<0||value[key]>(value.rulesVersion>=2?360:180)))add(key,value.rulesVersion>=2?'合并角度应为0–360°':'合并角度应为0–180°');
+  if(min&&max&&Number.isFinite(value.angleMin)&&Number.isFinite(value.angleMax)&&(value.rulesVersion>=3?value.angleMin>=value.angleMax:value.angleMin>value.angleMax))add('angleMin','最小合并角度须小于最大合并角度');
+ }else if(enabled&&filled(value.angle)&&(!Number.isFinite(value.angle)||value.angle<0||value.angle>180))add('angle','合并角度应为0–180°');
+ if(value.countEnabled!==false&&value.count!==null&&value.count!==undefined&&value.count!==''&&(!Number.isInteger(value.count)||value.count<2||!(value.rulesVersion>=2)&&value.count>30))add('count',value.rulesVersion>=2?'合并数量应为不小于2的整数':'合并个数应为2–30的整数');
+ if(value.countEnabled===true&&!filled(value.count))add('count','请输入合并数量');
+ return issues;
 }
+export const mergeParameterErrors=value=>[...new Set(mergeParameterIssues(value).map(issue=>issue.message))];
 export function geometryOptionsForPlanning(defaults,settings={}){
  const options=structuredClone(defaults),merge=settings.mergeParameters||{};
  const errors=planningSettingsErrors(settings);if(errors.length)throw Error(errors.join('；'));
@@ -45,17 +96,47 @@ export function geometryOptionsForPlanning(defaults,settings={}){
  if(merge.countEnabled!==false&&Number.isInteger(merge.count))options.maxMergeCount=merge.count;
  if(merge.lengthEnabled!==false&&Number.isFinite(merge.maxLength))options.maxMergeLength=merge.maxLength;
  if(merge.enabled!==undefined&&options.automaticMerge!==false)options.automaticMerge=merge.enabled;
- if(merge.continuousOnly)options.continuousOnly=true;
+ if(Number.isFinite(merge.gapThreshold)||settings.planningRevision===3){
+  options.maxMergeGap=Number.isFinite(merge.gapThreshold)?merge.gapThreshold:DEFAULT_MERGE_GAP;
+  options.mergeParams.最大合并距离=options.maxMergeGap;
+  options.mergeGapCheck=true;
+ }else if(merge.continuousOnly)options.continuousOnly=true;
  if(merge.position)options.mergePosition=merge.position;
  if(Number.isFinite(merge.passHoleSize)){options.mergePassHoleSize=merge.passHoleSize;if(merge.passHoleInclusive===false)options.mergePassHoleInclusive=false;options.mergeParams.最长通过距离=merge.passHoleSize;options.mergeParams.最小通过高度=merge.passHoleSize;}
- if(settings.wrapParameters){options.wrapParameters=structuredClone(settings.wrapParameters);options.wrapDistanceRatio=settings.wrapParameters.lDistanceRatio==='1/2'?.5:2/3;}
+ if(settings.topologyVersion===1){
+  if(typeof merge.angleEnabled!=='boolean'||typeof merge.grooveEnabled!=='boolean')throw Error('相接板端合并限制开关无效');
+  const range=mergeIncludedAngleRange(merge);
+  const maxGroove=merge.grooveEnabled?merge.gapThreshold??DEFAULT_MERGE_GAP:null;
+  options.cornerMerge={flatContactGap:merge.flatContactGap??0,verticalContactGap:merge.verticalContactGap??0,
+    angleRange:merge.angleEnabled&&Number.isFinite(range.angleMin)&&Number.isFinite(range.angleMax)?range:null,maxGroove};
+  options.automaticMerge=merge.enabled!==false;
+  options.mergeGapCheck=maxGroove!==null;
+  options.mergeParams.夹角阈值下限=0;
+  options.mergeParams.夹角阈值上限=180;
+  options.mergeParams.最大合并距离=maxGroove===null?DEFAULT_MERGE_GAP:Math.max(.001,2*maxGroove);
+  delete options.maxMergeGap;
+  delete options.mergePosition;
+ }
+ if(settings.weldPreprocessing){
+  const clearance=planningOuterClearance(settings);
+  options.automaticMerge=false;
+  options.mergeGapCheck=true;
+  options.mergeParams.最大合并距离=0;
+  options.offsetThreshold=clearance>0?clearance:null;
+  options.offset=Math.max(options.offset,options.offsetThreshold??0);
+  options.extendThreshold=Math.max(options.extendThreshold??0,clearance);
+  options.weldPreprocessing=true;
+ }
+ if(settings.wrapParameters){options.wrapParameters=structuredClone(settings.wrapParameters);options.wrapDistanceRatio=wrapDistanceRatio(settings.wrapParameters);}
  if(settings.planningRevision===3)options.planningRevision=3;
- if(settings.splitParameters)options.splitParameters=structuredClone(settings.splitParameters);
- if(Number.isFinite(settings.splitParameters?.gapThreshold)){options.offsetThreshold=settings.splitParameters.gapThreshold;options.offset=Math.max(options.offset,settings.splitParameters.gapThreshold);}
- if(settings.intermittentParameters)options.intermittentParameters={...structuredClone(settings.intermittentParameters),position:'PB'};
+ if(settings.splitParameters||settings.planningRevision===3){
+  const {enabled,length,edgeThreshold,gapThreshold,toolHeadCollisionEnabled,...thresholds}=structuredClone(settings.splitParameters??{});
+  options.splitParameters={...thresholds,...(!settings.weldPreprocessing&&gapThreshold!==undefined?{gapThreshold}:{}),
+   ...(settings.planningRevision===3||edgeThreshold!==undefined?{edgeThreshold:null}:{})};
+ }
+ if(!settings.weldPreprocessing&&Number.isFinite(settings.splitParameters?.gapThreshold)){options.offsetThreshold=settings.splitParameters.gapThreshold;options.offset=Math.max(options.offset,settings.splitParameters.gapThreshold);}
  if(settings.interferenceEndParameters)options.interferenceEndParameters=structuredClone(settings.interferenceEndParameters);
- if(settings.samplingAvoidance)options.samplingAvoidance=structuredClone(settings.samplingAvoidance);
- if(settings.trackingParameters)options.trackingParameters=structuredClone(settings.trackingParameters);if(settings.actionParameters)options.actionParameters=structuredClone(settings.actionParameters);if(settings.visionParameters)options.visionParameters=structuredClone(settings.visionParameters);
+ if(settings.trackingParameters)options.trackingParameters=structuredClone(settings.trackingParameters);if(settings.actionParameters)options.actionParameters=structuredClone(settings.actionParameters);
  return options;
 }
 export function mergeIncludedAngleRange(value={}){
@@ -63,37 +144,22 @@ export function mergeIncludedAngleRange(value={}){
  if(value.angleDefinition==='included'||range.angleMin===''||range.angleMax==='')return range;
  return {angleMin:180-range.angleMax,angleMax:180-range.angleMin};
 }
-export function planningSettingsErrors(settings={}){
- const errors=[...mergeParameterErrors(settings.mergeParameters),...wrapParameterErrors(settings.wrapParameters)];
- if(settings.trackingParameters){const tracking=settings.trackingParameters;for(const [key,label] of [['laserEnabled','激光跟踪'],['arcEnabled','电弧跟踪']])if(typeof tracking[key]!=='boolean')errors.push(`${label}启用状态无效`);if(tracking.laserEnabled)for(const [key,label] of [['minLineLength','最小直线长度'],['minArcDiameter','最小圆弧直径']])if(!Number.isFinite(tracking[key])||tracking[key]<0)errors.push(`${label}应为大于等于0的有效数值`);}
- if(settings.samplingAvoidance?.autoDeleteUnavoidable!==undefined&&typeof settings.samplingAvoidance.autoDeleteUnavoidable!=='boolean')errors.push('是否自动删除无法避障焊道应为开启或关闭');
- if(settings.samplingAvoidance)for(const [key,label] of SAMPLING_AXES){
-  const axis=settings.samplingAvoidance[key];
-  if(!axis||typeof axis.enabled!=='boolean'){errors.push(`${label}采样设置无效`);continue;}
-  if(settings.samplingAvoidance.enabled!==false&&axis.enabled){if(!Number.isFinite(axis.min)||!Number.isFinite(axis.max)||Math.abs(axis.min)>360||Math.abs(axis.max)>360)errors.push(`${label}采样范围应为-360–360°`);else if(axis.min>axis.max)errors.push(`${label}采样范围最小值不能大于最大值`);}
- }
- for(const [key,label,unit] of INTERFERENCE_END_FIELDS){
-  const value=settings.interferenceEndParameters?.[key];
+export function planningSettingsIssues(settings={}){
+ const topology=settings.topologyVersion===1;
+ const issues=[...mergeParameterIssues(settings.mergeParameters,topology),...wrapParameterIssues(settings.wrapParameters,topology)];
+ const add=(field,message)=>issues.push({field,message});
+ if(settings.trackingParameters){const tracking=settings.trackingParameters;for(const [key,label] of [['laserEnabled','激光跟踪'],['arcEnabled','电弧跟踪']])if(typeof tracking[key]!=='boolean')add('trackingParameters.'+key,label+'启用状态无效');if(tracking.laserEnabled)for(const [key,label] of [['minLineLength','最小直线长度'],['minArcDiameter','最小圆弧直径']])if(!Number.isFinite(tracking[key])||tracking[key]<0)add('trackingParameters.'+key,label+'应为大于等于0的有效数值');}
+ for(const [end,side] of [['start','起点'],['end','终点']])for(const [field,label] of INTERFERENCE_END_FIELDS){
+  const value=settings.interferenceEndParameters?.[end+field],key='interferenceEndParameters.'+end+field;
   if(!filled(value))continue;
-  if(!Number.isFinite(value)){errors.push(`${label}请输入有效数值`);continue;}
-  if(unit==='mm'&&value<0)errors.push(`${label}应为非负数`);
-  if(unit==='°'&&(value < -360||value>360))errors.push(`${label}应为-360–360°`);
+  if(!Number.isFinite(value)){add(key,side+label+'请输入有效数值');continue;}
+  if(field==='Distance'&&value<0)add(key,side+label+'应为非负数');
+  if(field==='Angle'&&Math.abs(value)>360)add(key,side+label+'应为-360–360°');
  }
- for(const [key,label] of [['startPose','起点姿态'],['endPose','终点姿态']]){
-  const pose=settings.interferenceEndParameters?.[key];
-  if(pose===undefined)continue;
-  if(!pose||typeof pose!=='object'||Array.isArray(pose)){errors.push(`${label}设置无效`);continue;}
-  for(const [axis,axisLabel] of INTERFERENCE_POSE_AXES){const value=pose[axis];if(filled(value)&&(!Number.isFinite(value)||value < -360||value>360))errors.push(`${label}${axisLabel}应为-360–360°`);}
- }
- const split=settings.splitParameters||{},intermittent=settings.intermittentParameters||{};
- if(filled(split.edgeThreshold)&&(!Number.isInteger(split.edgeThreshold)||split.edgeThreshold<=0))errors.push('边缘打断阈值须为大于0的整数');
- if(filled(split.gapThreshold)&&(!Number.isFinite(split.gapThreshold)||split.gapThreshold<0))errors.push('间隙打断阈值应为非负数');
- if(split.enabled&&(!Number.isFinite(split.length)||split.length<.1))errors.push('焊缝分段长度应至少为0.1 mm');
- if(intermittent.enabled){
-  if(filled(intermittent.position)&&intermittent.position!=='PB')errors.push('间断焊焊接位置仅支持平角焊');
-  if(!['chain','staggered'].includes(intermittent.layout))errors.push('请选择间断焊布置');
-  if(!['uniform','endWeld'].includes(intermittent.mode))errors.push('请选择间断焊模式');
-  for(const [key,label] of [['weldLength','焊接长度'],['gapLength','间断长度']])if(!Number.isFinite(intermittent[key])||intermittent[key]<(intermittent.distributionVersion>=2?0:.1))errors.push(`${label}应至少为0.1 mm`);
- }
- return errors;
+ const split=settings.splitParameters||{};
+ if(split.toolHeadCollisionEnabled!==undefined&&typeof split.toolHeadCollisionEnabled!=='boolean')add('splitParameters.toolHeadCollisionEnabled','工具头碰撞检测使能无效');
+ if(split.autoDeleteUnavoidable!==undefined&&typeof split.autoDeleteUnavoidable!=='boolean')add('splitParameters.autoDeleteUnavoidable','自动删除无法避障焊缝开关无效');
+ if(!settings.weldPreprocessing&&filled(split.gapThreshold)&&(split.rulesVersion>=3?!positiveTenth(split.gapThreshold):!Number.isFinite(split.gapThreshold)||split.gapThreshold<0))add('splitParameters.gapThreshold','间隙打断阈值须为大于0的一位小数');
+ return issues;
 }
+export const planningSettingsErrors=settings=>[...new Set(planningSettingsIssues(settings).map(issue=>issue.message))];

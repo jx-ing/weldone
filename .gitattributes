@@ -1,0 +1,2 @@
+# The bundled mesh and weld data are keyed by the exact source file bytes.
+public/models/a1a.step -text -diff

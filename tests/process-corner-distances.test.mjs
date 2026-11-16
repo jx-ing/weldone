@@ -22,7 +22,7 @@ test('内外角前后距离按道独立，保存复制导入及不同模式的�
 test('空白距离兼容旧工艺且不补写已有记录，四项距离均拒绝非法负数和非数值',()=>{
  const p=recipe(),pass=p.processLayers[0].passes[0];assert.deepEqual(pass.cornerDistances,{inner:{before:null,after:null},outer:{before:null,after:null}});
  delete pass.cornerDistances;delete p.cornerDistances;const before=structuredClone(p);assert.deepEqual(validateProcessEntry(p),[]);assert.deepEqual(p,before);
- for(const kind of ['inner','outer'])for(const key of ['before','after'])for(const value of [-1,NaN,Infinity,'10']){const invalid=structuredClone(p);invalid.processLayers[0].passes[0].cornerDistances={[kind]:{[key]:value}};assert.ok(validateProcessEntry(invalid).some(e=>e.includes('拐角')&&e.includes('距离')));}
+ for(const kind of ['inner','outer'])for(const key of ['before','after'])for(const value of [-1,NaN,Infinity,'10']){const invalid=structuredClone(p);invalid.processLayers[0].passes[0].cornerDistances={[kind]:{[key]:value}};assert.ok(validateProcessEntry(invalid).some(e=>e.includes(key==='before'?'转角前距离':'转角后距离')));}
 });
 test('拐角距离允许零和小数，空白可选且负数不能保存',()=>{
  assert.equal(processNumberError('0','distance'), '');assert.equal(processNumberError('1.25','distance'),'');assert.equal(processNumberError('','distance'),'');assert.ok(processNumberError('-1','distance'));assert.ok(processNumberError('bad','distance'));

@@ -257,11 +257,13 @@ def classify_process(weld, part_a, part_b, faces_a, faces_b, shape_a, shape_b, *
     sampled, topology, opening_checks = [], [], []
     assembly_gap = weld['properties'].get('装配间隙')
     gap_probes = assembly_gap.get('probes', []) if isinstance(assembly_gap, dict) else []
+    opposite_groove = isinstance(assembly_gap, dict) and assembly_gap.get('kind') == 'opposite-plate-end-v'
     observed_gaps, sample_points_b = [], []
     for point, tangent in _samples(weld):
         point_b = point
         if gap_probes:
-            witness = min(gap_probes, key=lambda row: float(np.linalg.norm(np.asarray(row['sourcePoint']) - point)))
+            anchor = 'profilePoint' if opposite_groove and assembly_gap['anchor'] == 'sub' else 'sourcePoint'
+            witness = min(gap_probes, key=lambda row: float(np.linalg.norm(np.asarray(row[anchor]) - point)))
             point = np.asarray(witness['sourcePoint'], dtype=float)
             point_b = np.asarray(witness['profilePoint'], dtype=float)
             n_a, n_b = _unit(witness['sourceNormal']), _unit(witness['profileNormal'])
@@ -277,8 +279,8 @@ def classify_process(weld, part_a, part_b, faces_a, faces_b, shape_a, shape_b, *
                          '主板材料连续': cont_a, '副板材料连续': cont_b})
         bisector = _unit(n_a + n_b)
         open_point = (point + point_b) / 2
-        opening_checks.append(bool(bisector is not None and not a.inside(open_point + step * bisector)
-                                   and not b.inside(open_point + step * bisector)))
+        opening_checks.append(bool(opposite_groove or (bisector is not None and not a.inside(open_point + step * bisector)
+                                   and not b.inside(open_point + step * bisector))))
     kind, reason = '待确认', '局部材料拓扑不足或沿焊缝变化，不能仅凭面夹角确定接头'
     square_a = _square_end_faces(a, sampled[len(sampled) // 2][0]) if sampled else []
     square_b = _square_end_faces(b, sample_points_b[len(sampled) // 2]) if sampled else []
@@ -367,7 +369,10 @@ def classify_process(weld, part_a, part_b, faces_a, faces_b, shape_a, shape_b, *
         square_proven = bool((square_b and abs(float(np.dot(fa.normal, a.axis))) >= .999)
                              or (square_a and abs(float(np.dot(fb.normal, b.axis))) >= .999))
     groove_type, groove_reason = '待确认', '未获得可确认的全厚度平直端面或加工坡口来源'
-    if square_proven:
+    if opposite_groove:
+        groove_type = '自然V形坡口'
+        groove_reason = '真实板端对侧边界沿程验证有开放的 V 形法截面和有限根部间隙'
+    elif square_proven:
         groove_type = 'I形坡口' if kind == '对接' else '无坡口'
         groove_reason = '焊缝处实际平直端面跨越完整板厚，未观察到削坡'
     elif sampled and all(opening_checks) and angle is not None and .1 < angle < 179.9:
@@ -408,7 +413,7 @@ def classify_process(weld, part_a, part_b, faces_a, faces_b, shape_a, shape_b, *
     if observed_gaps:
         parameters['根部间隙'] = round(observed_gaps[len(observed_gaps) // 2], 9)
         parameters['根部间隙范围'] = {'最小': assembly_gap['minSampleGapMm'], '最大': assembly_gap['maxSampleGapMm']}
-    if measured['类型'] and all(opening_checks):
+    if not opposite_groove and measured['类型'] and all(opening_checks):
         groove_type = measured['类型']
         if groove_type == '无坡口':
             groove_reason = '实际根部两侧端面直边共面相接并反向延续；背面远处倒角不作为当前焊接根部的坡口'
