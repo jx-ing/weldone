@@ -4,7 +4,6 @@ import React,{useEffect,useRef,useState} from 'react';
 import {OVERRIDES,TRACKING} from './templateModel.mjs';
 import {PASS_OFFSET_FIELDS,passOffsetValues,validPassOffsets} from './templatePassOffsets.mjs';
 import {weldControlPointError} from './weldPlanningPoints.mjs';
-import WeldPoseHelp from './WeldPoseHelp';
 
 const positionFields=['X','Y','Z'];
 const poseFields=[['advance','前进角'],['work','工作角'],['rotation','旋转角']];
@@ -182,7 +181,6 @@ function PointEditor({point,actualPose,basePosition,group,editable,onSave,onOffs
    base={basePosition?.[index]} unit="mm" value={draft.offset[label.toLowerCase()]} disabled={!editable}
    onChange={value=>changePlacement('offset',label.toLowerCase(),value)}/>)}
   <h4>姿态</h4>
-  <WeldPoseHelp/>
   <div className="wa-offset-row wa-actual-pose wa-actual-pose-header" aria-hidden="true">
    <span>角度</span><span>实际姿态</span><span>点位偏移</span>
   </div>

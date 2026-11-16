@@ -2,7 +2,6 @@ import NumericInput from './NumericInput.jsx';
 import React,{useState} from 'react';
 import {point,TRACKING,OVERRIDES} from './templateModel.mjs';
 import {weldControlPointError} from './weldPlanningPoints.mjs';
-import WeldPoseHelp from './WeldPoseHelp';
 
 const xyzFields=[['x','X 偏移'],['y','Y 偏移'],['z','Z 偏移']];
 const angleFields=[['advance','前进角'],['work','工作角'],['rotation','旋转角']];
@@ -44,7 +43,6 @@ export default function WeldControlPointForm({groups,initialGroup,existing,onSav
    <h3>位置偏移</h3>
    <div className="tpl-form-grid three">{xyzFields.map(([key,label])=>number(key,label,'mm',draft.offset[key],value=>change('offset',{...draft.offset,[key]:value}),{required:true}))}</div>
    <h3>姿态</h3>
-   <WeldPoseHelp/>
    <div className="tpl-form-grid three">{angleFields.map(([key,label])=>number(key,label,'°',draft.angles[key],value=>change('angles',{...draft.angles,[key]:value}),{min:-360,max:360,required:true}))}</div>
    <h3>工艺覆盖</h3>
    <div className="tpl-form-grid three">{Object.entries(OVERRIDES).map(([key,[label,unit,min]])=>number(key,label,unit,draft.overrides[key],value=>{
