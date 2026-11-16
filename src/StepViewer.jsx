@@ -30,7 +30,7 @@ export default function StepViewer(props){
     const origin=()=>model?.origin||[0,0,0],world=p=>vec(p.map((v,i)=>v-origin()[i])),cad=p=>[p.x+origin()[0],-p.z+origin()[1],p.y+origin()[2]];
     function updateToolHead(p){
       const point=p.headPoint;
-      const visible=!!(p.view.head&&p.view.passes&&!p.editMode&&point?.position&&(point.toolPose||point.tangent&&point.normal));
+      const visible=!!(p.view.head&&!p.editMode&&point?.position&&(point.toolPose||point.tangent&&point.normal));
       if(toolHead){
         toolHead.object.visible=visible;
         if(visible){
