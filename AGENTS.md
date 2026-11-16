@@ -452,6 +452,8 @@ In 新建焊缝模板, adjust the capture range live. Recompute measured distanc
 
 Measure segment edges and solid clearance only within both the crop and the capture offsets at the measured weld station. Use the local travel direction for along and across offsets, including on curves, and model height for above and below. Refresh the live intervals and highlight when the range changes. Keep matching choices and manually placed intervals in the draft while measurements are temporarily unavailable.
 
+Make each continuous edge-distance and solid-gap interval independently selectable for matching. Older intervals inherit their segment condition's setting. Include only selected intervals in matching and validation, while keeping their measurements available for inspection.
+
 Use the model workbench for 新建焊缝模板 from 工艺规划. Keep the weld structure on the left, the actual weld-region model and capture range in the center, and the selected weld, segment, corner, start or end conditions on the right. Reuse the production creation fields, source rules, validation, cover capture and template persistence.
 
 Preview XYZ point offsets live in the planning model. The point marker and the corresponding weld pass follow the draft, including on a single-pass weld. 应用 saves the point offset. Leaving the point editor discards the unapplied preview.

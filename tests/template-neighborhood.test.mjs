@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {captureFrame,insideCapture,clipCapturePolyline} from '../src/templateCaptureRange.mjs';
 import {createTemplateNeighborhoodMeasurer} from '../src/templateNeighborhood.mjs';
-import {geometryRulesFromWeld,geometryRuleMismatches,geometryRulesWithMeasuredAvailability,updateGeometryRuleMeasurements,updateDistanceIntervals,savedGeometryRules} from '../src/templateGeometryRules.mjs';
+import {geometryRulesFromWeld,geometryRuleErrors,geometryRuleMismatches,geometryRulesWithMeasuredAvailability,needsGeometryMeasurements,updateGeometryRuleMeasurements,updateDistanceIntervals,savedGeometryRules} from '../src/templateGeometryRules.mjs';
 import {measureBaseplateEdges,measureBaseplateEndpoint} from '../src/templateBaseplateEdges.mjs';
 import {distanceProfile,measureDistanceInterval} from '../src/templateDistanceProfile.mjs';
 import {newPlanningTemplate,templateMeasurementWeld} from '../src/templateCoverModel.mjs';
@@ -19,6 +19,40 @@ const weld=(segments=[segment([[0,0,0],[10,0,0]])])=>({
  id:'W001',enabled:true,model:'111.step',name:'测试焊缝',completeStart:true,completeEnd:true,leg:6,weldType:'角焊缝',
  closure:'open',segments,cornerAngles:segments.length===2?[90]:[],position:'PB · 横角焊',
  groove:{type:'无坡口',angle:0,depth:0},startHole:false,endHole:false
+});
+
+test('每个边缘和间隙区间分别参与匹配，保存并重算后保留选择',()=>{
+ const profile=(first,second)=>distanceProfile([[0,4,first],[6,10,second]].map(([start,end,distance])=>({
+  start,end,from:[start,0,0],to:[start,distance,0],endFrom:[end,0,0],endTo:[end,distance,0]
+ })),null,10);
+ const measurements=(edge,gap)=>({start:{holeSize:0},end:{holeSize:0},segments:[{baseplate:edge,solidGap:gap}]});
+ const target=weld(),original=measurements(profile(2,3),profile(4,5));
+ const changed=measurements(profile(2,8),profile(4,9));
+ const rules=geometryRulesFromWeld(target,range,original),[segmentRules]=rules.segmentDistances;
+ for(const key of ['baseplateEdge','solidGap']){
+  segmentRules[key].intervals=updateDistanceIntervals([{start:0,end:4},{start:6,end:10,enabled:false}],
+   original.segments[0][key==='baseplateEdge'?'baseplate':key]);
+ }
+ const reloaded=JSON.parse(JSON.stringify(savedGeometryRules(rules)));
+ assert.deepEqual(geometryRuleMismatches(reloaded,target,changed),[]);
+ const [stored]=reloaded.segmentDistances;
+ stored.baseplateEdge.intervals[1].enabled=true;
+ assert.match(geometryRuleMismatches(reloaded,target,changed).join(''),/边缘距离区间 2/);
+ stored.baseplateEdge.intervals[1].enabled=false;
+ stored.solidGap.intervals[1].enabled=true;
+ stored.gapEnabled=false;
+ assert.match(geometryRuleMismatches(reloaded,target,changed).join(''),/间隙区间 2/);
+ const absent=measurements(profile(2,3),null);
+ const previous=geometryRulesFromWeld(target,range,original),next=geometryRulesFromWeld(target,range,absent);
+ const draft=updateGeometryRuleMeasurements(reloaded,previous,next,absent);
+ assert.deepEqual(draft.segmentDistances[0].solidGap.intervals.map(interval=>interval.enabled),[undefined,true]);
+ const unavailable=geometryRulesWithMeasuredAvailability(draft,absent).segmentDistances[0].solidGap.intervals[1];
+ assert.equal(unavailable.enabled,false);
+ assert.equal(draft.segmentDistances[0].solidGap.intervals[1].enabled,true);
+ stored.solidGap.intervals[1]={start:null,end:null,distance:null,enabled:false};
+ stored.baseplateEdge.intervals[0].enabled=false;
+ assert.equal(needsGeometryMeasurements(reloaded),false);
+ assert.deepEqual(geometryRuleErrors({...target,requirementsMatch:reloaded}),[]);
 });
 
 test('实测显示为零的端点尺寸退出匹配，独立实体间隙仍可按最近点匹配',()=>{

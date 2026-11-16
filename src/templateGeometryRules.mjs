@@ -8,6 +8,7 @@ export const ENDPOINT_TYPES = ['两面交','三面交'];
 export const ENDPOINT_DIMENSIONS = [['holeSize','过焊孔尺寸'],['gap','间隙距离'],['edgeDistance','边缘距离']];
 export const geometryConditionEnabled=(group,key,configured=group?.[key])=>group?.[key+'Enabled']??!!configured;
 export const hasDistanceProfile=profile=>profile?.mode==='nearest'?!!profile.nearest:!!profile?.intervals?.length;
+export const distanceIntervalEnabled=(interval,inherited)=>typeof interval?.enabled==='boolean'?interval.enabled:inherited;
 const segmentProfiles=[
  ['edgeDistance','baseplateEdge','baseplate','边缘距离','底板边缘'],
  ['gap','solidGap','solidGap','间隙','实体表面']
@@ -15,8 +16,10 @@ const segmentProfiles=[
 
 export function needsGeometryMeasurements(rules){
  return !!rules?.captureRange&&(
-  rules.segmentDistances.some(segment=>segmentProfiles.some(([key,rule])=>
-   geometryConditionEnabled(segment,key,segment[rule]?hasDistanceProfile(segment[rule]):segment[key])))||
+  rules.segmentDistances.some(segment=>segmentProfiles.some(([key,rule])=>{
+   const profile=segment[rule],enabled=geometryConditionEnabled(segment,key,profile?hasDistanceProfile(profile):segment[key]);
+   return profile?.mode==='continuous'?Array.isArray(profile.intervals)&&profile.intervals.some(interval=>distanceIntervalEnabled(interval,enabled)):enabled;
+  }))||
   [rules.start,rules.end].some(endpoint=>ENDPOINT_DIMENSIONS.some(([key])=>geometryConditionEnabled(endpoint,key)))
  );
 }
@@ -55,9 +58,10 @@ export function measuredEndpointDistance(neighborhood,side,key){
 }
 
 export function updateDistanceIntervals(intervals,profile){
- return intervals.map(({start,end})=>{
+ return intervals.map(({start,end,enabled})=>{
   const measured=measureDistanceInterval(profile,start,end);
-  return {start,end,distance:measured?{min:roundEndpointGap(measured.min),max:roundEndpointGap(measured.max)}:null};
+  return {start,end,distance:measured?{min:roundEndpointGap(measured.min),max:roundEndpointGap(measured.max)}:null,
+   ...(typeof enabled==='boolean'?{enabled}:{})};
  });
 }
 
@@ -129,9 +133,11 @@ export function geometryRulesWithMeasuredAvailability(rules,neighborhood){
   segmentDistances:rules.segmentDistances?.map((segment,index)=>segmentProfiles.reduce((group,[key,rule,evidence])=>{
    const profile=group[rule];
    const measured=neighborhood.segments?.[index];
-   return condition(group,key,profile?
-    distanceModeAvailable(measured?.[evidence],profile.mode):Number.isFinite(measured?.[key==='gap'?'gap':'edge']?.distance),
-    profile?hasDistanceProfile(profile):group[key]);
+   const available=profile?distanceModeAvailable(measured?.[evidence],profile.mode):
+    Number.isFinite(measured?.[key==='gap'?'gap':'edge']?.distance);
+   const next=condition(group,key,available,profile?hasDistanceProfile(profile):group[key]);
+   if(available||profile?.mode!=='continuous'||!Array.isArray(profile.intervals)||!profile.intervals.some(interval=>interval?.enabled===true))return next;
+   return {...next,[rule]:{...profile,intervals:profile.intervals.map(interval=>interval?.enabled===true?{...interval,enabled:false}:interval)}};
   },segment))
  };
 }
@@ -141,7 +147,7 @@ export function updateGeometryRuleMeasurements(current,previous,measured,neighbo
  const useLatest=(value,before,after)=>same(value,before)?after:value;
  const editedIntervals=(profile,automatic)=>profile.intervalsEdited||Array.isArray(profile.intervals)&&(
   profile.intervals.length!==(automatic?.intervals?.length??0)||profile.intervals.some((row,index)=>
-   row.start!==automatic?.intervals?.[index]?.start||row.end!==automatic?.intervals?.[index]?.end));
+   typeof row.enabled==='boolean'||row.start!==automatic?.intervals?.[index]?.start||row.end!==automatic?.intervals?.[index]?.end));
  const endpoint=key=>({...current[key],...Object.fromEntries(ENDPOINT_DIMENSIONS.map(([dimension])=>
   [dimension,useLatest(current[key][dimension],previous[key][dimension],measured[key][dimension])]))});
  return {
@@ -189,12 +195,14 @@ export function geometryRuleErrors(template) {
       for(const [key,rule,,label,surface] of segmentProfiles){
         const profile=segment[rule],name='第 '+(index+1)+' 段'+label;
         if(!profile){checkCondition(segment,key,name);continue;}
-        if(!geometryConditionEnabled(segment,key,hasDistanceProfile(profile)))continue;
+        const enabled=geometryConditionEnabled(segment,key,hasDistanceProfile(profile));
+        if(!enabled&&profile.mode!=='continuous')continue;
         if(!['continuous','nearest'].includes(profile.mode)||profile.mode==='continuous'&&!Array.isArray(profile.intervals)){
-          errors.push(name+'记录方式无效');
+          if(enabled)errors.push(name+'记录方式无效');
         }else if(profile.mode==='nearest')check(profile.nearest,name,true);
-        else if(!profile.intervals.length)errors.push(name+'须至少设置一个区间');
+        else if(!profile.intervals.length&&enabled)errors.push(name+'须至少设置一个区间');
         else profile.intervals.forEach((interval,i)=>{
+          if(!distanceIntervalEnabled(interval,enabled))return;
           const intervalName=name+'区间 '+(i+1);
           if(!Number.isFinite(interval?.start)||!Number.isFinite(interval.end)||interval.start<0||interval.end<=interval.start||
             interval.end>template.segments[index].length+.001)errors.push(intervalName+'须填写焊缝段长度内的有效起终点');
@@ -242,12 +250,15 @@ export function geometryRuleMismatches(rules,weld,neighborhood) {
         check(segment,key,roundEndpointGap(actual?.[key==='edgeDistance'?'edge':'gap']?.distance),name);
         continue;
       }
-      if(!geometryConditionEnabled(segment,key,hasDistanceProfile(profile)))continue;
+      const enabled=geometryConditionEnabled(segment,key,hasDistanceProfile(profile));
       if(profile.mode==='nearest'){
-        check({distance:profile.nearest},'distance',roundEndpointGap(measuredProfile?.nearest?.distance),name);
+        if(enabled)check({distance:profile.nearest},'distance',roundEndpointGap(measuredProfile?.nearest?.distance),name);
         continue;
       }
-      profile.intervals.forEach(({start,end,distance},i)=>{
+      if(!Array.isArray(profile.intervals))continue;
+      profile.intervals.forEach((interval,i)=>{
+        if(!interval||!distanceIntervalEnabled(interval,enabled))return;
+        const {start,end,distance}=interval;
         const measured=measureDistanceInterval(measuredProfile,start,end);
         const min=roundEndpointGap(measured?.min),max=roundEndpointGap(measured?.max);
         if(distance&&(!measured||min<distance.min||max>distance.max)){

@@ -3,7 +3,7 @@ import NumericInput from './NumericInput.jsx';
 import React,{useState} from 'react';
 import {POSITIONS,geometryOptions} from './templateModel.mjs';
 import {processPositionLabel} from './processLibraryView.mjs';
-import {ENDPOINT_TYPES,ENDPOINT_DIMENSIONS,geometryConditionEnabled,hasDistanceProfile,measuredDistanceRange,measuredEndpointDistance,roundEndpointGap,segmentLengthRange,SHORT_SEGMENT_MM,updateDistanceIntervals} from './templateGeometryRules.mjs';
+import {ENDPOINT_TYPES,ENDPOINT_DIMENSIONS,distanceIntervalEnabled,geometryConditionEnabled,hasDistanceProfile,measuredDistanceRange,measuredEndpointDistance,roundEndpointGap,segmentLengthRange,SHORT_SEGMENT_MM,updateDistanceIntervals} from './templateGeometryRules.mjs';
 import {defaultDistanceInterval,distanceModeAvailable,measureDistanceInterval} from './templateDistanceProfile.mjs';
 import GrooveFields from './GrooveFields';
 import './templateMatchInformation.css';
@@ -97,8 +97,8 @@ function DistanceProfileFields({value,onChange,profile,measurementKnown,length,i
    {profile||onSelect?<Select label={label+'记录方式'} value={value.mode} values={[[ 'continuous','连续距离',unavailable('continuous')],['nearest','最近点',unavailable('nearest')]]} disabled={unavailable('continuous')&&unavailable('nearest')} onChange={chooseMode}/>
     :<small>{nearest?'最近点':'连续距离'}</small>}
   </div>
-  <MatchToggle label={label} enabled={enabled} disabled={disabled} onChange={onEnabledChange}/>
-  {nearest?<><DistanceRange label={solid?'最近实体距离':'最近点距离'} feature={feature} selected={selected} onSelect={onSelect} precision={1}
+  {nearest?<><MatchToggle label={label} enabled={enabled} disabled={disabled} onChange={onEnabledChange}/>
+   <DistanceRange label={solid?'最近实体距离':'最近点距离'} feature={feature} selected={selected} onSelect={onSelect} precision={1}
    disabledInputs={!enabled||disabled} measured={measurementKnown?hit?.distance??null:undefined} value={value.nearest} onChange={distance=>onChange({...value,nearest:distance})}/>
    {closest&&<small className="matching-measurement">{solid?surface:closest.boundary==='hole'?'底板孔边':'底板板边'} · 距本段起点 {closest.station.toFixed(1)} mm</small>}</>
    :<>
@@ -106,16 +106,19 @@ function DistanceProfileFields({value,onChange,profile,measurementKnown,length,i
     {(disabled||!intervals.length)&&<small className="matching-measurement">{disabled?'截取范围内未找到连续'+surface:measurementKnown?'未设置区间':'不限'}</small>}
     {intervals.map((interval,i)=>{
      const key=feature+':'+i,name='区间 '+(i+1);
+     const intervalEnabled=distanceIntervalEnabled(interval,enabled);
      const measured=solid&&measurementKnown?measureDistanceInterval(profile,interval.start,interval.end):interval.distance;
      const min=measured?.min.toFixed(1),max=measured?.max.toFixed(1);
      return <div className="matching-edge-interval" key={i} onFocusCapture={disabled?undefined:()=>select(key)}>
       <div className="matching-edge-interval-heading">
        {onSelect?<button type="button" className="matching-feature-button" aria-label={'高亮'+label+name} aria-pressed={selected===key&&!disabled} disabled={disabled} onClick={()=>select(key)}>{name}</button>:<span>{name}</span>}
-       {profile&&<button type="button" className="icon" aria-label={'删除'+label+name} disabled={!enabled||disabled} onClick={()=>{update(intervals.filter((_,j)=>i!==j));select(feature);}}>×</button>}
+       {profile&&<button type="button" className="icon" aria-label={'删除'+label+name} disabled={disabled} onClick={()=>{update(intervals.filter((_,j)=>i!==j));select(feature);}}>×</button>}
       </div>
+      <MatchToggle label={label+' '+name} enabled={intervalEnabled} disabled={disabled} onChange={checked=>
+       onChange({...value,intervalsEdited:true,intervals:intervals.map((row,j)=>i===j?{...row,enabled:checked}:row)})}/>
       {profile?<div className="matching-range">
        {[[ 'start','起点'],['end','终点']].map(([field,text])=><Field label={text} key={field}>
-        <NumberField label={label+name+text} value={interval[field]} max={length+.001} unit="mm" disabled={!enabled||disabled}
+        <NumberField label={label+name+text} value={interval[field]} max={length+.001} unit="mm" disabled={!intervalEnabled||disabled}
          onChange={number=>update(intervals.map((row,j)=>i===j?{...row,[field]:number}:row))}/>
        </Field>)}
       </div>:<small>{formatDecimal(interval.start)}–{formatDecimal(interval.end)} mm</small>}
@@ -124,13 +127,13 @@ function DistanceProfileFields({value,onChange,profile,measurementKnown,length,i
        '区间内未找到连续的'+surface}</small>
      </div>;
     })}
-    {!disabled&&profile?.spans.length>0&&<button type="button" className="btn matching-edge-add" disabled={!enabled} onClick={()=>{
+    {!disabled&&profile?.spans.length>0&&<button type="button" className="btn matching-edge-add" onClick={()=>{
      const available=intervals.filter(row=>Number.isFinite(row.start)&&Number.isFinite(row.end)&&row.end>row.start)
       .reduce((spans,row)=>spans.flatMap(span=>row.end<=span.start||row.start>=span.end?[span]:[
        {start:span.start,end:Math.min(span.end,row.start)},{start:Math.max(span.start,row.end),end:span.end}
       ].filter(part=>part.end-part.start>=.001)),profile.spans);
      const suggested=defaultDistanceInterval({spans:available});
-     update([...intervals,suggested??{start:'',end:''}]);
+     update([...intervals,{...(suggested??{start:'',end:''}),enabled:true}]);
      select(feature+':'+intervals.length);
     }}>添加区间</button>}
    </>}
