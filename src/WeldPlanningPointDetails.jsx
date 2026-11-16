@@ -1,3 +1,4 @@
+import {TextInput} from './FormInput.jsx';
 import {formatDecimal} from './numericPrecision.mjs';
 import NumericInput from './NumericInput.jsx';
 import React,{useEffect,useRef,useState} from 'react';
@@ -106,7 +107,7 @@ function LayerOrPassEditor({group,layerOnly,editable,onSave,formId,passPreview})
   <p className="wa-point-context">{[group.layerName,!layerOnly&&group.passName].filter(Boolean).join(' / ')}</p>
   {group.derived&&<p className="wa-point-context">{!layerOnly&&group.processOffsetBase?'工艺偏移基准为原焊缝，另叠加层偏移':'相对第一层第一道'}</p>}
   <fieldset className="wa-point-adjustment" disabled={!editable}>
-   <label><span>{layerOnly?'层名称':'道名称'}</span><input aria-label={layerOnly?'层名称':'道名称'} value={draft.name} maxLength={40} required onChange={event=>change({name:event.target.value})}/></label>
+   <label><span>{layerOnly?'层名称':'道名称'}</span><TextInput aria-label={layerOnly?'层名称':'道名称'} value={draft.name} maxLength={40} required onChange={event=>change({name:event.target.value})}/></label>
    {layerOnly?<>{number('层高','mm',draft.height,height=>change({height}))}
     {number('层水平偏移 Y','mm',draft.offsetY,offsetY=>change({offsetY}))}</>:
     PASS_OFFSET_FIELDS.map(([key,label,unit])=>number(label,unit,draft.offset[key],value=>change({offset:{...draft.offset,[key]:value}})))}
@@ -167,7 +168,7 @@ function PointEditor({point,actualPose,basePosition,group,editable,onSave,onOffs
  }
  return <form id={formId} className="wa-point-details" aria-label="点位详情" onSubmit={save}>
   <label className="wa-point-title"><span>点位名称</span>
-   <input aria-label="点位名称" value={draft.name} required maxLength={40} disabled={!editable}
+   <TextInput aria-label="点位名称" value={draft.name} required maxLength={40} disabled={!editable}
     onChange={event=>{setDraft(previous=>({...previous,name:event.target.value}));setStatus('');}}/>
   </label>
   {point.kind==='control'&&<label className="wa-offset-row wa-point-tracking"><span>基准点</span>

@@ -1,3 +1,4 @@
+import {TextInput} from './FormInput.jsx';
 import NumericInput from './NumericInput.jsx';
 import React,{useState} from 'react';
 import {point,TRACKING,OVERRIDES} from './templateModel.mjs';
@@ -29,7 +30,7 @@ export default function WeldControlPointForm({groups,initialGroup,existing,onSav
  return <form className="weld-control-point-form" onSubmit={submit}>
   <div className="dialog-body">
    <div className="tpl-form-grid">
-    <label className="tpl-field"><span>点位名称</span><input aria-label="点位名称" required maxLength={40} value={draft.name} onChange={event=>change('name',event.target.value)}/></label>
+    <label className="tpl-field"><span>点位名称</span><TextInput aria-label="点位名称" required maxLength={40} value={draft.name} onChange={event=>change('name',event.target.value)}/></label>
     <label className="tpl-field"><span>所属层道</span><select aria-label="所属层道" value={draft.groupId} onChange={event=>{const group=groups.find(item=>item.id===event.target.value);setDraft(previous=>({...previous,groupId:group.id,referenceId:group.points[0]?.raw.id??''}));setError('');}}>
      {groups.map(group=><option key={group.id} value={group.id}>{group.layerId?[group.templateName,group.layerName,group.passName].filter(Boolean).join(' / '):'焊缝点位'}</option>)}
     </select></label>

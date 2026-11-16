@@ -1,3 +1,4 @@
+import {TextInput} from './FormInput.jsx';
 import NumericInput from './NumericInput.jsx';
 import React,{useEffect,useId,useRef,useState} from 'react';
 import {formatLength} from './WorkspaceUI';
@@ -69,7 +70,7 @@ export default function WeldAttributes(props){
   <header className="wa-header">焊缝属性</header>
   <div className="wa-summary">
    <div className="wa-group">
-    <input aria-label="焊缝名称" required maxLength={80} value={w.name} title={w.name} onChange={event=>onPatch('name',event.target.value)}/>
+    <TextInput aria-label="焊缝名称" required maxLength={80} value={w.name} title={w.name} onChange={event=>onPatch('name',event.target.value)}/>
     {props.onSeparateSegments&&<button type="button" className="btn wa-separate-button" onClick={props.onSeparateSegments}>拆分</button>}
     <div className="wa-segments" role="group" aria-label="选择焊缝段">{segments.map((s,i)=><button type="button" key={i} title={segmentName({...w,segments},i)} aria-pressed={i===selectedSegment} className={i===selectedSegment?'active':''} onClick={()=>{setSegmentIndex(i);props.onClearWrapFocus?.();}}>{segmentName({...w,segments},i)}</button>)}</div>
    </div>

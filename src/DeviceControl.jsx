@@ -1,3 +1,4 @@
+import {TextInput} from './FormInput.jsx';
 import React,{useState} from 'react';
 import NumericInput from './NumericInput.jsx';
 import {Camera,Workflow} from 'lucide-react';
@@ -18,7 +19,7 @@ function Commands({names}){
  return <div className="dc-commands">{names.map(name=><button key={name} type="button" className="btn" disabled title="设备通讯未接入">{name}</button>)}</div>;
 }
 function InputRow({label,value,onChange,numeric=false,min,max,step='any',unit,maxLength=80,disabled=false,placeholder}){
- const Input=numeric?NumericInput:'input';
+ const Input=numeric?NumericInput:TextInput;
  return <Row label={label}><span className="dc-input">
   <Input aria-label={label} type={numeric?'number':'text'} min={min} max={max} step={numeric?step:undefined}
    maxLength={numeric?undefined:maxLength} value={value??''} disabled={disabled} placeholder={placeholder}

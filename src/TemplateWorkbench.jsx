@@ -1,3 +1,4 @@
+import {TextInput} from './FormInput.jsx';
 import {formatDecimal} from './numericPrecision.mjs';
 import NumericInput from './NumericInput.jsx';
 import React,{useId,useMemo,useRef,useState} from 'react';
@@ -39,7 +40,7 @@ export default function TemplateWorkbench({template,onChange}){
    <div className="tw-point-tabs" role="tablist" aria-label="点位参数分类">{[['position','位置与姿态'],['process','工艺参数']].map(([key,label])=><button key={key} type="button" id={tabId+'-'+key} data-tab={key} role="tab" tabIndex={tab===key?0:-1} aria-selected={tab===key} aria-controls={tabId+'-panel'} onClick={()=>setTab(key)} onKeyDown={tabKey}>{label}</button>)}</div>
    <div className="tw-inspector-body" role="tabpanel" id={tabId+'-panel'} aria-labelledby={tabId+'-'+tab}>
     {tab==='position'?<>
-     <label className="tw-field"><span>点位名称</span><input aria-label={`${active.name} 点位名称`} required maxLength={40} readOnly={isAnchor(active)} value={active.name} onChange={e=>patchPoint({name:e.target.value})}/></label>
+     <label className="tw-field"><span>点位名称</span><TextInput aria-label={`${active.name} 点位名称`} required maxLength={40} readOnly={isAnchor(active)} value={active.name} onChange={e=>patchPoint({name:e.target.value})}/></label>
      <label className="tw-field"><span>参考点</span>{isAnchor(active)?<output>{active.name}</output>:<select aria-label={`${active.name} 基准点`} required value={active.referenceId||''} onChange={e=>{const ref=anchors.find(p=>p.id===e.target.value);patchPoint({referenceId:e.target.value,segment:ref?.segment||1,percent:ref?.percent||0});}}><option value="">请选择基准点</option>{anchors.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select>}</label>
      {missing&&<p className="tw-warning" role="status">请选择基准点后设置偏移。</p>}
      <div className="tw-field-group">{[['x','X 偏移'],['y','Y 偏移'],['z','Z 偏移']].map(([key,label])=>numeric(label,key,'offset','mm'))}</div>

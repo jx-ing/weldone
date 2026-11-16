@@ -1,3 +1,4 @@
+import {TextInput} from './FormInput.jsx';
 import {formatDecimal} from './numericPrecision.mjs';
 import React,{useState} from 'react';
 import {weldForm} from './planningRequirements.mjs';
@@ -24,7 +25,7 @@ export default function PlanningLibraryPicker({kind,weld,templates,processLibrar
   <div className="library-picker-context">当前焊缝：<strong>{weld.id}</strong><span>{weld.name}</span></div>
   <div className={'library-picker-layout'+(templateMode?' template-picker-layout':'')}>{!templateMode&&<aside aria-label="工艺焊缝分类"><strong>焊缝分类</strong>{groups.map(value=><button type="button" key={value.id} aria-pressed={group===value.id} onClick={()=>changeGroup(value.id)}>{value.name}</button>)}</aside>}
    <div className="library-picker-main"><div className="library-picker-filters">{templateMode&&<label>项目<select aria-label="模板项目" value={group} onChange={event=>changeGroup(event.target.value)}>{groups.map(value=><option key={value.id} value={value.id}>{value.name}</option>)}</select></label>}
-    <label>{templateMode?'模板名称':'工艺参数名称'}<input aria-label={templateMode?'搜索焊接模板':'搜索工艺参数'} placeholder="请输入名称" value={search} onChange={event=>{setSearch(event.target.value);setPage(1);}}/></label>
+    <label>{templateMode?'模板名称':'工艺参数名称'}<TextInput aria-label={templateMode?'搜索焊接模板':'搜索工艺参数'} placeholder="请输入名称" value={search} onChange={event=>{setSearch(event.target.value);setPage(1);}}/></label>
     <label>焊接位置<select aria-label="选择库焊接位置筛选" value={position} onChange={event=>{setPosition(event.target.value);setPage(1);}}><option value="">全部</option>{positions.map(value=><option key={value} value={value}>{processPositionLabel(value)}</option>)}</select></label>
     <label>焊脚高度<select aria-label="选择库焊脚高度筛选" value={leg} onChange={event=>{setLeg(event.target.value);setPage(1);}}><option value="">全部</option>{legs.map(value=><option key={value} value={String(value)}>{formatDecimal(value)} mm</option>)}</select></label>
     <button type="button" className="btn" onClick={()=>{setSearch('');setPosition('');setLeg('');setPage(1);}}>重置</button>

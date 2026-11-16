@@ -2,6 +2,8 @@
 
 Show and author decimal values with at most two decimal places. Preserve tighter parameter steps, existing stored values, and full precision for geometry, matching, collision calculations, and workspace round trips.
 
+Use 请输入 as the placeholder for empty text, numeric, search, and multiline inputs. Keep field-specific default hints available as titles.
+
 The application now exposes five module screens, in this order: 工艺规划, 焊接模板库, 工艺参数库, 设备控制, 生产统计. Keep the shared navigation identical across these modules and reject navigation to removed module names. Retain all existing saved planning, template and process data and the dialogs needed by these five workflows.
 
 Run the local server yourself and open the preview in the browser available to this environment. Do not give the user server-start instructions when you can run it.

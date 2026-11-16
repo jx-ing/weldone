@@ -1,5 +1,6 @@
 import React from 'react';
 import {decimalInputValue} from './numericPrecision.mjs';
+import {TextInput} from './FormInput.jsx';
 
 export default function NumericInput({value, defaultValue, onChange, ...props}) {
   function change(event) {
@@ -9,6 +10,6 @@ export default function NumericInput({value, defaultValue, onChange, ...props}) 
     onChange?.(event);
   }
 
-  return <input type="number" {...props} value={decimalInputValue(value)}
+  return <TextInput type="number" {...props} value={decimalInputValue(value)}
     defaultValue={decimalInputValue(defaultValue)} onChange={change}/>;
 }

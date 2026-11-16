@@ -1,3 +1,4 @@
+import {TextInput} from './FormInput.jsx';
 import {formatDecimal} from './numericPrecision.mjs';
 import React, {useEffect,useMemo,useRef} from 'react';
 import {Circle, CornerDownRight, Minus, Route, Save} from 'lucide-react';
@@ -95,7 +96,7 @@ export default function TemplateCreationWorkbench({
   return <form className="tcc-create" onSubmit={onSave} onInvalid={revealInvalidField}>
     <div className="tcc-heading">
       <label className="tpl-field"><span>模板名称</span>
-        <input aria-label="模板名称" required readOnly={!changeName} maxLength={80} value={draft.name} onChange={changeName?event=>changeName(event.target.value):undefined}/>
+        <TextInput aria-label="模板名称" required readOnly={!changeName} maxLength={80} value={draft.name} onChange={changeName?event=>changeName(event.target.value):undefined}/>
       </label>
       <p>{draft.sourceWeld&&<>来源焊缝 <strong>{draft.sourceWeld.id}</strong></>}<span>{draft.sourceWeld?.model&&draft.sourceWeld.model+' · '}焊脚 {formatDecimal(draft.leg)} mm · {draft.segments.length} 段</span></p>
     </div>
