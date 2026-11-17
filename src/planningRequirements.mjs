@@ -1,4 +1,5 @@
 import {deviceControlCapabilities} from './deviceControlModel.mjs';
+import {DEFAULT_LASER_MOUNT_SIDE} from './laserCameraMount.mjs';
 import {DEFAULT_INTERFERENCE_DISTANCE,planningOuterClearance} from './planningConfiguration.mjs';
 
 export const MAX_PLANNING_WELDS = 2500;
@@ -74,7 +75,8 @@ export function planningContext(workspace) {
   if(workspace.deviceControl)Object.assign(deviceCapabilities,deviceControlCapabilities(workspace.deviceControl));
   else if(deviceCapabilities.structuredLightPrecision===true&&deviceCapabilities.laserPrecision!==true)deviceCapabilities.laserTracking=false;
   const settings=workspace.planningSettings??{},merge=settings.mergeParameters??{};
-  return {...settings,topologyVersion:1,weldPreprocessing:{...settings.weldPreprocessing,outerClearance:planningOuterClearance(settings)},mergeParameters:{...merge,enabled:true,angleEnabled:true,grooveEnabled:true},planningRevision:3,deviceCapabilities,activeDevice,requireLibraryTemplate:true};
+  return {...settings,topologyVersion:1,weldPreprocessing:{...settings.weldPreprocessing,outerClearance:planningOuterClearance(settings)},mergeParameters:{...merge,enabled:true,angleEnabled:true,grooveEnabled:true},planningRevision:3,deviceCapabilities,activeDevice,requireLibraryTemplate:true,
+    ...(deviceCapabilities.laserPrecision===true?{laserMountSide:workspace.deviceControl?.robot.laserMountSide??DEFAULT_LASER_MOUNT_SIDE}:{})};
 }
 
 const deviceFields = ['welderModel','robotModel','material','wireType','wireDiameter','gas'];

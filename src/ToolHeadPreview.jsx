@@ -3,10 +3,10 @@ import {Box3,DirectionalLight,HemisphereLight,OrthographicCamera,Scene,Vector3,W
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {loadNanyangToolHead} from './nanyangToolHead.mjs';
 
-export default function ToolHeadPreview({coverOpen,fieldOfView}){
+export default function ToolHeadPreview({coverOpen=false,fieldOfView,camera:cameraType,laserMountSide,laserLine}){
  const host=useRef(null),api=useRef(null),latest=useRef(null);
  const [status,setStatus]=useState('正在加载机头模型…');
- latest.current={coverOpen,fieldOfView};
+ latest.current={coverOpen,fieldOfView,cameraType,laserMountSide,laserLine};
  useEffect(()=>{
   const el=host.current;
   let renderer,head,disposed=false;
@@ -14,7 +14,7 @@ export default function ToolHeadPreview({coverOpen,fieldOfView}){
   catch{setStatus('WebGL 不可用');return;}
   renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.8));
   renderer.setClearColor(0xf4f6f8);
-  renderer.domElement.setAttribute('aria-label','南洋中组立焊枪与伟景相机三维模型');
+  renderer.domElement.setAttribute('aria-label','焊枪与'+(cameraType==='laser'?'线激光':'结构光')+'相机三维模型');
   el.append(renderer.domElement);
   const scene=new Scene(),camera=new OrthographicCamera(-300,300,300,-300,.1,6000);
   camera.up.set(0,0,1);
@@ -42,12 +42,14 @@ export default function ToolHeadPreview({coverOpen,fieldOfView}){
    head=model;
    scene.add(head.object);
    let previousField;
-   api.current=({coverOpen,fieldOfView})=>{
+   api.current=({coverOpen,fieldOfView,cameraType,laserMountSide,laserLine})=>{
     head.setCover(coverOpen);
-    head.setFieldOfView(fieldOfView);
-    if(previousField!==fieldOfView){
+    head.setLaserMount(laserMountSide);
+    head.setFieldOfView(fieldOfView,cameraType,laserLine);
+    const visibleParts=JSON.stringify([fieldOfView,laserMountSide,laserLine]);
+    if(previousField!==visibleParts){
      const orbit=previousField===undefined?new Vector3(800,600,380):camera.position.clone().sub(controls.target).normalize().multiplyScalar(1800);
-     previousField=fieldOfView;
+     previousField=visibleParts;
      const bounds=new Box3();
      head.object.updateMatrixWorld(true);
      head.object.traverseVisible(node=>{if(node.isMesh){
@@ -76,7 +78,7 @@ export default function ToolHeadPreview({coverOpen,fieldOfView}){
    api.current=null;
   };
  },[]);
- useEffect(()=>{api.current?.(latest.current);},[coverOpen,fieldOfView]);
+ useEffect(()=>{api.current?.(latest.current);},[coverOpen,fieldOfView,cameraType,laserMountSide,laserLine]);
  return <div className="dc-tool-preview" data-cover={coverOpen?'open':'closed'} data-field-of-view={fieldOfView?'visible':'hidden'}>
   <div className="dc-tool-canvas" ref={host}/>
   {status&&<p role="status">{status}</p>}

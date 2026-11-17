@@ -8,6 +8,7 @@ import {directedClosingCorner,normalizeVerticalWeld,verticalTraversal,verticalTr
 import {matchTemplate,targetFromWeld,applyTemplateToWeld,independentWeldTemplate} from './templateModel.mjs';
 import {matchProcessEntry,applyProcessEntry,effectiveProcessEntry} from './processParameterModel.mjs';
 import {materializeEndpointWraps} from './weldWrapJunctions.mjs';
+import {weldLayerLayout,weldLayoutTrackingIssue} from './weldLayerLayout.mjs';
 export const MATCH_ROUTES={whole:'模板规划',local:'工艺参数 + 局部模板',automatic:'策略规划',blocked:'缺少匹配工艺',disabled:'已屏蔽'};
 function unique(items){return [...new Set(items.filter(v=>v?.id))];}
 function templateAvailable(template,library,options){
@@ -89,7 +90,10 @@ export function analyzeWeldMatch(w,templates=[],processLibrary=[],options={}){
   if(!w.enabled)return {ready:false,route:'disabled',steps:['已屏蔽','不检查','不检查']};
   const strategy=options.planningRevision===3;
   const includeDiagnostics=options.includeMatchDiagnostics!==false;
-  if(strategy)w={...w,leg:roundWeldLeg(w.leg)};
+  if(strategy){
+    w=plannedTracking({...w,leg:roundWeldLeg(w.leg)},options);
+    if(w.laserTrackingIssue)return {ready:false,route:'blocked',reason:w.laserTrackingIssue,steps:['激光跟踪方向冲突','不检查','不检查']};
+  }
   const wholeCandidates=unique([w.templateSnapshot?.type==='whole'?w.templateSnapshot:null,...preferred(templates.filter(t=>t.type==='whole'),w.templateId)]).filter(t=>templateAvailable(t,templates,options));
   if(strategy)wholeCandidates.sort((a,b)=>Number(!!b.defaultForGeometry)-Number(!!a.defaultForGeometry));
   const whole=wholeCandidates.find(t=>templateMatches(t,w,options));
@@ -98,7 +102,6 @@ export function analyzeWeldMatch(w,templates=[],processLibrary=[],options={}){
   if(strategy){
     const reason=strategyScopeIssue(w,options);
     if(reason)return {ready:false,route:'blocked',creation:'template',reason,templateFailures:wholeFailures,steps:['未匹配','需模板覆盖','保留基础轨迹']};
-    w=plannedTracking(w,options);
   }
   const processCandidates=unique([w.processParameters,...preferred(processLibrary,w.processId)]).filter(p=>!strategy||belongsToDevice(p,options.activeDevice));
   if(strategy)processCandidates.sort((a,b)=>Number((a.processLayers?.flatMap(l=>l.passes).length??1)>1)-Number((b.processLayers?.flatMap(l=>l.passes).length??1)>1));
@@ -129,6 +132,7 @@ function prepareBaseWeld(w,options){
   w=normalizeVerticalWeld(w);
   if(options.planningRevision!==3)return w;
   w={...w,leg:roundWeldLeg(w.leg),strategyPlan:undefined};
+  if(options.deviceCapabilities?.laserPrecision===true||w.laserTrackingDirection||w.laserTrackingIssue)w=plannedTracking(w,options);
   if(w.enabled&&!w.mergedInto&&!w.splitInto&&!w.gapJoinError){
     w.strategyPlan=generateBaseStrategyPlan(w,{...options,wrapPoseOverrides:w.wrapPoseOverrides})??undefined;
   }
@@ -154,6 +158,10 @@ function applyTrajectoryOverlays(w,decision,options){
     if(basePlan)next.strategyPlan=generateStrategyPlan(next,next.processParameters,{...options,wrapPoseOverrides:next.wrapPoseOverrides})??basePlan;
     if(decision.locals.length){next.localApplications=decision.locals.map(window=>applyLocal(window,decision.process,options));next.localTemplateId=decision.locals[0].template.id;}
   }
+  const layerPoses=next.laserTrackingDirection&&(decision.route==='whole'||next.pointLayout?.length);
+  const laserTrackingIssue=layerPoses?weldLayoutTrackingIssue(next,weldLayerLayout(next,decision,[],[],options),options):next.strategyPlan?.laserTrackingIssue;
+  if(layerPoses&&next.strategyPlan)next.strategyPlan={...next.strategyPlan,laserTrackingIssue};
+  if(laserTrackingIssue)return {...next,planned:false,matchPlan:{ready:false,route:'blocked',reason:laserTrackingIssue}};
   return {...next,automaticPoses:strategy||decision.route==='whole'?[]:automaticWeldPoses(w,decision.locals),planned:!strategy||!!next.strategyPlan,matchPlan:{ready:true,...(strategy?{planningRevision:3}:{}),route:decision.route,localMatchDistance:decision.localMatchDistance,wholeId:decision.whole?.id,processId:decision.route==='whole'?undefined:decision.process?.id,localIds:next.localApplications.map(v=>v.templateId),steps:decision.steps}};
 }
 

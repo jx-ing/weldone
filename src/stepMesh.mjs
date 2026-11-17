@@ -17,7 +17,8 @@ const meshes=result.meshes.map((m,part)=>{
   function trace(e,k){const points=[vertices.get(k)];let current=e,at=k;while(current&&!used.has(current.id)){used.add(current.id);at=other(current,at);points.push(vertices.get(at));if(at===k||sharp(at))break;current=adjacency.get(at).find(n=>!used.has(n.id));}if(points.length>=2)edges.push({id:`E${String(edges.length+1).padStart(4,'0')}`,part,points});}
   for(const [k,es] of adjacency)if(sharp(k))for(const e of es)if(!used.has(e.id))trace(e,k);
   for(const e of links.values())if(!used.has(e.id))trace(e,e.pk);
-  return {name:m.name||`零件 ${part+1}`,positions,indices,normals:m.attributes.normal?.array.map(round),color:m.color};
+  return {name:m.name||`零件 ${part+1}`,positions,indices,normals:m.attributes.normal?.array.map(round),color:m.color,
+    ...(m.brep_faces?.length?{faces:m.brep_faces.map(({first,last})=>[first,last])}:{})};
 });
 return {version:1,name,unit:'mm',sourceSha256,origin:origin.map(round),size:size.map(round),meshes,edges};
 }

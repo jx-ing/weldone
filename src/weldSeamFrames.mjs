@@ -1,6 +1,7 @@
 import {Quaternion,Vector3} from 'three';
 import {horizontalWeldNormal,prepareManualWeldPath} from './manualWeldModel.mjs';
 import {validReferenceNormal} from './weldDirectionGeometry.mjs';
+import {weldPositionCode} from './planningRequirements.mjs';
 
 const EPS=1e-8;
 const vector=point=>new Vector3(...point);
@@ -35,6 +36,7 @@ function createSegmentFrames(segment,fallback,referenceAt){
  const b=validReferenceNormal(last)?vector(last).normalize():null;
  if(a&&b&&a.dot(b)<0)b.negate();
  const sub=validReferenceNormal(segment.subFaceNormal)?vector(segment.subFaceNormal).normalize():null;
+ const sectionRoll=weldPositionCode(segment.position)==='PB'&&segment.geometry==='直线'&&segment.strategyRole!=='wrap';
  const source=prepareManualWeldPath([segment],segment.referenceNormal??fallback);
  const edges=points.slice(1).map((point,i)=>point.clone().sub(points[i]).normalize());
  const tangentAt=i=>{
@@ -80,10 +82,11 @@ function createSegmentFrames(segment,fallback,referenceAt){
   if(tangent.lengthSq()<EPS)tangent.copy(edges[lo]);
   const up=transverse(normals[lo].clone().lerp(normals[hi],t),tangent).normalize();
   const lateral=up.clone().cross(tangent).normalize();
-  if(sub&&Math.abs(lateral.dot(sub))>.2&&lateral.dot(sub)<0)lateral.negate();
+  const hasSide=!!sub&&Math.abs(lateral.dot(sub))>.2;
+  if(hasSide&&lateral.dot(sub)<0)lateral.negate();
   const oldSide=horizontalWeldNormal(geometry.tangent,geometry.normal);
   return {position:geometry.position,tangent:tangent.toArray(),normal:lateral.toArray(),up:up.toArray(),
-   offsetNormal:oldSide};
+   offsetNormal:oldSide,sectionRoll:sectionRoll&&hasSide};
  }
  return {length,sample};
 }

@@ -2,39 +2,32 @@ import {Quaternion,Vector3} from 'three';
 import {pathLength} from './manualWeldModel.mjs';
 import {directedWeld,verticalTraversal} from './weldDirectionGeometry.mjs';
 import {prepareWeldSeamFrames} from './weldSeamFrames.mjs';
-import {NANYANG_CAMERA_PREVIEW,NANYANG_TOOL_CALIBRATION,TORCH_ANGLE_KEYS,resolveWeldToolPose,weldTorchOrientation} from './weldToolPose.mjs';
+import {NANYANG_CAMERA_PREVIEW,TORCH_ANGLE_KEYS,resolveWeldToolPose} from './weldToolPose.mjs';
 import {weldPrecisionMethod} from './weldAttributeModel.mjs';
+import {planFixedPhotoPose} from './fixedPhotoPlanning.mjs';
+import {weldPositionCode} from './planningRequirements.mjs';
+import {laserCameraMount} from './laserCameraMount.mjs';
 
 export const DEFAULT_SWEEP_OFFSET=10;
 const EPS=1e-6;
 const finiteOrZero=value=>Number.isFinite(value)?value:0;
 
-function cameraToolPose(frame,target,distance,laser,standardAngles,angles,offset){
+function laserToolPose(frame,target,distance,standardAngles,angles,offset,optics){
  const camera=NANYANG_CAMERA_PREVIEW;
- const workingDistance=laser?camera.laserWorkingDistance:camera.opticalOrigin[2]-NANYANG_TOOL_CALIBRATION.wireTip[2];
- const up=new Vector3(0,0,1);
- let orientation;
- if(laser){
-  const placement={...frame,position:target,distance};
-  orientation=pose=>new Quaternion().fromArray(resolveWeldToolPose({...placement,pose}).head.quaternion);
- }else{
-  // In the overhead photo frame, zero angles point the camera's local -Z down.
-  const [x,y]=frame.tangent,[nx,ny]=frame.normal;
-  const horizontal=Math.hypot(x,y)>EPS?[x,y,0]:[nx,ny,0];
-  orientation=pose=>weldTorchOrientation(horizontal,up.toArray(),pose);
- }
+ const {tangent,normal,up}=frame;
+ const placement={tangent,normal,up,position:target,distance};
+ const orientation=pose=>new Quaternion().fromArray(resolveWeldToolPose({...placement,pose}).head.quaternion);
  const standardRotation=orientation(standardAngles);
- const viewingAxis=laser?up.clone().applyQuaternion(standardRotation).normalize():up;
- const opticalOrigin=new Vector3(...camera.opticalOrigin),tcp=new Vector3(...camera.tcp);
- const opticalToTcp=tcp.clone().sub(opticalOrigin).applyQuaternion(standardRotation);
- const position=new Vector3(...target).addScaledVector(viewingAxis,workingDistance).add(opticalToTcp).add(offset);
+ const opticalOrigin=new Vector3(...optics.receiver),tcp=new Vector3(...camera.tcp);
+ const stripeToTcp=tcp.clone().sub(new Vector3(...optics.stripe)).applyQuaternion(standardRotation);
+ const position=new Vector3(...target).add(stripeToTcp).add(offset);
  const rotation=angles===standardAngles?standardRotation:orientation(angles);
  const headOrigin=position.clone().sub(tcp.applyQuaternion(rotation));
  const opticalPosition=opticalOrigin.applyQuaternion(rotation).add(headOrigin).toArray();
  return {position:position.toArray(),target,opticalPosition,toolPose:{head:{position:headOrigin.toArray(),quaternion:rotation.toArray()},angles}};
 }
 
-export function weldMeasurementPlan(weld,settings={},referenceNormalAt){
+export function weldMeasurementPlan(weld,settings={},referenceNormalAt,photoChecks){
  if(!weld?.enabled||weld.mergedInto||weld.splitInto||weld.gapJoinError||verticalTraversal(weld.segments,weld.position)==='conflict')return null;
  const scan=weld.scanSettings??{};
  const method=weldPrecisionMethod(scan,settings.deviceCapabilities);
@@ -49,9 +42,10 @@ export function weldMeasurementPlan(weld,settings={},referenceNormalAt){
  const total=stations.at(-1),reverse=scan.direction==='reverse';
  const laser=method!=='fixedPhoto';
  const camera=laser?'laser':'structuredLight';
+ const optics=laser?laserCameraMount(settings.laserMountSide):null;
  const adjustment=scan.cameraAdjustments?.[camera];
- const cameraStandard=settings.precisionParameters?.[laser?'laserPose':'structuredLightPose'];
- const fallback=laser?settings.actionParameters?.flatPose:null;
+ const cameraStandard=settings.precisionParameters?.laserPose;
+ const fallback=settings.actionParameters?.flatPose;
  const standardAngles=Object.fromEntries(TORCH_ANGLE_KEYS.map(axis=>[axis,
   Number.isFinite(cameraStandard?.[axis])?cameraStandard[axis]:finiteOrZero(fallback?.[axis])]));
  const poseOffsets=TORCH_ANGLE_KEYS.map(axis=>finiteOrZero(adjustment?.angles?.[axis]));
@@ -59,7 +53,14 @@ export function weldMeasurementPlan(weld,settings={},referenceNormalAt){
  const offset=new Vector3(...['x','y','z'].map(axis=>finiteOrZero(adjustment?.position?.[axis])));
  const points=[],paths=[];
  function addPoint(frame,position,distance,label){
-  const point={...cameraToolPose(frame,position,distance,laser,standardAngles,angles,offset),distance,label};
+  const segment=segments[frame.segmentIndex];
+  const weldingPose=laser?undefined:photoChecks?.weldingPoseAt?.(distance);
+  const rotation=laser?undefined:finiteOrZero(weldingPose?.angles?.rotation??
+   (weldPositionCode(segment.position)==='PF'?settings.actionParameters?.verticalPose:settings.actionParameters?.flatPose)?.rotation);
+  const pose=laser?laserToolPose(frame,position,distance,standardAngles,angles,offset,optics):
+   planFixedPhotoPose(frame,segment,position,{offset,rotation,preferredDistance:settings.precisionParameters?.structuredLightPhotoDistance,
+    checks:photoChecks&&{scene:photoChecks.scene,error:photoChecks.error,weldingPose}});
+  const point={...pose,distance,label};
   points.push(point);
   return point;
  }

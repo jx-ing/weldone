@@ -86,6 +86,15 @@ test('立焊起点只取平角焊工作角，过渡内保持立焊前进角和�
  const unset={...settings,actionParameters:{...settings.actionParameters,flatPose:{...flatPose,work:null}}};
  assert.deepEqual(generateStrategyPlan(weld,process,unset).passes[0].points[0].pose,verticalPose);
  assert.deepEqual(defaultWeldPosePreview(weld,unset).passes[0].points[0].pose,verticalPose);
+ const custom={...settings,interferenceEndParameters:{verticalStartDistance:20,
+  verticalStartPose:{advance:12,work:25,rotation:-25}}};
+ const [withCustomStart]=planWorkspace([weld],[],[process],custom);
+ const [previewPath]=weldLayerPassPaths(withCustomStart,weldLayerLayout(withCustomStart,undefined,[],[process],custom),
+  withCustomStart.strategyPlan,undefined,withCustomStart.processParameters);
+ assert.deepEqual(previewPath.posesAt(0)[0].angles,{advance:12,work:25,rotation:-25});
+ assert.deepEqual(previewPath.posesAt(10)[0].angles,{advance:2,work:45,rotation:5});
+ assert.deepEqual(previewPath.posesAt(20)[0].angles,verticalPose);
+ assert.deepEqual(defaultWeldPosePreview(weld,custom).passes[0].points[0].pose,{advance:12,work:25,rotation:-25});
 });
 
 test('工艺设置先生成 L 形包角，匹配整道模板后保留路径并覆盖模板点位和姿态',()=>{

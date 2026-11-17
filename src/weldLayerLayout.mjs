@@ -5,6 +5,7 @@ import {previewPath} from './weldPathGeometry.mjs';
 import {distance} from './manualWeldModel.mjs';
 import {prepareWeldSeamFrames} from './weldSeamFrames.mjs';
 import {Quaternion} from 'three';
+import {LASER_DIRECTION_ISSUE,laserLeadsTravel} from './laserTrackingDirection.mjs';
 import {resolveWeldToolPose,weldTorchAngles,weldTorchFrame} from './weldToolPose.mjs';
 import {weldControlPointError,weldPointTreeGroups} from './weldPlanningPoints.mjs';
 import {weldPassLegDirections,weldSectionSide} from './weldPassMesh.mjs';
@@ -226,12 +227,12 @@ function strategyPoseAt(layout,pass,path,plan){
   const blend=key=>axes.map((_,i)=>left[key][i]*(1-t)+right[key][i]*t);
   const transition=left.up&&right.up&&(left.kind==='corner'||right.kind==='corner'||interpolateWrap);
   const frame=transition&&Math.hypot(...blend('tangent'))>1e-8?
-   weldTorchFrame(blend('tangent'),blend('normal'),blend('up')):{};
+   {...weldTorchFrame(blend('tangent'),blend('normal'),blend('up')),sectionRoll:(t<.5?left:right).sectionRoll}:{};
   if(interpolateWrap){
    const orientation=new Quaternion().fromArray(left.orientation).slerp(new Quaternion().fromArray(right.orientation),t);
    if(!frame.up){
-    const {tangent,normal,up}=right.flatLWrap?right:left;
-    Object.assign(frame,{tangent,normal,up});
+    const {tangent,normal,up,sectionRoll}=right.flatLWrap?right:left;
+    Object.assign(frame,{tangent,normal,up,sectionRoll});
    }
    pose=weldTorchAngles(frame,orientation);
   }
@@ -240,11 +241,11 @@ function strategyPoseAt(layout,pass,path,plan){
  const resolve=(point,station)=>{
   const base=sample(station);
   if(!base)return undefined;
-  const {tangent,normal,up,pathOffset,wireOffset}=base;
+  const {tangent,normal,up,sectionRoll,pathOffset,wireOffset}=base;
   // Old saved plans used a horizontal frame. Use the current geometric
   // frame unless the saved point carries an explicit section reference.
   return {angles:point.kind==='control'||plan.templateAngles?point.angles:addValues(base.pose,addValues(point.angles,nominalAnchorPose,angles,-1),angles),
-   ...(up?{tangent,normal,up}:{}),pathOffset,wireOffset};
+   ...(up?{tangent,normal,up,sectionRoll}:{}),pathOffset,wireOffset};
  };
  resolve.sample=sample;
  resolve.stations=samples.map(([station])=>station);
@@ -345,7 +346,8 @@ export function weldLayerPassPaths(weld,layout,plan=weld?.strategyPlan,reference
  const frameAt=passFrameSampler(target,referenceNormalAt);
  const frameFor=(station,strategy)=>{
   const frame=frameAt(station);
-  return strategy?.up?{...frame,tangent:strategy.tangent,normal:strategy.normal,up:strategy.up}:frame;
+  return strategy?.up?{...frame,tangent:strategy.tangent,normal:strategy.normal,up:strategy.up,
+   sectionRoll:strategy.sectionRoll??frame.sectionRoll}:frame;
  };
  const referenceAt=(station,pose,offset,height,strategy,frame=frameFor(station,strategy))=>{
   const wireOffset=(offset.wire??0)+(strategy?.wireOffset??0);
@@ -433,6 +435,25 @@ export function weldLayerPassPaths(weld,layout,plan=weld?.strategyPlan,reference
   return {id:pass.id,layerId:layer.id,layerIndex,passIndex,positions,sections,segmentIndices,leg,
    startStation:start.station,endStation:end.station,sampleStations,toolPoses:samples,posesAt,speedAt};
  }).filter(Boolean));
+}
+
+export function weldLayoutTrackingIssue(weld,layout,options){
+ const plan=weld.strategyPlan;
+ if(!weld.laserTrackingDirection||!plan)return weld.laserTrackingIssue;
+ const paths=weldLayerPassPaths(weld,layout,plan,options.measureTemplateNeighborhood?.referenceNormalAt);
+ for(const path of paths){
+  const pass=plan.settingsOnly?plan.passes[0]:plan.passes.find(entry=>entry.layerIndex===path.layerIndex&&entry.passIndex===path.passIndex)??plan.passes[0];
+  if(!pass?.points.some(point=>point.tracking==='激光跟踪'))continue;
+  const trackingPoints=[...pass.points].sort((a,b)=>a.distance-b.distance);
+  const stations=[...new Set([...path.sampleStations,...trackingPoints.map(point=>point.distance)])].sort((a,b)=>a-b);
+  let index=0;
+  for(const station of stations){
+   while(index+1<trackingPoints.length&&trackingPoints[index+1].distance<=station)index++;
+   if(trackingPoints[index].tracking!=='激光跟踪')continue;
+   if(path.posesAt(station).some(pose=>!laserLeadsTravel(pose.tcp.quaternion,pose.frame.tangent,options.laserMountSide)))return LASER_DIRECTION_ISSUE;
+  }
+ }
+ return paths.length?undefined:plan.laserTrackingIssue;
 }
 
 export function copyWeldLayersToTemplate(template,layout,weld,process,plan=weld?.strategyPlan,referenceAt){

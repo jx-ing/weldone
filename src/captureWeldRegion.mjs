@@ -12,9 +12,15 @@ export function captureWeldRegion({renderer,camera,body,edges,model,weld,modelNa
  const planes=weldCapturePlanes(region,world);
  const scene=new THREE.Scene(),materials=[],geometries=[],parts=[];
  const addClipped=object=>{const copy=object.clone();copy.material=object.material.clone();copy.material.clippingPlanes=planes;copy.material.clipIntersection=false;copy.material.transparent=false;copy.material.opacity=1;copy.material.depthWrite=true;materials.push(copy.material);scene.add(copy);};
- body.children.forEach((part,index)=>{if(new THREE.Box3().setFromObject(part).intersectsBox(box)){addClipped(part);parts.push(index);}});
+ // The capture uses the original CAD frame and copies each object's local transform.
+ const inRegion=object=>{
+  const {geometry}=object;
+  if(!geometry.boundingBox)geometry.computeBoundingBox();
+  return geometry.boundingBox.clone().applyMatrix4(object.matrix).intersectsBox(box);
+ };
+ body.children.forEach((part,index)=>{if(inRegion(part)){addClipped(part);parts.push(index);}});
  if(!parts.length)throw Error('所选焊缝附近没有模型表面，无法生成封面');
- edges.children.forEach(edge=>{if(new THREE.Box3().setFromObject(edge).intersectsBox(box))addClipped(edge);});
+ edges.children.forEach(edge=>{if(inRegion(edge))addClipped(edge);});
  scene.add(new THREE.HemisphereLight(0xffffff,0x8996a1,2.8));const light=new THREE.DirectionalLight(0xffffff,2.8);light.position.set(8000,14000,10000);scene.add(light);
  const center=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3()).length(),direction=new THREE.Vector3();camera.getWorldDirection(direction).negate();
  const view=new THREE.OrthographicCamera(-1,1,1,-1,.1,Math.max(size*20,100));view.up.copy(camera.up);view.position.copy(center).addScaledVector(direction,size*3);view.lookAt(center);view.updateMatrixWorld(true);

@@ -51,6 +51,32 @@ test('导电嘴标定和焊接距离齐全时按焊丝轴定位机头模型',()=
  assert.equal(solved.contactDistance,18);
 });
 
+test('同侧平角焊长直段反向时沿用立板侧的旋转角零位',()=>{
+ const normal={subFaceNormal:[-1,0,0]};
+ const welds=[
+  weld([segment([[0,-8,0],[0,0,0]],{strategyRole:'wrap',strategyWrapKind:'L',endWrapKind:'L'}),
+   segment([[0,0,0],[0,100,0]],normal)]),
+  weld([segment([[0,100,0],[0,0,0]],normal)])
+ ];
+ const preview=rotation=>welds.map((target,index)=>{
+  const cfg={...settings,actionParameters:{...settings.actionParameters,flatPose:{advance:0,work:45,rotation}}};
+  const plan=generateStrategyPlan(target,process,cfg);
+  const [pass]=weldLayerPassPaths(target,layoutFor(target),plan);
+  return pass.posesAt(index===0?58:50)[0];
+ });
+ const zero=preview(0),rolled=preview(180);
+ const head=pose=>new Quaternion(...pose.head.quaternion);
+ assert.ok(1-Math.abs(head(zero[0]).dot(head(zero[1])))<1e-9);
+ assert.ok(1-Math.abs(head(rolled[0]).dot(head(rolled[1])))<1e-9);
+ const oldReference=resolveWeldToolPose({...rolled[1].frame,sectionRoll:false,position:rolled[1].position,pose:rolled[1].angles});
+ assert.ok(1-Math.abs(head(rolled[1]).dot(head(oldReference)))<1e-9);
+ for(let i=0;i<welds.length;i++){
+  close(rolled[i].wireAxis,zero[i].wireAxis);
+  close(rolled[i].tcp.position,zero[i].tcp.position);
+  assert.ok(Math.abs(head(rolled[i]).angleTo(head(zero[i]))-Math.PI)<1e-8);
+ }
+});
+
 test('整圆闭合时机头首尾重合，圆弧切向随几何旋转',()=>{
  const points=Array.from({length:33},(_,i)=>[60*Math.cos(i*Math.PI/16),60*Math.sin(i*Math.PI/16),0]);
  const target=weld([segment(points,{geometry:'圆弧'})],true);

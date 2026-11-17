@@ -361,7 +361,7 @@ export default function PlanningSettings({settings={},capabilities={},hasWelds=f
    'path-collision':['splitParameters.toolHeadCollisionEnabled','splitParameters.autoDeleteUnavoidable','splitParameters.minWeldLength'],
    'path-safe-points':['actionParameters.safeTransitionOffset','actionParameters.safeApproachOffset','actionParameters.endSafeTransitionOffset','actionParameters.endSafeApproachOffset'],
    tracking:[...(capabilities.laserTracking!==false?['trackingParameters.laserEnabled','trackingParameters.minLineLength','trackingParameters.minArcDiameter','trackingParameters.minEdgeWidth']:[]),...(capabilities.arcTracking!==false?['trackingParameters.arcEnabled']:[])],
-   measurement:[...(showLaser?['precisionParameters.laserPose','precisionParameters.mixedScan','precisionParameters.lineSweepSpeed','precisionParameters.arcSweepSpeed']:[]),...(showStructure?['precisionParameters.structuredLightPose','precisionParameters.structuredLightMixedScan']:[])]
+   measurement:[...(showLaser?['precisionParameters.laserPose','precisionParameters.mixedScan','precisionParameters.lineSweepSpeed','precisionParameters.arcSweepSpeed']:[]),...(showStructure?['precisionParameters.structuredLightPhotoDistance','precisionParameters.structuredLightMixedScan']:[])]
   };
   setDraft(previous=>{
    const next={...previous};
@@ -603,15 +603,18 @@ export default function PlanningSettings({settings={},capabilities={},hasWelds=f
      </figure>
     </React.Fragment>;
    })}
-   <figure className={'planning-endpoint-diagram planning-vertical-transition-diagram'+(fieldErrors.has('interferenceEndParameters.verticalStartDistance')?' has-errors':'')}
-    aria-label="立焊起点变姿态距离示意图">
-    <picture>
-     <source media="(max-width:820px)" srcSet="/assets/parameter-help/vertical-start-static.png"/>
-     <img src={fieldErrors.has('interferenceEndParameters.verticalStartDistance')?'/assets/parameter-help/vertical-start-static.png':'/assets/parameter-help/vertical-start-static-diagram.png'}
-      alt="同一条立焊焊缝上的起点姿态和到达过渡距离后的立焊姿态。距离从立焊起点沿焊缝向上量取。"/>
-    </picture>
-    <div className="planning-endpoint-parameter planning-vertical-transition-entry">
-     {field('interferenceEndParameters','verticalStartDistance','立焊起点变姿态距离',{placeholder:'默认20'})}
+   <figure className="planning-endpoint-diagram planning-vertical-transition-diagram" aria-label="立焊起点姿态示意图">
+    <img src="/assets/parameter-help/vertical-start-static.png" width="584" height="556"
+     alt="同一条立焊焊缝上的起点姿态和到达过渡距离后的立焊姿态。距离从立焊起点沿焊缝向上量取。"/>
+    <div className="planning-vertical-transition-controls">
+     <div className="planning-vertical-transition-entry">
+      {field('interferenceEndParameters','verticalStartDistance','立焊起点变姿态距离',{placeholder:'默认20'})}
+     </div>
+     <div className="planning-vertical-start-pose">
+      {group('interferenceEndParameters','verticalStartPose','立焊起点姿态',angleFields.map(([axis,label,props])=>[
+       axis,label,{...props,placeholder:axis==='work'?'默认继承平角焊工作角，未设时取立焊工作角':'默认继承立焊标准姿态'}
+      ]))}
+     </div>
     </div>
    </figure>
   </>}
@@ -659,7 +662,9 @@ export default function PlanningSettings({settings={},capabilities={},hasWelds=f
   </fieldset>}
   {showStructure&&<fieldset className="planning-setting-fields planning-subgroup">
    <legend>结构光精定位设置</legend>
-   {group('precisionParameters','structuredLightPose','结构光标准姿态',angleFields)}
+   <p>定点拍照的机头沿焊缝开口角平分线，旋转角跟随被测点的焊接姿态。</p>
+   {field('precisionParameters','structuredLightPhotoDistance','拍照距离',{unit:'mm',step:'any',placeholder:'留空自动'})}
+   <p className="planning-setting-note">沿镜头光轴从镜头量到焊缝被测点。留空时自动计算，距离过近时取几何允许的最近距离。</p>
    {mixedScan('structuredLightMixedScan','结构光',STRUCTURED_LIGHT_SCAN_FIELDS)}
   </fieldset>}
  </section>

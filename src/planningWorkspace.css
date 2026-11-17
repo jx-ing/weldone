@@ -1,4 +1,8 @@
 .planning-settings h3{font-size:15px;font-weight:500;margin:0 0 20px;padding-bottom:12px;border-bottom:1px solid #eee}
+.planning-action-group{display:inline-flex;flex:none}
+.planning-action-group>.btn:first-child{border-start-end-radius:0;border-end-end-radius:0}
+.planning-action-group>.btn:last-child{border-start-start-radius:0;border-end-start-radius:0}
+.planning-action-group>.btn:focus-visible{position:relative;z-index:1}
 .planning-settings-state{flex:none;margin:0;padding:9px 24px;background:#fffaf0;border-bottom:1px solid #f4ead7;color:#664a20;font-size:12px;line-height:1.6}
 .overlay:has(.planning-settings-form){padding:40px 20px 16px}
 .planning-settings{overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scroll-padding-block:12px}
@@ -102,6 +106,9 @@
 .planning-tool-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}.planning-tool-footer .btn{font-size:12px;padding:4px 8px;min-height:28px}
 .delete-weld-list{max-height:120px;overflow:auto;color:#595959;font-size:13px}
 .planning-model-editor p.planning-tool-error{color:#cf5a27}
+.planning-create-field{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:12px;margin:9px 0}
+.planning-create-field select{width:100%;padding:4px 6px;border:1px solid #d9d9d9;border-radius:3px;background:#fff;font:inherit}
+.point-cloud-count{margin:4px 0 0;padding:4px 12px 4px 44px;color:#666;font-size:12px}
 .planning-label-display{z-index:3}
 .planning-label-display summary,.planning-model-display summary{list-style:none;cursor:pointer}
 .planning-label-display summary::-webkit-details-marker,.planning-model-display summary::-webkit-details-marker{display:none}
@@ -148,10 +155,17 @@
  .planning-endpoint-diagram,.planning-endpoint-diagram.has-errors{grid-template-columns:minmax(0,1fr)}
  .planning-endpoint-visual,.planning-endpoint-diagram.has-errors .planning-endpoint-visual{grid-row:auto;width:min(100%,265px);margin:auto}
 }
-.planning-vertical-transition-diagram{margin-top:18px;background:#fff}
-.planning-vertical-transition-entry{top:62.59%;border-left:3px solid #549d92}
+.planning-vertical-transition-diagram{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);align-items:center;gap:12px;margin-top:18px;padding:10px;background:#fff}
+.planning-vertical-transition-controls{display:grid;gap:10px;min-width:0}
+.planning-vertical-transition-entry,.planning-vertical-start-pose{min-width:0;padding:8px 10px;border:1px solid #c4d3df;border-radius:6px}
+.planning-vertical-transition-entry{border-left:3px solid #549d92}
+.planning-vertical-start-pose{border-left:3px solid #8e78b3}
 .planning-settings .planning-vertical-transition-entry .planning-setting-row{grid-template-columns:minmax(0,1fr);gap:4px}
-@media(max-width:520px){.planning-vertical-transition-diagram picture{width:min(100%,290px);margin:auto}}
+.planning-vertical-start-pose .planning-number-group{margin:0;padding:0;border:0}
+.planning-vertical-start-pose .planning-number-group>legend{padding:0}
+.planning-vertical-start-pose .planning-number-group-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.planning-settings .planning-vertical-start-pose .planning-setting-row{margin:6px 0 0}
+@media(max-width:640px){.planning-vertical-transition-diagram{grid-template-columns:minmax(0,1fr)}.planning-vertical-transition-diagram>img{width:min(100%,290px);margin:auto}}
 
 .planning-settings-nav{overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}.planning-tracking-settings input[role=switch]:disabled{opacity:.4;cursor:not-allowed}
 

@@ -3,6 +3,8 @@ import {validReferenceNormal} from './weldDirectionGeometry.mjs';
 import {horizontalWeldNormal} from './manualWeldModel.mjs';
 import {planningPartGeometryIndex} from './vendor/geometry-engine.mjs';
 
+// Keep welds with pending process dimensions visible in the model.
+const DEFAULT_WELD_DISPLAY_LEG=6;
 const vector=point=>new Vector3(...point);
 export const weldSectionSide=(tangent,preferred=[0,0,1])=>
  horizontalWeldNormal(tangent,vector(preferred).cross(vector(tangent)).toArray());
@@ -37,7 +39,7 @@ export function weldPassLegDirections(tangent,segment,side){
 }
 
 export function weldSegmentPass(segment,weldLeg,referenceNormal){
- const leg=weldLeg??segment.weldLeg;
+ const leg=weldLeg??segment.weldLeg??DEFAULT_WELD_DISPLAY_LEG;
  if(!Number.isFinite(leg)||leg<=0||!segment.pathPoints?.length)return null;
  const positions=segment.pathPoints.filter((point,i,all)=>!i||vector(point).distanceToSquared(vector(all[i-1]))>1e-16);
  if(positions.length<2)return null;

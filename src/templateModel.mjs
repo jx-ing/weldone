@@ -155,6 +155,27 @@ export function migrateTemplate(t) {
   result.points.forEach(p => { p.overrides = { current: t.current, voltage: t.voltage, speed: t.speed }; });
   return ensureLayers(syncControlPoints(result,true));
 }
+
+const legacyBuiltInTemplates=[
+  {id:'TPL-001',name:'碳钢横角焊 · 6 mm',position:'PB · 横角焊',leg:6,current:210,voltage:24.5,speed:340},
+  {id:'TPL-002',name:'薄板角焊 · 5 mm',position:'PB · 横角焊',leg:5,current:180,voltage:23,speed:360},
+  {id:'TPL-003',name:'立向上焊 · 5 mm',position:'PF · 立向上焊',leg:5,current:160,voltage:22,speed:220}
+];
+const builtInSignatures=new Map();
+
+function templateContentSignature({project,...record}){
+  // Legacy startup samples had generated point, layer, and pass IDs.
+  return JSON.stringify(record,(key,value)=>key==='id'?undefined:
+    value&&typeof value==='object'&&!Array.isArray(value)?Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b))):value);
+}
+
+function isUneditedBuiltInTemplate(template){
+  const sample=legacyBuiltInTemplates.find(item=>item.id===template.id);
+  if(!sample)return false;
+  if(!builtInSignatures.has(sample.id))builtInSignatures.set(sample.id,templateContentSignature(migrateTemplate(sample)));
+  return templateContentSignature(template)===builtInSignatures.get(sample.id);
+}
+
 function migrateStrategyPlan(weld){
   const plan=weld.strategyPlan;
   if(!Array.isArray(plan?.passes))return;
@@ -248,7 +269,8 @@ export function migrateDraft(v) {
   if(v.projectPlanning)settings.projectPlanning=Object.fromEntries(Object.entries(v.projectPlanning).map(([name,profile])=>[
     name,profile.planningSettings?{...profile,planningSettings:migratePlanningSettings(profile.planningSettings)}:profile
   ]));
-  return { ...workspace, ...history, ...settings, processLibrary:(v.processLibrary??[]).map(migrateProcessWeldForms), processDeviceProfiles:v.processDeviceProfiles??[], welds: v.welds?.map(migrateWeld).map(w => v.model === '肋板组件 A' ? { ...w, completeStart:w.completeStart??true,completeEnd:w.completeEnd??true,closure:w.closure??'open',segments:w.segments??[segment(w)],cornerAngles:w.cornerAngles??[],groove:w.groove??{type:'无坡口',angle:0,depth:0},startHole:w.startHole??false,endHole:w.endHole??false } : normalizeLegacyMergeGaps(w)), templates: v.templates.map(migrateTemplate), fixedTemplates: (v.fixedTemplates || []).map(f=>{
+  const templates=v.templates.map(migrateTemplate).filter(template=>!isUneditedBuiltInTemplate(template));
+  return { ...workspace, ...history, ...settings, processLibrary:(v.processLibrary??[]).map(migrateProcessWeldForms), processDeviceProfiles:v.processDeviceProfiles??[], welds: v.welds?.map(migrateWeld).map(w => v.model === '肋板组件 A' ? { ...w, completeStart:w.completeStart??true,completeEnd:w.completeEnd??true,closure:w.closure??'open',segments:w.segments??[segment(w)],cornerAngles:w.cornerAngles??[],groove:w.groove??{type:'无坡口',angle:0,depth:0},startHole:w.startHole??false,endHole:w.endHole??false } : normalizeLegacyMergeGaps(w)), templates, fixedTemplates: (v.fixedTemplates || []).map(f=>{
   const migratePoints=points=>syncControlPoints({type:'local',segments:Array.from({length:f.segmentCount},()=>segment()),points},true,true).points.map(({id,kind,name,segment,percent,referenceId,location,anchorRole,autoRole})=>({id,kind,name,segment,percent,...(anchorRole?{anchorRole}:{}),...(autoRole?{autoRole}:{}),...(referenceId!==undefined?{referenceId}:{}),...(location?{location}: {})}));
   return {...f,...(f.definition?{definition:migrateTemplate(f.definition)}:{}),points:migratePoints(f.points),...(f.layers?{layers:f.layers.map(l=>({...l,passes:l.passes.map(p=>({...p,points:migratePoints(p.points)}))}))}:{})};
 }) }; }

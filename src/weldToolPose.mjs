@@ -19,10 +19,7 @@ export const NANYANG_CAMERA_PREVIEW=Object.freeze({
  // Optical midpoint from the camera mesh and virtual TCP in head coordinates (mm).
  opticalOrigin:Object.freeze([-15,49,-179.11]),
  tcp:Object.freeze(vector(NANYANG_TOOL_CALIBRATION.wireTip)
-  .addScaledVector(vector(NANYANG_TOOL_CALIBRATION.wireAxis).normalize(),-150).toArray()),
- laserWorkingDistance:400,
- laserViewDepth:550,
- laserWidthAtWorkingDistance:180
+  .addScaledVector(vector(NANYANG_TOOL_CALIBRATION.wireAxis).normalize(),-150).toArray())
 });
 
 export function weldTorchFrame(tangent,normal,sectionUp){
@@ -47,10 +44,12 @@ export function weldTorchAxis(tangent,normal,angles,up){
   .addScaledVector(vector(frame.up),Math.sin(work)*Math.cos(advance)).normalize().toArray();
 }
 
-export function weldTorchBasis(tangent,normal,angles,up){
+export function weldTorchBasis(tangent,normal,angles,up,sectionRoll=false){
  const frame=weldTorchFrame(tangent,normal,up);
  const z=vector(weldTorchAxis(frame.tangent,frame.normal,angles,frame.up));
  const x=vector(frame.tangent);
+ // A measured fillet side supplies the same roll zero in either travel direction.
+ const rollSign=sectionRoll&&vector(frame.up).cross(vector(frame.normal)).dot(x)<0?-1:1;
  x.addScaledVector(z,-x.dot(z));
  if(x.lengthSq()<1e-8){
   // The projected travel direction vanishes at ±90° push/pull. Use its
@@ -60,15 +59,15 @@ export function weldTorchBasis(tangent,normal,angles,up){
   x.copy(vector(frame.normal)).multiplyScalar(-sign*Math.cos(work))
    .addScaledVector(vector(frame.up),-sign*Math.sin(work));
  }
- x.normalize().applyAxisAngle(z,finite(angles?.rotation)*radians);
+ x.normalize().multiplyScalar(rollSign).applyAxisAngle(z,finite(angles?.rotation)*radians);
  return [x,new Vector3().crossVectors(z,x),z];
 }
 
-export function weldTorchOrientation(tangent,normal,angles,up){
- return new Quaternion().setFromRotationMatrix(new Matrix4().makeBasis(...weldTorchBasis(tangent,normal,angles,up)));
+export function weldTorchOrientation(tangent,normal,angles,up,sectionRoll){
+ return new Quaternion().setFromRotationMatrix(new Matrix4().makeBasis(...weldTorchBasis(tangent,normal,angles,up,sectionRoll)));
 }
 
-export function weldTorchAngles({tangent,normal,up},orientation){
+export function weldTorchAngles({tangent,normal,up,sectionRoll},orientation){
  const frame=weldTorchFrame(tangent,normal,up);
  const wire=new Vector3(0,0,1).applyQuaternion(orientation);
  const x=new Vector3(1,0,0).applyQuaternion(orientation);
@@ -76,7 +75,7 @@ export function weldTorchAngles({tangent,normal,up},orientation){
  const across=wire.dot(vector(frame.normal)),height=wire.dot(vector(frame.up));
  const advance=Math.atan2(along,Math.hypot(across,height))/radians;
  const work=Math.hypot(across,height)<1e-8?0:Math.atan2(height,across)/radians;
- const [zeroRoll]=weldTorchBasis(tangent,normal,{advance,work},up);
+ const [zeroRoll]=weldTorchBasis(tangent,normal,{advance,work},up,sectionRoll);
  const rotation=Math.atan2(wire.dot(zeroRoll.clone().cross(x)),zeroRoll.dot(x))/radians;
  return {advance,work,rotation};
 }
@@ -97,10 +96,11 @@ function sourceRotation(calibration){
 
 // All coordinates are in workpiece CAD coordinates (mm). TCP +Z points
 // from the wire tip toward the torch body, matching the existing angle convention.
-export function resolveWeldToolPose({position,tangent,normal,up,pose,distance,contactDistance},calibration=NANYANG_TOOL_CALIBRATION){
+export function resolveWeldToolPose({position,tangent,normal,up,sectionRoll,pose,distance,contactDistance},calibration=NANYANG_TOOL_CALIBRATION){
  const angles=Object.fromEntries(TORCH_ANGLE_KEYS.map(key=>[key,finite(pose?.[key])]));
  const frame=weldTorchFrame(tangent,normal,up);
- const basis=weldTorchBasis(frame.tangent,frame.normal,angles,frame.up);
+ const basis=weldTorchBasis(frame.tangent,frame.normal,angles,frame.up,sectionRoll);
+ if(sectionRoll!==undefined)frame.sectionRoll=sectionRoll;
  const tcpRotation=new Matrix4().makeBasis(...basis);
  const orientation=new Quaternion().setFromRotationMatrix(tcpRotation).normalize();
  const wireAxis=basis[2],target=vector(position);

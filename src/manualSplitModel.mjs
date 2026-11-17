@@ -1,7 +1,7 @@
 import {formatDecimal} from './numericPrecision.mjs';
 import {MAX_PLANNING_WELDS,weldForm} from './planningRequirements.mjs';
 import {distance,pathLength,pathGeometry,sampleManualWeldPath} from './manualWeldModel.mjs';
-import {normalizeVerticalWeld} from './weldDirectionGeometry.mjs';
+import {normalizeVerticalWeld,weldTravelReversed} from './weldDirectionGeometry.mjs';
 import {mergeCornerAngles} from './mergeIntersectionGeometry.mjs';
 const metric=v=>Math.round(v*10000)/10000;
 export function weldPointDistance(weld,point){
@@ -182,19 +182,20 @@ export function installWrapSplit(workspace,original,fragments){
   segments:fragment.segments,name:(original.name+' · 包角拆分 '+(index+1)).slice(0,80),
   start:{facts:fragment.endpointFacts.start,hasHole:fragment.startHole,wrap:fragment.startWrapMode},
   end:{facts:fragment.endpointFacts.end,hasHole:fragment.endHole,wrap:fragment.endWrapMode},
-  topology:fragment.topology,position:fragment.position,templateRequired:fragment.templateRequired,wrapSplit:true
+  topology:fragment.topology,position:fragment.position,templateRequired:fragment.templateRequired,
+  direction:fragment.direction,scanSettings:fragment.scanSettings,wrapSplit:true
  }));
- return installSplitWelds(workspace,original,parts,3);
+ return installSplitWelds(workspace,original,parts,3,weldTravelReversed(original)?parts.length-1:0);
 }
 
 function installSplitWelds(d,original,parts,revision,selectedIndex=0){
  const {id}=original,used=new Set(d.welds.map(w=>w.id));
  if(d.welds.length+parts.length>MAX_PLANNING_WELDS)throw Error('工作区焊道数量已达上限');
  let n=revision===3?Math.max(0,...d.welds.map(weld=>Number(weld.id.slice(1))||0))+1:1;
- const children=parts.map(({segments,name,start,end,topology,wrapSplit,position,templateRequired,leg=original.leg})=>{
+ const children=parts.map(({segments,name,start,end,topology,wrapSplit,position,templateRequired,direction,scanSettings,leg=original.leg})=>{
   while(used.has('W'+String(n).padStart(3,'0')))n++;
   const nextId='W'+String(n).padStart(3,'0');used.add(nextId);
-  return {id:nextId,name,source:'manual',model:d.model,enabled:true,planned:false,completeStart:true,completeEnd:true,closure:'open',topology,length:metric(segments.reduce((total,segment)=>total+segment.length,0)),leg,weldType:weldForm(original),position:position??(segments.every(s=>s.position===segments[0].position)?segments[0].position:'混合位置（逐段设置）'),...(wrapSplit?{templateRequired}:{}),segments,cornerAngles:mergeCornerAngles(segments),groove:structuredClone(original.groove),workFace:original.workFace,robotModel:original.robotModel,robotName:original.robotName,tracking:original.tracking,startWrapMode:start.wrap,endWrapMode:end.wrap,startHole:start.hasHole,endHole:end.hasHole,atConnection:segments.length>1,current:null,voltage:null,speed:null,template:'',direction:'正向',cornerReferenceNormal:original.cornerReferenceNormal,splitFrom:{id,source:original.source,processingKey:original.processingKey,sourceSha256:original.sourceSha256,...(wrapSplit?{wrap:true}:{})},
+  return {id:nextId,name,source:'manual',model:d.model,enabled:true,planned:false,completeStart:true,completeEnd:true,closure:'open',topology,length:metric(segments.reduce((total,segment)=>total+segment.length,0)),leg,weldType:weldForm(original),position:position??(segments.every(s=>s.position===segments[0].position)?segments[0].position:'混合位置（逐段设置）'),...(wrapSplit?{templateRequired}:{}),...(scanSettings?{scanSettings:structuredClone(scanSettings)}:{}),segments,cornerAngles:mergeCornerAngles(segments),groove:structuredClone(original.groove),workFace:original.workFace,robotModel:original.robotModel,robotName:original.robotName,tracking:original.tracking,startWrapMode:start.wrap,endWrapMode:end.wrap,startHole:start.hasHole,endHole:end.hasHole,atConnection:segments.length>1,current:null,voltage:null,speed:null,template:'',direction:direction??'正向',cornerReferenceNormal:original.cornerReferenceNormal,splitFrom:{id,source:original.source,processingKey:original.processingKey,sourceSha256:original.sourceSha256,...(wrapSplit?{wrap:true}:{})},
    ...(revision===3?{machineCount:original.machineCount,endpointFacts:{start:start.facts,end:end.facts}}:{})};
  });
  return {...d,welds:[...d.welds.map(w=>w.id===id?{...w,enabled:false,planned:false,splitInto:children.map(c=>c.id)}:w),...children.map(normalizeVerticalWeld)],selected:children[selectedIndex].id,manualSplitHistory:[...(d.manualSplitHistory||[]),{original:structuredClone(original),childIds:children.map(c=>c.id),selected:d.selected}],...(revision===3?{manualEditHistory:[...(d.manualEditHistory??[]),{kind:'split',id}]}:{})};

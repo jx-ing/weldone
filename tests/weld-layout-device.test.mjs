@@ -41,6 +41,15 @@ test('无精定位相机保留两套配置并独立于跟踪能力',()=>{
  assert.equal(legacyDisabled.precisionCamera.brand,'none');
 });
 
+test('机器人安装方式默认正装，兼容旧配置并接受倒装',()=>{
+ const control=migrateDeviceControl();
+ assert.equal(control.robot.mounting,'upright');
+ const {mounting,...legacyRobot}=control.robot;
+ assert.equal(deviceControlError({...control,robot:legacyRobot}),'');
+ assert.equal(deviceControlError({...control,robot:{...legacyRobot,mounting:'inverted'}}),'');
+ assert.match(deviceControlError({...control,robot:{...legacyRobot,mounting:'other'}}),/机器人安装方式/);
+});
+
 test('结构光关闭有效激光跟踪，切回线激光时恢复机器人能力',()=>{
  const deviceControl=migrateDeviceControl({trackingModes:['laser','arc']});
  assert.equal(planningContext({deviceControl}).deviceCapabilities.laserTracking,false);
@@ -168,6 +177,13 @@ test('焊道三角截面沿接头两面展开，两个焊脚的实际长度相�
  const cap=Array.from(points.slice(-18,-9)).map(value=>value===0?0:value);
  assert.deepEqual(cap,[0,0,0,0,-6,0,0,0,6]);
  assert.equal(geometry.index.count,24);
+});
+
+test('待填写焊脚的焊缝在模型中同样生成三角截面',()=>{
+ const segment={pathPoints:[[0,0,0],[100,0,0]],referenceNormal:[0,0,1],subFaceNormal:[0,-1,0]};
+ assert.deepEqual(weldSegmentPass(segment,null),weldSegmentPass(segment,6));
+ assert.equal(weldSegmentPass({...segment,weldLeg:4.5},null).leg,4.5);
+ assert.equal(weldSegmentPass({...segment,weldLeg:4.5},8).leg,8);
 });
 
 test('三角焊脚避开两块零件实体，即使两侧面的法向均反向',()=>{

@@ -42,8 +42,8 @@ export function settingsDefaults(raw={},capabilities={}){
   wrapParameters:{...wrap,flatEnabled:wrap.flatEnabled??wrap.enabled??true,verticalEnabled:wrap.verticalEnabled??wrap.enabled??true,lDistanceRatio:wrap.lDistanceRatio||'2/3',lDistanceOffset:wrap.lDistanceOffset??0,uPose:pose(wrap.uPose),flatLPose:Object.fromEntries(POSE_AXES.map(([axis])=>[axis,wrap.flatLPose?.[axis]??DEFAULT_FLAT_L_WRAP_POSE[axis]])),verticalLPose:pose(wrap.verticalLPose),independentLength:defaultNumber(wrap.independentLength,30),passHoleThreshold:defaultNumber(wrap.passHoleThreshold,35),gapThreshold:defaultNumber(wrap.gapThreshold,350)},
   mergeParameters:{...merge,gapThreshold:defaultNumber(merge.gapThreshold,DEFAULT_MERGE_GAP),enabled:merge.enabled??true,countEnabled:merge.countEnabled??Number.isInteger(merge.count),count:merge.count??2,lengthEnabled:merge.lengthEnabled??!empty(merge.maxLength),maxLength:defaultNumber(merge.maxLength,1500),passHoleSize:defaultNumber(merge.passHoleSize,15),angleMin:merge.angleMin??DEFAULT_MERGE_ANGLE_RANGE.angleMin,angleMax:merge.angleMax??DEFAULT_MERGE_ANGLE_RANGE.angleMax},
   splitParameters:{...split,...(!settings.weldPreprocessing?{gapThreshold:gapThreshold??null}:{}),toolHeadCollisionEnabled:split.toolHeadCollisionEnabled??false,autoDeleteUnavoidable:split.autoDeleteUnavoidable??true,minWeldLength:split.minWeldLength??0},
-  interferenceEndParameters:{...ends,verticalStartDistance:ends.verticalStartDistance??20,startDistance:defaultNumber(ends.startDistance,DEFAULT_INTERFERENCE_DISTANCE),endDistance:defaultNumber(ends.endDistance,DEFAULT_INTERFERENCE_DISTANCE),startAngle:defaultNumber(startPose?.advance??ends.startAngle,DEFAULT_INTERFERENCE_ANGLE),endAngle:defaultNumber(endPose?.advance??ends.endAngle,DEFAULT_INTERFERENCE_ANGLE),startLineOffset:ends.startLineOffset??0,endLineOffset:ends.endLineOffset??0},
-  precisionParameters:{...precision,laserPose:{...offset(precision.laserPose,[0,0,0]),...pose(precision.laserPose)},structuredLightPose:{...offset(precision.structuredLightPose,[0,0,0]),...pose(precision.structuredLightPose)},lineSweepSpeed:precision.lineSweepSpeed??150,arcSweepSpeed:precision.arcSweepSpeed??70,mixedScan:{...precision.mixedScan},structuredLightMixedScan},
+  interferenceEndParameters:{...ends,verticalStartPose:pose(ends.verticalStartPose),verticalStartDistance:ends.verticalStartDistance??20,startDistance:defaultNumber(ends.startDistance,DEFAULT_INTERFERENCE_DISTANCE),endDistance:defaultNumber(ends.endDistance,DEFAULT_INTERFERENCE_DISTANCE),startAngle:defaultNumber(startPose?.advance??ends.startAngle,DEFAULT_INTERFERENCE_ANGLE),endAngle:defaultNumber(endPose?.advance??ends.endAngle,DEFAULT_INTERFERENCE_ANGLE),startLineOffset:ends.startLineOffset??0,endLineOffset:ends.endLineOffset??0},
+  precisionParameters:{...precision,laserPose:{...offset(precision.laserPose,[0,0,0]),...pose(precision.laserPose)},structuredLightPose:{...offset(precision.structuredLightPose,[0,0,0]),...pose(precision.structuredLightPose)},lineSweepSpeed:precision.lineSweepSpeed??150,arcSweepSpeed:precision.arcSweepSpeed??70,structuredLightPhotoDistance:precision.structuredLightPhotoDistance??null,mixedScan:{...precision.mixedScan},structuredLightMixedScan},
   trackingParameters:{...tracking,laserEnabled:capabilities.laserTracking===false?false:tracking.laserEnabled??true,arcEnabled:capabilities.arcTracking===false?false:tracking.arcEnabled??true,minLineLength:tracking.minLineLength??160,minArcDiameter:tracking.minArcDiameter??160,minEdgeWidth:tracking.minEdgeWidth??10}};
  if(settings.topologyVersion===1){
   const legacyLeg={enabled:motion.legMode==='global',height:motion.legHeight??null};
@@ -88,8 +88,12 @@ export function serializeSettings(draft,capabilities={}){
   ends[side+'LineOffset']=defaultNumber(ends[side+'LineOffset'],0);
  }
  next.interferenceEndParameters.verticalStartDistance=defaultNumber(next.interferenceEndParameters.verticalStartDistance,20);
+ const verticalStartPose=Object.fromEntries(POSE_AXES.map(([axis])=>[axis,n(next.interferenceEndParameters.verticalStartPose[axis])]));
+ if(Object.values(verticalStartPose).every(value=>value===null))delete next.interferenceEndParameters.verticalStartPose;
+ else next.interferenceEndParameters.verticalStartPose=verticalStartPose;
  for(const key of ['startDistance','endDistance'])next.interferenceEndParameters[key]=defaultNumber(next.interferenceEndParameters[key],DEFAULT_INTERFERENCE_DISTANCE);
  const precision=next.precisionParameters;
+ precision.structuredLightPhotoDistance=n(precision.structuredLightPhotoDistance);
  for(const [key,fallback] of [['lineSweepSpeed',150],['arcSweepSpeed',70]])precision[key]=defaultNumber(precision[key],fallback);
  for(const key of ['laserPose','structuredLightPose']){
   for(const axis of OFFSET_AXES)precision[key][axis]=defaultNumber(precision[key][axis],0);
@@ -216,15 +220,16 @@ export function useCaseSettingsIssues(settings,capabilities={}){
  numeric('splitParameters.minWeldLength',split?.minWeldLength,'最小焊缝长度',{optional:true});
  if(!preprocessing&&split?.rulesVersion>=2)numeric('splitParameters.gapThreshold',split.gapThreshold,'间隙打断阈值',{integer:split.rulesVersion===2,positive:true,optional:true});
  const ends=settings.interferenceEndParameters;
+ poseCheck('interferenceEndParameters.verticalStartPose',ends?.verticalStartPose,'立焊起点');
  if(ends)for(const [key,label] of [['startDistance','起点'],['endDistance','终点'],['verticalStartDistance','立焊起点']]){
   numeric('interferenceEndParameters.'+key,ends[key],label+'变姿态距离',{optional:key==='verticalStartDistance'});
  }
  const precision=settings.precisionParameters;
  if(precision){
-  for(const [key,label,available] of [['laserPose','线激光标准姿态',capabilities.laserPrecision],['structuredLightPose','结构光标准姿态',capabilities.structuredLightPrecision]]){
-   if(available===false)continue;
-   poseCheck('precisionParameters.'+key,precision[key],label);
-  }
+  const photoDistance=precision.structuredLightPhotoDistance;
+  if(capabilities.structuredLightPrecision!==false&&!empty(photoDistance)&&(!Number.isFinite(photoDistance)||photoDistance<=0))
+   add('precisionParameters.structuredLightPhotoDistance','拍照距离须大于 0 mm');
+  if(capabilities.laserPrecision!==false)poseCheck('precisionParameters.laserPose',precision.laserPose,'线激光标准姿态');
   if(capabilities.laserPrecision!==false)for(const [key,label] of [['lineSweepSpeed','直线推扫速度'],['arcSweepSpeed','圆弧推扫速度']]){
    if(!empty(precision[key])&&(!Number.isFinite(precision[key])||precision[key]<=0))add('precisionParameters.'+key,label+'须大于0');
   }

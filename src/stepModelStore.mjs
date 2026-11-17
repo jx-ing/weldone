@@ -4,13 +4,16 @@ export const STARTUP_STEP_MODEL='a1a.step';
 export const STARTUP_STEP_REFERENCE=Object.freeze({
  sourceSha256:'e3fa12d40ff8dbe3226efb4a51397be3ba0d9726810d2ab98240cfd0be693c07'
 });
-export const isBundledStartupStep=(name,reference)=>name===STARTUP_STEP_MODEL&&
+export const isBundledStartupStep=(name,reference)=>name===STARTUP_STEP_MODEL&&!reference?.kind&&
  reference?.sourceSha256===STARTUP_STEP_REFERENCE.sourceSha256;
 
 const modelFields=['model','stepModel','welds','selected','geometryProcessing','previousGeometryProcessing','rejectedGeometryWelds','manualEditHistory','manualSplitHistory','collisionOriginals','planningSettingsDirty'];
-export const validStepModel=reference=>typeof reference?.sourceSha256==='string'&&/^[a-f0-9]{64}$/.test(reference.sourceSha256);
+export const isPointCloudWorkspace=workspace=>workspace.stepModel?.kind==='pointCloud';
+export const validStepModel=reference=>typeof reference?.sourceSha256==='string'&&/^[a-f0-9]{64}$/.test(reference.sourceSha256)&&
+ (reference.kind===undefined||reference.kind==='pointCloud');
 export const isDemoModel=workspace=>workspace.model===EXAMPLE_MODEL&&!workspace.stepModel;
-export const stepModelKey=workspace=>workspace.stepModel?.sourceSha256??'built-in:'+workspace.model;
+export const stepModelKey=workspace=>isPointCloudWorkspace(workspace)?'point-cloud:'+workspace.stepModel.sourceSha256:
+ workspace.stepModel?.sourceSha256??'built-in:'+workspace.model;
 
 function openStore(){
  return new Promise((resolve,reject)=>{
@@ -37,16 +40,17 @@ async function access(store,mode,action){
  }finally{db.close();}
 }
 
-export const cacheStepMesh=model=>access('models','readwrite',store=>store.put(model));
+const modelCacheKey=(fingerprint,kind)=>kind==='pointCloud'?'point-cloud:'+fingerprint:fingerprint;
+export const cacheStepMesh=model=>access('models','readwrite',store=>store.put({...model,sourceSha256:modelCacheKey(model.sourceSha256,model.kind)}));
 export const cacheStepNeighborhood=(sha,geometry)=>access('neighborhoods','readwrite',store=>store.put(geometry,sha));
 export const loadStepNeighborhood=sha=>access('neighborhoods','readonly',store=>store.get(sha));
 
 export async function loadStepMesh(name,reference){
  const bundledStartup=isBundledStartupStep(name,reference);
  if(reference&&!bundledStartup){
-  const model=await access('models','readonly',store=>store.get(reference.sourceSha256));
-  if(!model)throw Error('本机缺少模型，请重新导入原 STEP 文件');
-  return model;
+  const model=await access('models','readonly',store=>store.get(modelCacheKey(reference.sourceSha256,reference.kind)));
+  if(!model)throw Error(reference.kind==='pointCloud'?'本机缺少点云，请重新导入原文件':'本机缺少模型，请重新导入原 STEP 文件');
+  return reference.kind==='pointCloud'?{...model,sourceSha256:reference.sourceSha256}:model;
  }
  if(name!==EXAMPLE_MODEL&&!bundledStartup)throw Error('请导入此工作区的 STEP 文件');
  const response=await fetch(bundledStartup?'/models/a1a.mesh.json':'/models/111.mesh.json');

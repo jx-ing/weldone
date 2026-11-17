@@ -146,7 +146,8 @@ export function removePlanningWelds(workspace,ids){
       ...removedExtracted.map(weld=>({...weld,sourceSha256:weld.sourceSha256??modelSha,rejectionReason:'用户删除'}))]}:{}),
     ...(workspace.manualSplitHistory?{manualSplitHistory:workspace.manualSplitHistory.filter(record=>!invalidSplits.has(record.original.id))}:{}),
     ...(workspace.manualEditHistory?{manualEditHistory:workspace.manualEditHistory.filter(record=>
-      !removedIds.has(record.id)&&!(record.kind==='split'&&invalidSplits.has(record.id)))}:{})
+      record.kind==='create'?record.ids.some(id=>!removedIds.has(id)):
+        !removedIds.has(record.id)&&!(record.kind==='split'&&invalidSplits.has(record.id)))}:{})
   };
 }
 

@@ -68,6 +68,23 @@ test('按设备分别保存寻位配置，移除结构光的两项旧距离',()=
  scan.scanDistance='-1';
  assert.match(useCaseSettingsErrors(serializeSettings(draft)).join(''),/扫描距离/);
 });
+test('结构光拍照距离可选填，按项目保存并校验正值',()=>{
+ const draft=settingsDefaults();
+ const field='precisionParameters.structuredLightPhotoDistance';
+ assert.equal(draft.precisionParameters.structuredLightPhotoDistance,null);
+ draft.precisionParameters.structuredLightPhotoDistance='850.5';
+ const saved=serializeSettings(draft);
+ const workspace=updateProjectPlanning({project:'项目A',planningSettings:{},welds:[]},{planningSettings:saved});
+ assert.equal(workspace.projectPlanning['项目A'].planningSettings.precisionParameters.structuredLightPhotoDistance,850.5);
+ for(const value of [0,-5,Infinity]){
+  draft.precisionParameters.structuredLightPhotoDistance=value;
+  const invalid=serializeSettings(draft);
+  assert.ok(useCaseSettingsIssues(invalid).some(issue=>issue.field===field));
+  assert.ok(useCaseSettingsIssues(invalid,{structuredLightPrecision:false}).every(issue=>issue.field!==field));
+ }
+ draft.precisionParameters.structuredLightPhotoDistance='';
+ assert.equal(serializeSettings(draft).precisionParameters.structuredLightPhotoDistance,null);
+});
 test('用例默认值和空值回退，设备默认已配置，明确无配置时关闭跟踪',()=>{
  const d=serializeSettings(settingsDefaults());
  assert.deepEqual(d.actionParameters.safeTransitionOffset,{x:0,y:50,z:100});assert.deepEqual(d.actionParameters.safeApproachOffset,{x:0,y:20,z:40});assert.equal(d.actionParameters.lineStep,5);assert.equal(d.actionParameters.arcStep,2);assert.equal(d.precisionParameters.lineSweepSpeed,150);assert.equal(d.precisionParameters.arcSweepSpeed,70);
@@ -113,6 +130,10 @@ test('干涉端使用单一角度，距离和有符号线偏移可独立保存',
  assert.deepEqual(values,{startAngle:15,endAngle:38.1,startDistance:35,endDistance:35,verticalStartDistance:20,startLineOffset:-2.5,endLineOffset:1.5});
  assert.deepEqual(planningSettingsErrors({interferenceEndParameters:values}),[]);
  assert.match(planningSettingsErrors({interferenceEndParameters:{...values,endAngle:361}}).join(''),/终点姿态/);
+ d.interferenceEndParameters.verticalStartPose={advance:'12.25',work:'',rotation:'-360'};
+ assert.deepEqual(serializeSettings(d).interferenceEndParameters.verticalStartPose,{advance:12.25,work:null,rotation:-360});
+ d.interferenceEndParameters.verticalStartPose.rotation='361';
+ assert.ok(useCaseSettingsIssues(serializeSettings(d)).some(issue=>issue.field==='interferenceEndParameters.verticalStartPose.rotation'));
 });
 
 test('转角合并必须有有效交点，间隙与延长距离按独立条件检查',()=>{

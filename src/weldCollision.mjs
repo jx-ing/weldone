@@ -4,6 +4,7 @@ import {MeshBVH} from 'three-mesh-bvh';
 import {sweepLinearMeshes} from './weldLinearSweep.mjs';
 import {loadStepMesh} from './stepModelStore.mjs';
 import {NANYANG_TOOL_CALIBRATION} from './weldToolPose.mjs';
+import {LASER_CAMERA_FILES,laserCameraMount} from './laserCameraMount.mjs';
 
 const clearance=.25;
 const tolerance=.1;
@@ -32,21 +33,24 @@ export function excludeWireTip(geometry,calibration=NANYANG_TOOL_CALIBRATION){
  return new BufferGeometry().setAttribute('position',new Float32BufferAttribute(result,3));
 }
 
-export async function loadWeldCollisionScene(workspace,{coverOpen=false}={}){
- const directory=import.meta.env.BASE_URL+'models/nanyang-head/';
+export async function loadWeldCollisionScene(workspace,{coverOpen=false,includeWireTip=false,laserMountSide}={}){
+ const directory=import.meta.env.BASE_URL+'models/';
  const loader=new STLLoader();
  const results=await Promise.allSettled([
   loadStepMesh(workspace.model,workspace.stepModel),
-  loader.loadAsync(directory+'tool_body.stl'),
-  loader.loadAsync(directory+'camera_cover.stl')
+  loader.loadAsync(directory+'nanyang-head/tool_body.stl'),
+  loader.loadAsync(directory+'nanyang-head/camera_cover.stl'),
+  ...(laserMountSide?[loader.loadAsync(directory+'pf400-laser/'+LASER_CAMERA_FILES[0])]:[])
  ]);
  try{
   const failed=results.find(result=>result.status==='rejected');
   if(failed)throw failed.reason;
-  const [model,body,cover]=results.map(result=>result.value);
+  const [model,body,cover,laser]=results.map(result=>result.value);
   if(coverOpen)cover.rotateX(-NANYANG_TOOL_CALIBRATION.coverAngle);
   cover.translate(...NANYANG_TOOL_CALIBRATION.coverHinge);
-  return createWeldCollisionScene(model,[excludeWireTip(body),cover.clone()]);
+  const tools=[includeWireTip?body.clone():excludeWireTip(body),cover.clone()];
+  if(laser)tools.push(laser.clone().applyMatrix4(laserCameraMount(laserMountSide).matrix));
+  return createWeldCollisionScene(model,tools);
  }finally{
   for(const result of results.slice(1))if(result.status==='fulfilled')result.value.dispose();
  }
@@ -81,6 +85,24 @@ export function createWeldCollisionScene(model,toolParts){
   geometry.boundingBox.getCenter(new Vector3()).length()+geometry.boundingBox.getSize(new Vector3()).length()/2)));
  return {
   toolExtent,
+  solidAt(xyz){
+   const p=new Vector3(...xyz).sub(origin);
+   return parts.some(({geometry})=>contains(geometry,p));
+  },
+  lineObstruction(from,to){
+   const start=new Vector3(...from).sub(origin),end=new Vector3(...to).sub(origin);
+   const direction=end.clone().sub(start),length=direction.length();
+   if(length<=tolerance)return null;
+   const path=new Ray(start,direction.divideScalar(length));
+   const searchBox=new Box3().setFromPoints([start,end]);
+   let nearest=null;
+   for(const {name,geometry} of parts){
+    if(!searchBox.intersectsBox(geometry.boundingBox))continue;
+    const hit=geometry.boundsTree.raycastFirst(path,DoubleSide,.0001,nearest?.distance??length-tolerance);
+    if(hit)nearest={part:name,distance:hit.distance,point:hit.point.add(origin).toArray()};
+   }
+   return nearest;
+  },
   sweep:(from,to)=>sweepLinearMeshes(parts,tools,origin,from,to,clearance,mergeCollisionRanges),
   contact({position:xyz,quaternion}){
    position.fromArray(xyz).sub(origin);

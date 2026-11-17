@@ -30,7 +30,7 @@ export function resolvePassPoint(template,point,points=template.points,offset={}
   }
   const pose=poseAt?.(p,resolved.distance);
   const angles=pose?.angles??p.angles;
-  const frame=pose?.tangent&&pose?.normal?pose:spatial??{tangent,normal};
+  const frame=pose?.tangent&&pose?.normal?{...pose,sectionRoll:pose.sectionRoll??spatial?.sectionRoll}:spatial??{tangent,normal};
   const wireAxis=weldTorchAxis(frame.tangent,frame.normal,angles,frame.up);
   const adjustment=pose?.pathOffset,wireOffset=value(offset.wire)+value(pose?.wireOffset);
   position=position.map((n,i)=>n+wireAxis[i]*wireOffset+(adjustment?.[i]??0));

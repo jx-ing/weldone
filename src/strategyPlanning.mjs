@@ -1,6 +1,6 @@
 import {Quaternion,Vector3} from 'three';
 import {pathLength} from './manualWeldModel.mjs';
-import {resolveWeldToolPose,weldTorchAngles,weldTorchAxis,weldTorchOrientation} from './weldToolPose.mjs';
+import {TORCH_ANGLE_KEYS,resolveWeldToolPose,weldTorchAngles,weldTorchAxis,weldTorchOrientation} from './weldToolPose.mjs';
 import {prepareWeldSeamFrames} from './weldSeamFrames.mjs';
 import {directedWeld,directedClosingCorner,normalizeVerticalWeld,verticalTraversal} from './weldDirectionGeometry.mjs';
 import {FLAT_L_WRAP_LIMIT, settingsDefaults, trackingChoice} from './planningSettingsModel.mjs';
@@ -8,14 +8,19 @@ import {weldPositionCode} from './planningRequirements.mjs';
 import {sharedCornerPoint} from './processFeaturePoints.mjs';
 import {weldPointDistance} from './manualSplitModel.mjs';
 import {configuredTracking} from './weldTracking.mjs';
+import {LASER_DIRECTION_ISSUE,laserTravelDirection,laserLeadsTravel} from './laserTrackingDirection.mjs';
 import {configuredWrapDistance,cornerPathDefaults,hasVerticalWrapLength,wrapDistanceRatio} from './planningConfiguration.mjs';
 import {continuousOpeningWrapAt} from './weldWrapJunctions.mjs';
 
 const EPS = 1e-6;
 const FLAT_L_WRAP_TRANSITION = 8;
+export const WELD_POSE_REVISION = 2;
 const positive = value => Number.isFinite(value) && value > 0;
 const vertical = position => weldPositionCode(position)==='PF';
 const add = (position, axis, distance) => position.map((value, i) => value + axis[i] * distance);
+const interpolatePose = (from,to,distance,span=1) => Object.fromEntries(TORCH_ANGLE_KEYS.map(axis=>[
+  axis,(from[axis]??0)+((to[axis]??0)-(from[axis]??0))*distance/span
+]));
 const phaseName = {start:'起弧', weld:'焊接', end:'收弧', corner:'转角', wrap:'包角', travel:'空移'};
 
 export function endpointStrategy(facts, settings, position, endpoint, dualRobot = false, weldLength, lookingForPair = false) {
@@ -71,7 +76,7 @@ function cornerFrame(frame, incoming, outgoing, offset) {
 function flatLWrapOrientation(frame,standard,reference,incoming,outgoing,wrapAtStart=false){
   const up=new Vector3(0,0,1);
   const turn=new Vector3(...incoming).cross(new Vector3(...outgoing)).dot(up);
-  const base=weldTorchOrientation(frame.tangent,frame.normal,standard,frame.up);
+  const base=weldTorchOrientation(frame.tangent,frame.normal,standard,frame.up,frame.sectionRoll);
   if(Math.abs(turn)<EPS)return base;
 
   // At a left turn the short leg is 90 degrees ahead of an incoming main leg,
@@ -104,13 +109,19 @@ function cornerValues(pass, side) {
 }
 
 export function plannedTracking(weld, rawSettings={}) {
+  if(!weld)return weld;
   const capabilities=rawSettings.deviceCapabilities??{};
   const settings=settingsDefaults(rawSettings,capabilities);
-  return {...weld,segments:weld.segments?.map(segment=>{
+  const {laserTrackingDirection,laserTrackingIssue,...source}=weld;
+  const segments=weld.segments?.map(segment=>{
     const effectiveArcTracking=capabilities.arcTracking!==false&&(configuredTracking(segment,weld,'arc')??settings.trackingParameters.arcEnabled);
     const effectiveLaserTracking=!effectiveArcTracking&&capabilities.laserTracking!==false&&(configuredTracking(segment,weld,'laser')??(trackingChoice(segment,settings.trackingParameters,capabilities)==='激光跟踪'));
     return {...segment,effectiveArcTracking,effectiveLaserTracking};
-  })};
+  });
+  const next={...source,segments};
+  if(capabilities.laserPrecision!==true||!segments?.some(segment=>segment.effectiveLaserTracking))return next;
+  const direction=laserTravelDirection(next,{...settings,measureTemplateNeighborhood:rawSettings.measureTemplateNeighborhood});
+  return direction?{...next,laserTrackingDirection:direction}:{...next,laserTrackingIssue:LASER_DIRECTION_ISSUE};
 }
 
 export function generateBaseStrategyPlan(weld,settings={}) {
@@ -170,6 +181,7 @@ export function generateStrategyPlan(weld, process, rawSettings) {
   const cornerDefaults=Object.fromEntries(['inner','outer'].map(side=>[side,cornerPathDefaults(settings.cornerPathParameters,side)]));
   const layers = process.processLayers?.length ? process.processLayers : [{passes:[process]}];
   const passes = [];
+  let laserTrackingIssue=weld.laserTrackingIssue;
   const segmentAt=at=>at>=total-EPS?segments.length-1:Math.max(0,stations.findIndex(value=>value>at+EPS)-1);
   if(stations.slice(1).some((station,index)=>station-stations[index]<=EPS))return null;
   const sample=prepareWeldSeamFrames(segments,directed.cornerReferenceNormal,closed,rawSettings?.measureTemplateNeighborhood?.referenceNormalAt);
@@ -223,7 +235,7 @@ export function generateStrategyPlan(weld, process, rawSettings) {
       }
       if(weldPositionCode(segment.position)!=='PB'||weldPositionCode(segments[mainIndex].position)!=='PB')continue;
       const [incoming,outgoing]=before?[main.tangent,wrap.tangent]:[wrap.tangent,main.tangent];
-      const standardOrientation=weldTorchOrientation(main.tangent,main.normal,flatPose,main.up);
+      const standardOrientation=weldTorchOrientation(main.tangent,main.normal,flatPose,main.up,main.sectionRoll);
       const preferred=flatLWrapOrientation(main,flatPose,settings.wrapParameters.flatLPose,incoming,outgoing,!before);
       const adjusted=rawSettings.wrapPoseOverrides?.[directed.sourceSegmentIndices[index]];
       const orientation=adjusted?new Quaternion().fromArray(adjusted).normalize():preferred;
@@ -246,8 +258,10 @@ export function generateStrategyPlan(weld, process, rawSettings) {
     }
     const lWrapPose = (segment,base) => ({...base,...Object.fromEntries(Object.entries(vertical(segment.position)?settings.wrapParameters.verticalLPose:settings.wrapParameters.flatLPose).filter(([,v])=>v!==null))});
     const wrapPose=(index,frame)=>weldTorchAngles(frame,wrapOrientations.get(index));
+    const verticalStart=endSettings.verticalStartPose;
     const startPose = wrapOrientations.has(0)?wrapPose(0,sample(0,0)):
-      verticalWeld?{...startStandard,work:action.flatPose.work??startStandard.work}:
+      verticalWeld?{advance:verticalStart.advance??startStandard.advance,
+        work:verticalStart.work??action.flatPose.work??startStandard.work,rotation:verticalStart.rotation??startStandard.rotation}:
       segments[0].strategyWrapKind==='L'?lWrapPose(segments[0],startStandard):
       isInterference(ends[0])?{...startStandard,advance:endSettings.startAngle??startStandard.advance}:startStandard;
     const startDistance = verticalWeld ? endSettings.verticalStartDistance : isInterference(ends[0]) ? endSettings.startDistance : 0;
@@ -261,16 +275,17 @@ export function generateStrategyPlan(weld, process, rawSettings) {
     const point = (at, kind, pose, parameters, frame = sample(at), flatLWrap = false) => {
       const index=segmentAt(at),segment=segments[index],laserBlocked=blockedTracking[index].some(([from,to])=>at>=from-EPS&&at<=to+EPS);
       const inVerticalStart=verticalWeld&&hasStartTransition&&kind==='weld'&&!flatLWrap&&at>0&&at<startDistance&&vertical(segment.position);
-      if(inVerticalStart){
-        const work=startPose.work??0;
-        pose={...pose,work:work+((startStandard.work??0)-work)*at/startDistance};
-      }
+      if(inVerticalStart)pose=interpolatePose(startPose,startStandard,at,startDistance);
       const tracking=segment.effectiveArcTracking?'电弧跟踪':segment.effectiveLaserTracking&&!laserBlocked?'激光跟踪':'无跟踪';
       const fade=(distance,range)=>distance<=EPS?1:range>0?Math.max(0,1-distance/range):0;
       const wireOffset=!closed&&settings.topologyVersion===1?
        (flatInterference[0]?endSettings.startLineOffset*fade(at,endSettings.startDistance):0)+
        (flatInterference[1]?endSettings.endLineOffset*fade(total-at,endSettings.endDistance):0):0;
-      points.push({...motionPoint(frame,pass,at,kind,pose,parameters,wireOffset),tracking,...(flatLWrap?{flatLWrap}: {})});
+      const motion=motionPoint(frame,pass,at,kind,pose,parameters,wireOffset);
+      if(rawSettings.deviceCapabilities?.laserPrecision===true&&tracking==='激光跟踪'&&
+         !laserLeadsTravel(motion.orientation,sample(at,index).tangent,rawSettings.laserMountSide))
+        laserTrackingIssue=LASER_DIRECTION_ISSUE;
+      points.push({...motion,tracking,...(flatLWrap?{flatLWrap}: {})});
     };
     const emitWrap=(index,at,frame=sample(at,index))=>{
       point(at,'wrap',wrapPose(index,frame),cornerValues(pass,'outer'),frame,true);
@@ -312,9 +327,7 @@ export function generateStrategyPlan(weld, process, rawSettings) {
       const count=Math.min(128,Math.max(1,Math.ceil((to-from)/lineStep)));
       for(let index=1;index<count+(includeEnd?1:0);index++){
         const ratio=index/count;
-        const pose=Object.fromEntries(['advance','work','rotation'].map(axis=>[
-          axis,(initial[axis]??0)+((target[axis]??0)-(initial[axis]??0))*ratio
-        ]));
+        const pose=interpolatePose(initial,target,ratio);
         point(from+(to-from)*ratio,'weld',pose,pass.weld);
       }
     };
@@ -462,5 +475,6 @@ export function generateStrategyPlan(weld, process, rawSettings) {
       retractNear:safePoint(end,endFrame,action.endSafeApproachOffset),
       retract:safePoint(end,endFrame,action.endSafeTransitionOffset)});
   }
-  return {passes,endpointActions,verticalUpOnly:true,externalAxis:total>action.externalAxisLength,collisionStatus:'未验证'};
+  return {passes,endpointActions,poseRevision:WELD_POSE_REVISION,verticalUpOnly:true,externalAxis:total>action.externalAxisLength,collisionStatus:'未验证',
+    ...(laserTrackingIssue?{laserTrackingIssue}:{})};
 }

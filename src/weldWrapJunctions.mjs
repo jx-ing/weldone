@@ -22,7 +22,12 @@ export function endpointWrapAt(weld,index,side){
  const segment=weld.segments[index];
  const edit=segment?.[physical+'WrapEdit'];
  const blocked=side==='start'&&weldPositionCode(segment?.position)==='PF'&&!segment?.endpointFacts?.[physical]?.continuousOpeningWrap;
- return {physical,value:blocked?'none':edit?.kind??segment?.[physical+'WrapKind']??'none',blocked,edit};
+ const kind=edit?.kind??segment?.[physical+'WrapKind']??'none';
+ const count=weld.segments.length,previous=physical==='start'?index-1:index;
+ const junctionId=weld.closure==='closed'?(previous+count)%count:previous;
+ const junction=kind!=='none'?weldWrapJunctions(weld).find(joint=>joint.id===junctionId):undefined;
+ const pending=weld.pendingWrapEdits?.find(item=>item.id===junction?.id||item.type==='L'&&junction?.joints.includes(item.id));
+ return {physical,value:blocked?'none':pending?.type??kind,blocked,edit,junction,pending};
 }
 
 export function endpointWrapNeighbor(weld,index,side){
@@ -301,14 +306,20 @@ export function splitWeldWrap(weld,id,type,settings,segment){
   ordered.at(-1).endWrapKind=null;
   const connector=ordered[index];
   const distance=settings?wrapSegmentDistance(connector,settings,'L'):null;
-  if(distance===0){
-   const before=ordered.slice(0,index),after=ordered.slice(index+1);
-   if(before.length)before.at(-1).endWrapKind=null;
-   if(after.length)after[0].startWrapKind=null;
-   connector.startWrapKind=null;
-   connector.endWrapKind=null;
-   runs=[before,[connector],after];
-  }else if(distance){
+  if(distance===0)return [];
+  // The two children own physical sections of the connector. Retire the
+  // original U edit at both joints so later planning cannot regenerate it.
+  for(const [segment,sides] of [[ordered[index-1],['end']],[connector,['start','end']],[ordered[index+1],['start']]]){
+   if(!segment)continue;
+   delete segment.generatedEndpointWrap;
+   delete segment.generatedForSide;
+   delete segment.autoStrategyWrapKind;
+   for(const side of sides){
+    delete segment[side+'WrapEdit'];
+    delete segment[side==='start'?'autoStartWrapKind':'autoEndWrapKind'];
+   }
+  }
+  if(distance){
    runs=[
     [...ordered.slice(0,index),sliceWrapSegment(connector,'start',distance)],
     [sliceWrapSegment(connector,'end',distance),...ordered.slice(index+1)]

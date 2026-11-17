@@ -13,9 +13,9 @@ export function createPlanningCollisionPool(){
   workers=[];
   modelKey=undefined;
  }
- function prepare(workspace,coverOpen){
+ function prepare(workspace,coverOpen,laserMountSide){
   if(!workspace.stepModel&&!isDemoModel(workspace)){dispose();return;}
-  const key=stepModelKey(workspace)+':'+coverOpen;
+  const key=stepModelKey(workspace)+':'+coverOpen+':'+(laserMountSide??'');
   if(key===modelKey)return;
   dispose();
   modelKey=key;
@@ -46,13 +46,13 @@ export function createPlanningCollisionPool(){
      try{worker.postMessage(message);}catch(error){fail(error.message);}
     });
    }
-   const ready=send({type:'prepare',model:workspace.model,stepModel:workspace.stepModel,coverOpen});
+   const ready=send({type:'prepare',model:workspace.model,stepModel:workspace.stepModel,coverOpen,laserMountSide});
    ready.catch(()=>{});
    workers.push({ready,send,stop(){worker.terminate();fail('碰撞检测已停止');}});
   }
  }
  async function run(workspace,options,coverOpen,onProgress,geometry,{checkOnly=false}={}){
-  prepare(workspace,coverOpen);
+  prepare(workspace,coverOpen,options.laserMountSide);
   if(!workers.length)throw Error('无法启动碰撞检测后台');
   const {welds,templates,processLibrary}=workspace;
   const {measureTemplateNeighborhood,...settings}=options;

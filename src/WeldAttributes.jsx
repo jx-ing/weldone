@@ -32,6 +32,7 @@ function CameraAdjustmentRow({label,actual,value,unit,onChange}){
 
 function MeasurementPreview({plan,index,onPoint,fieldOfView,onFieldOfView,adjustment,onAdjustment,disabled}){
  const point=plan.points[index];
+ const check=point.photoCheck;
  const alongPath=plan.method==='continuous';
  const setOffset=(group,axis,value)=>onAdjustment({...adjustment,[group]:{...adjustment?.[group],[axis]:value}});
  return <section className="wa-measurement" aria-label="测量轨迹预览">
@@ -42,15 +43,25 @@ function MeasurementPreview({plan,index,onPoint,fieldOfView,onFieldOfView,adjust
     onChange={event=>onPoint(Number(event.target.value))}/>
   </div>:<Options label="测量点位" value={String(index)} values={plan.points.map((item,i)=>[String(i),item.label])}
    onChange={value=>onPoint(Number(value))}/>}</Row>
+  {check&&<Row label="拍照检查"><output className={'wa-photo-check '+check.state}>
+   {check.state==='ready'?'通过 · 与焊丝轴夹角 '+formatDecimal(check.angle)+'°':
+    (check.state==='blocked'?'待调整 · ':'')+check.reasons.join('；')}
+  </output></Row>}
   <Row label="相机视野"><label className="wa-measurement-fov"><input type="checkbox" checked={fieldOfView}
    onChange={event=>onFieldOfView(event.target.checked)}/>显示相机视野</label></Row>
-  {plan.method==='fixedPhoto'&&<Row label="镜头高度 (mm)"><output className="wa-camera-height">{formatDecimal(point.opticalPosition[2])}</output></Row>}
+  {plan.method==='fixedPhoto'&&<>
+   <Row label="镜头高度 (mm)"><output className="wa-camera-height">{formatDecimal(point.opticalPosition[2])}</output></Row>
+   <Row label="拍照距离 (mm)"><output className="wa-photo-distance">{formatDecimal(point.photoDistance)}</output></Row>
+   <Row label="TCP 高于被测点 (mm)"><output className="wa-tcp-clearance">{formatDecimal(point.position[2]-point.target[2])}</output></Row>
+  </>}
   <fieldset className="wa-camera-adjustment" disabled={disabled}>
    <legend>相机位置与姿态（整条焊缝）</legend>
    <div className="wa-offset-row wa-actual-pose wa-actual-pose-header" aria-hidden="true"><span>轴</span><span>当前值</span><span>偏移量</span></div>
    {OFFSET_AXES.map((axis,i)=><CameraAdjustmentRow key={axis} label={'TCP '+axis.toUpperCase()} unit="mm" actual={point.position[i]}
     value={adjustment?.position?.[axis]} onChange={value=>setOffset('position',axis,value)}/>)}
-   {POSE_AXES.map(([axis,label])=><CameraAdjustmentRow key={axis} label={label} unit="°" actual={point.toolPose.angles[axis]}
+   {POSE_AXES.map(([axis,label])=>plan.method==='fixedPhoto'?<Row key={axis} label={label}>
+    <output aria-label={'拍照'+label}>{formatDecimal(point.toolPose.angles[axis])}°{axis==='rotation'?' · 跟随焊接':''}</output>
+   </Row>:<CameraAdjustmentRow key={axis} label={label} unit="°" actual={point.toolPose.angles[axis]}
     value={adjustment?.angles?.[axis]} onChange={value=>setOffset('angles',axis,value)}/>)}
   </fieldset>
  </section>;
@@ -98,6 +109,8 @@ export default function WeldAttributes(props){
  const canReverse=w.closure!=='closed'&&w.segments.length>0&&w.segments.every(
   segment=>weldPositionCode(segment.position)==='PB'&&segment.pathPoints?.length>=2
  );
+ const trackingDirection=props.trackingWeld?.laserTrackingDirection;
+ const trackingIssue=props.trackingWeld?.laserTrackingIssue??(trackingDirection?w.strategyPlan?.laserTrackingIssue:undefined);
  const updateScan=values=>onPatch('scanSettings',{...scan,...values});
  const pending=w.enabled&&decision?.route==='blocked'?decision:null;
  const needsProcess=pending?.creation==='template-or-process';
@@ -127,9 +140,10 @@ export default function WeldAttributes(props){
     <Row label="焊缝形式"><Options label="焊缝形式" value={weldForm(w)} onChange={value=>onPatch('weldType',value)} values={WELD_TYPES}/></Row>
     <Row label="焊接方式"><Options label="焊接方式" value={String(w.machineCount??1)} onChange={value=>onPatch('machineCount',Number(value))} values={[[ '1','单机焊接'],['2','双机焊接']]}/></Row>
     <Row label="焊接位置"><Options label="焊接位置" value={w.position} onChange={value=>setGroup('position',value)} values={POSITIONS.map(value=>[value,value.startsWith('PF')?'立向上焊':processPositionLabel(value)])}/></Row>
-    {canReverse&&<Row label="焊接方向"><Options label="焊接方向" value={w.direction==='反向'?'反向':'正向'}
-     disabled={!w.enabled||!!w.mergedInto||!!w.splitInto}
+    {canReverse&&<Row label="焊接方向"><Options label="焊接方向" value={trackingDirection??(w.direction==='反向'?'反向':'正向')}
+     disabled={!!trackingDirection||!!trackingIssue||!w.enabled||!!w.mergedInto||!!w.splitInto}
      onChange={value=>onPatch('direction',value)} values={['正向','反向']}/></Row>}
+    {trackingDirection&&<Row label="激光跟踪方向"><span>已锁定 · 激光在前，焊枪在后</span></Row>}
     <Row label="焊脚高度"><NumberField label="焊脚尺寸" min={.5} value={w.leg} unit="mm" onChange={value=>onPatch('leg',value)}/></Row>
     </details><details className="wa-section" open><summary>包角</summary>
     {[['start','起点包角'],['end','终点包角']].map(([side,label])=>{
@@ -142,7 +156,7 @@ export default function WeldAttributes(props){
     })}
     {wrapFocus?.message&&<p className="wa-muted" role="status">{wrapFocus.message}</p>}
     {wrapFocus?.picking&&<button type="button" className="btn" onClick={props.onClearWrapFocus}>取消选边</button>}
-    </details>{w.disabledByMinWeldLength&&<Row label="焊缝状态"><span className="wa-readonly">短于最小焊缝长度，已屏蔽</span></Row>}{w.collisionState&&<Row label="机头碰撞检测"><span className="wa-readonly">{w.collisionState}</span></Row>}<Row label="焊缝长度"><span className="wa-readonly wa-length"><span>{Number.isFinite(w.length)?formatLength(w.length):'—'}</span><small>mm</small></span></Row>
+    </details>{trackingIssue&&<p role="status" className="wa-muted">{trackingIssue}</p>}{w.disabledByMinWeldLength&&<Row label="焊缝状态"><span className="wa-readonly">短于最小焊缝长度，已屏蔽</span></Row>}{w.collisionState&&<Row label="机头碰撞检测"><span className="wa-readonly">{w.collisionState}</span></Row>}<Row label="焊缝长度"><span className="wa-readonly wa-length"><span>{Number.isFinite(w.length)?formatLength(w.length):'—'}</span><small>mm</small></span></Row>
     {trackingModes.length>0&&<Row label="焊缝跟踪"><div className="wa-tracking" role="group" aria-label="焊缝跟踪">
      {(trackingModes.length===2?[...trackingModes,['none','不跟踪']]:trackingModes).map(([mode,label])=><label key={mode}>
       <input type={trackingModes.length===2?'radio':'checkbox'} name={id+'-tracking'}

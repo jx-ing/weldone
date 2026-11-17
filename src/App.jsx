@@ -15,7 +15,7 @@ import PlanningModelTools from './PlanningModelTools';
 import PlanningViewDisplay,{DEFAULT_PLANNING_VIEW} from './PlanningViewDisplay';
 import {geometryOptionsForPlanning} from './planningConfiguration.mjs';
 import {canSeparateWeldSegments,separateWeldSegments,weldPointDistance,splitSelectedWeld,undoLastSplit,planeSplitStations,installWrapSplit} from './manualSplitModel.mjs';
-import {segmentName} from './weldAttributeModel.mjs';
+import {segmentName,weldPrecisionMethod} from './weldAttributeModel.mjs';
 import {weldMeasurementPlan} from './weldMeasurementPlan.mjs';
 import './planningWorkspace.css';
 import WeldMergeDialog from './WeldMergeDialog';
@@ -23,8 +23,11 @@ import {mergeSelectedWelds,undoManualMerge} from './manualMergeModel.mjs';
 import {excludeConfirmedNonWelds,isConfirmedNonWeldKey} from './confirmedNonWelds.mjs';
 import {DEMO_SOURCE_SHA256,DEFAULT_GEOMETRY_OPTIONS,deletedGeometryForModel,excludeDeletedGeometry,installGeometryResult,restoreGeometryResult,validExtractedWeld,removablePlanningWeld,removePlanningWelds} from './geometryProcessingModel.mjs';
 import './geometryProcessing.css';
-import {EXAMPLE_MODEL,pathLength,useStepExample,validManualWeldPath} from './manualWeldModel.mjs';
-import {cacheStepMesh,cacheStepNeighborhood,isBundledStartupStep,isDemoModel,loadStepNeighborhood,STARTUP_STEP_MODEL,STARTUP_STEP_REFERENCE,stepModelKey,switchStepWorkspace,validStepModel} from './stepModelStore.mjs';
+import {createManualWeld,distance,EXAMPLE_MODEL,pathLength,useStepExample,validManualWeldPath} from './manualWeldModel.mjs';
+import {manualPointCount,manualWeldIntersections,manualWeldSegments,manualWeldThroughPoints} from './manualWeldIntersection.mjs';
+import {cacheStepMesh,cacheStepNeighborhood,isBundledStartupStep,isDemoModel,isPointCloudWorkspace,loadStepMesh,loadStepNeighborhood,STARTUP_STEP_MODEL,STARTUP_STEP_REFERENCE,stepModelKey,switchStepWorkspace,validStepModel} from './stepModelStore.mjs';
+import {POINT_CLOUD_EXTENSIONS} from './pointCloudModel.mjs';
+import {reversePointCloud} from './reversePointCloud.mjs';
 import {applyWeldWrapEdits,endpointWrapAt,endpointWrapCandidates,endpointWrapEdge,endpointWrapEdgePortion,endpointWrapNeighbor,materializeEndpointWraps,overlappingEndpointWrap,wrapPlateThickness,wrapSegmentDistance} from './weldWrapJunctions.mjs';
 import {measureDirectedConnection} from './weldDirectionGeometry.mjs';
 import {assignWeldingOrder,disableShortPlanningWelds} from './strategyGeometry.mjs';
@@ -37,14 +40,15 @@ import {DEFAULT_TEMPLATE_CAPTURE_RANGE,validTemplateCaptureRange} from './templa
 import {createTemplateNeighborhoodMeasurer,loadDemoTemplateNeighborhood} from './templateNeighborhood.mjs';
 import {templateGeometryKey} from './templateGeometryRules.mjs';
 import WeldAttributes from './WeldAttributes';
-import {copyWeldLayersToTemplate,nextWeldLayer,nextWeldPass,removeWeldLayoutItem,updateWeldLayoutPoint,validWeldLayerLayout,weldLayerLayout,weldLayerPassPaths,weldLayerTreeGroups,weldPointPlacement,weldPointPosition} from './weldLayerLayout.mjs';
+import {copyWeldLayersToTemplate,nextWeldLayer,nextWeldPass,removeWeldLayoutItem,updateWeldLayoutPoint,validWeldLayerLayout,weldLayerLayout,weldLayerPassPaths,weldLayerTreeGroups,weldLayoutTrackingIssue,weldPointPlacement,weldPointPosition} from './weldLayerLayout.mjs';
 import WeldPointTree from './WeldPointTree';
 import WeldControlPointForm from './WeldControlPointForm';
 import {analyzeWeldMatch,planWorkspace,applySelectedTemplate,restorePlanningState,planWeld,planWeldFromMatch,clearMissingWeldTemplates,weldTemplateIds} from './weldMatching.mjs';
 import ProcessParameterLibrary from './ProcessParameterLibrary';
 import DeviceControl from './DeviceControl';
-import {defaultWeldPosePreview,generateBaseStrategyPlan,generateStrategyPlan,plannedTracking} from './strategyPlanning.mjs';
-import {deviceControlError,migrateDeviceControl} from './deviceControlModel.mjs';
+import {defaultWeldPosePreview,generateBaseStrategyPlan,generateStrategyPlan,plannedTracking,WELD_POSE_REVISION} from './strategyPlanning.mjs';
+import {deviceControlCapabilities,deviceControlError,migrateDeviceControl} from './deviceControlModel.mjs';
+import {DEFAULT_LASER_MOUNT_SIDE} from './laserCameraMount.mjs';
 import ProductionStatisticsWorkspace from './ProductionStatisticsWorkspace';
 import {planningTaskDocument,readPlanningTask} from './planningTask.mjs';
 import {deviceLibraryUpdates,restoreDeviceLibrary,clearRemovedProcess} from './processDeviceLibraries.mjs';
@@ -53,7 +57,7 @@ import {validateProcessEntry,applyProcessEntry,validWeldProcessParameters} from 
 import { migrateDraft, validateTemplate, validateFixed, wholeWeldSourceIssues,matchTemplate,targetFromWeld } from './templateModel.mjs';
 const modules = ['工艺规划', '焊接模板库', '工艺参数库', '设备控制', '生产统计'];
 const previewModels=[STARTUP_STEP_MODEL,EXAMPLE_MODEL];
-const defaults = migrateDraft({ model: '', welds: [], selected: '', project: '本地项目', templates: [{ id: 'TPL-001', name: '碳钢横角焊 · 6 mm', position: 'PB · 横角焊', leg: 6, current: 210, voltage: 24.5, speed: 340 }, { id: 'TPL-002', name: '薄板角焊 · 5 mm', position: 'PB · 横角焊', leg: 5, current: 180, voltage: 23, speed: 360 }, { id: 'TPL-003', name: '立向上焊 · 5 mm', position: 'PF · 立向上焊', leg: 5, current: 160, voltage: 22, speed: 220 }] });
+const defaults = migrateDraft({ model: '', welds: [], selected: '', project: '本地项目', templates: [] });
 function valid(v) { try { const d = migrateDraft(v); return typeof d.model === 'string' && (!d.stepModel||validStepModel(d.stepModel)) && typeof d.project === 'string' && (d.templateCaptureRange===undefined||validTemplateCaptureRange(d.templateCaptureRange)) && (d.templateProjects===undefined||Array.isArray(d.templateProjects)&&d.templateProjects.length<1000&&new Set(d.templateProjects).size===d.templateProjects.length&&d.templateProjects.every(p=>typeof p==='string'&&p.trim()===p&&p.length>0&&p.length<=80)) && typeof d.selected === 'string' && Array.isArray(d.welds) && d.welds.length <= MAX_PLANNING_WELDS && new Set(d.welds.map(w => w.id)).size === d.welds.length && d.welds.every(w => /^W[0-9]{3,6}$/.test(w.id) && typeof w.name === 'string' && typeof w.position === 'string' && typeof w.template === 'string' && typeof w.enabled === 'boolean' && validWeldLayerLayout(w.pointLayout) && validManualWeldPath(w,d.model) && validExtractedWeld(w,d) && (d.model!==EXAMPLE_MODEL||['manual','extracted','manual-merge'].includes(w.source)) && Number.isFinite(w.length)&&w.length>0 && ['leg','speed'].every(k=>(['extracted','manual-merge'].includes(w.source)||w.splitFrom||w.source==='manual'&&w.current===null&&w.voltage===null)&&w[k]===null||Number.isFinite(w[k])&&(k==='speed'&&w.processParameters?.recipeRevision===3?w[k]>=0:w[k]>0)) && validWeldProcessParameters(w)) && d.templates.length < 1000 && new Set(d.templates.map(t => t.id)).size === d.templates.length && d.templates.every(t => !validateTemplate(t).filter(e=>!e.includes('请选择有效基准点')).length) && Array.isArray(d.fixedTemplates) && d.fixedTemplates.length < 1000 && new Set(d.fixedTemplates.map(t => t.id)).size === d.fixedTemplates.length && d.fixedTemplates.every(t => !validateFixed(t).filter(e=>!e.includes('请选择有效基准点')).length) && (d.deviceControl===undefined||!deviceControlError(d.deviceControl)) && validDeviceProfileStore(d.processDeviceProfiles) && Array.isArray(d.processLibrary) && d.processLibrary.length < 1000 && new Set(d.processLibrary.map(p=>p.id)).size===d.processLibrary.length && d.processLibrary.every(p=>!validateProcessEntry(p,{allowLegacyLeg:true}).length); } catch { return false; } }
 async function readWorkspace(){
   const saved=await loadWorkspaceDraft();
@@ -147,14 +151,18 @@ function Workspace({initialData}) {
     const [newPointTarget,setNewPointTarget]=useState(null);
     const taskFile=useRef(),stepFile=useRef(),stepImportWorker=useRef(), toastTimer = useRef(), geometryWorker=useRef(), dataRef=useRef(data); dataRef.current=data;
     const [stepImporting,setStepImporting]=useState(''),[stepError,setStepError]=useState(''),[modelLoadRevision,setModelLoadRevision]=useState(0);
+    const [reverseResult,setReverseResult]=useState(null),reverseRequest=useRef(null);
     const demoModel=isDemoModel(data);
+    const pointCloudWorkspace=isPointCloudWorkspace(data),pointCloudFile=useRef();
     const deviceControl=useMemo(()=>data.deviceControl??migrateDeviceControl(undefined,data.deviceCapabilities),[data.deviceControl,data.deviceCapabilities]);
+    const laserMountSide=deviceControlCapabilities(deviceControl).laserPrecision?deviceControl.robot.laserMountSide??DEFAULT_LASER_MOUNT_SIDE:undefined;
+    const invertModelZ=deviceControl.robot.mounting==='inverted';
     useEffect(()=>{
       if(!planningCollisionEnabled){collisionPool.dispose();return;}
-      if(!data.model||(!data.stepModel&&!isDemoModel(data))){collisionPool.dispose();return;}
-      const timer=setTimeout(()=>collisionPool.prepare(data,false),0);
+      if(!data.model||pointCloudWorkspace||(!data.stepModel&&!isDemoModel(data))){collisionPool.dispose();return;}
+      const timer=setTimeout(()=>collisionPool.prepare(data,false,laserMountSide),0);
       return ()=>clearTimeout(timer);
-    },[data.model,data.stepModel,planningCollisionEnabled,collisionPool]);
+    },[data.model,data.stepModel,pointCloudWorkspace,planningCollisionEnabled,laserMountSide,collisionPool]);
     const [neighborhood,setNeighborhood]=useState(null),[neighborhoodError,setNeighborhoodError]=useState('');
     const [importedNeighborhood,setImportedNeighborhood]=useState(null);
     const neighborhoodRef=useRef(neighborhood);
@@ -178,9 +186,12 @@ function Workspace({initialData}) {
     },[demoModel,page,neighborhood]);
     const [geometryProgress,setGeometryProgress]=useState(null),[mergeIds,setMergeIds]=useState([]),[merging,setMerging]=useState(false),[mergeError,setMergeError]=useState('');
     const [modelEditMode,setModelEditMode]=useState(''),[splitAt,setSplitAt]=useState(''),[splitError,setSplitError]=useState(''),[splitByFace,setSplitByFace]=useState(false),[faceStations,setFaceStations]=useState([]);
+    const [manualCreate,setManualCreate]=useState(null),[creatingWelds,setCreatingWelds]=useState(false);
+    const manualCreateLock=useRef(false);
     const [wrapFocus,setWrapFocus]=useState(null);
     const selected = data.welds.find(w => w.id === data.selected), enabled = data.welds.filter(w => w.enabled), total = Math.round(enabled.reduce((s, w) => s + w.length, 0)*100)/100;
     const context=useMemo(()=>({...planningContext({...data,deviceControl}),measureTemplateNeighborhood:demoModel?neighborhood:importedMeasure}),[data.planningSettings,data.processDeviceProfiles,data.deviceCapabilities,deviceControl,demoModel,neighborhood,importedMeasure]);
+    const trackingWeld=useMemo(()=>plannedTracking(selected,context),[selected,context]);
     const measureLibraryTemplate=useMemo(()=>(template,range)=>{
       const source=template.sourceWeld;
       const measure=isDemoModel(source)?neighborhood:source.stepModel?.sourceSha256===importedSha?importedMeasure:null;
@@ -210,7 +221,7 @@ function Workspace({initialData}) {
     const pointProcess=selectedDecision?.process??selectedDecision?.whole?.baseProcessSnapshot??null;
     const pointStrategy=useMemo(()=>{
       if(!selected?.enabled||selected.mergedInto||selected.splitInto||selected.gapJoinError)return null;
-      const saved=selected.strategyPlan,whole=selectedDecision?.whole;
+      const saved=selected.strategyPlan?.poseRevision===WELD_POSE_REVISION?selected.strategyPlan:undefined,whole=selectedDecision?.whole;
       if(whole){
         if(saved?.templateAngles&&selected.matchPlan?.wholeId===whole.id&&selected.templateId===whole.id)return saved;
         const base=generateBaseStrategyPlan(selected,context);
@@ -222,14 +233,6 @@ function Workspace({initialData}) {
       return generateStrategyPlan(plannedTracking(selected,context),pointProcess,context);
     },[selected,selectedDecision?.whole,pointProcess,context]);
     const referenceNormalAt=context.measureTemplateNeighborhood?.referenceNormalAt;
-    const measurementPlan=useMemo(()=>page==='工艺规划'&&measurementView?
-      weldMeasurementPlan(selected,context,referenceNormalAt):null,[page,measurementView,selected,context,referenceNormalAt]);
-    const measurementKey=measurementPlan?JSON.stringify([selected.id,measurementPlan.method,selected.scanSettings?.direction,selected.scanSettings?.measurementScope]):null;
-    const measurementIndex=measurementSelection?.key===measurementKey&&measurementPlan?
-      Math.min(measurementSelection.index,measurementPlan.points.length-1):0;
-    const measurementPoint=measurementPlan?.points[measurementIndex];
-    const measurementPreview=measurementPoint?{plan:measurementPlan,index:measurementIndex,fieldOfView:cameraFieldOfView,
-      onPoint:index=>setMeasurementSelection({key:measurementKey,index}),onFieldOfView:setCameraFieldOfView}:undefined;
     const planningPointGroups=useMemo(()=>weldLayerTreeGroups(selected,pointLayout,pointProcess,pointStrategy,referenceNormalAt),
       [selected,pointLayout,pointProcess,pointStrategy,referenceNormalAt]);
     const planningPoints=useMemo(()=>planningPointGroups.flatMap(group=>group.points),[planningPointGroups]);
@@ -248,6 +251,35 @@ function Workspace({initialData}) {
     },[previewPatch,activePoint,selected,modelPointLayout,pointStrategy,referenceNormalAt]);
     const layoutPaths=useMemo(()=>weldLayerPassPaths(selected,modelPointLayout,pointStrategy,referenceNormalAt,pointProcess),
       [selected,modelPointLayout,pointStrategy,referenceNormalAt,pointProcess]);
+    const photoView=page==='工艺规划'&&measurementView&&selected?.enabled&&
+      weldPrecisionMethod(selected.scanSettings,context.deviceCapabilities)==='fixedPhoto';
+    const [photoScene,setPhotoScene]=useState(null);
+    useEffect(()=>{
+      if(!photoView||!data.model)return;
+      let cancelled=false,scene;
+      import('./weldCollision.mjs').then(({loadWeldCollisionScene})=>loadWeldCollisionScene(
+        {model:data.model,stepModel:data.stepModel},{coverOpen:true,includeWireTip:true,laserMountSide})).then(loaded=>{
+        if(cancelled){loaded.dispose();return;}
+        scene=loaded;
+        setPhotoScene({key:modelViewKey,scene});
+      }).catch(error=>{if(!cancelled)setPhotoScene({key:modelViewKey,error:'无法加载拍照检查模型 · '+error.message});});
+      return()=>{cancelled=true;scene?.dispose();setPhotoScene(null);};
+    },[photoView,data.model,data.stepModel,modelViewKey,laserMountSide]);
+    const photoPass=layoutPaths.find(pass=>pass.id===pointGroup?.id)??layoutPaths[0];
+    const measurementPlan=useMemo(()=>{
+      if(page!=='工艺规划'||!measurementView)return null;
+      const verification=photoScene?.key===modelViewKey?photoScene:null;
+      return weldMeasurementPlan(selected,context,referenceNormalAt,photoView?{
+        ...verification,weldingPoseAt:distance=>photoPass?.posesAt(distance===0?photoPass.startStation:photoPass.endStation).at(-1)
+      }:undefined);
+    },[page,measurementView,selected,context,referenceNormalAt,photoView,photoScene,modelViewKey,photoPass]);
+    const measurementKey=measurementPlan?JSON.stringify([selected.id,measurementPlan.method,selected.scanSettings?.direction,selected.scanSettings?.measurementScope]):null;
+    const measurementIndex=measurementSelection?.key===measurementKey&&measurementPlan?
+      Math.min(measurementSelection.index,measurementPlan.points.length-1):0;
+    const measurementPoint=measurementPlan?.points[measurementIndex];
+    const measurementHead=measurementPoint?.photoCheck&&measurementPoint.photoCheck.state!=='ready'?undefined:measurementPoint;
+    const measurementPreview=measurementPoint?{plan:measurementPlan,index:measurementIndex,fieldOfView:cameraFieldOfView,
+      onPoint:index=>setMeasurementSelection({key:measurementKey,index}),onFieldOfView:setCameraFieldOfView}:undefined;
     const passIsVisible=useCallback((layerId,passId)=>![layerId,passId].some(node=>
       node&&hiddenGeometry.has(JSON.stringify([modelViewKey,selected?.id,node]))),[hiddenGeometry,modelViewKey,selected?.id]);
     const passPaths=useMemo(()=>layoutPaths.filter(pass=>passIsVisible(pass.layerId,pass.id)).map(pass=>({...pass,
@@ -268,7 +300,8 @@ function Workspace({initialData}) {
     const station=selectedPass?(passPreview?.key===previewPassKey?
       Math.max(firstStation,Math.min(lastStation,passPreview.station)):firstStation):undefined;
     const stationPose=selectedPass?.posesAt(station).at(-1);
-    const passCollision=selectedPass&&!pointStrategy?.previewOnly?selected.collisionPasses?.find(pass=>pass.id===selectedPass.id):undefined;
+    const passCollision=selectedPass&&!pointStrategy?.previewOnly&&pointStrategy===selected.strategyPlan?
+      selected.collisionPasses?.find(pass=>pass.id===selectedPass.id):undefined;
     const collisionPoint=passCollision?.contact??passCollision?.closest;
     const collisionMarker=planningPointsVisible&&collisionPoint&&Math.abs(station-collisionPoint.station)<.05?collisionPoint.point:null;
     const updatePreviewStation=useCallback(station=>setPassPreview({key:previewPassKey,station}),[previewPassKey]);
@@ -311,6 +344,10 @@ function Workspace({initialData}) {
     }
     async function saveWeldLayout(weld,pointLayout){
       if(!weld||!weld.enabled||weld.mergedInto||weld.splitInto)return '当前焊缝不可编辑层道或点位';
+      if(weld.laserTrackingDirection){
+        const issue=weldLayoutTrackingIssue(weld,pointLayout,context);
+        if(issue)return issue;
+      }
       if(workspaceSave.current||geometryProgress)return '请等待当前操作完成';
       const current=dataRef.current;
       const append=item=>({...item,pointLayout,collisionState:planningCollisionEnabled?'未检测':undefined,collisionVerified:false,collisionPasses:undefined,weldingOrder:null,
@@ -378,7 +415,67 @@ function Workspace({initialData}) {
       setSplitAt(picked&&picked.id===selected?.id?picked.at:defaultDistance);
       pickedSplit.current=null;
     },[data.selected,modelEditMode]);
-    function editModelMode(mode){setWrapFocus(null);setModelEditMode(mode);setSplitByFace(false);setFaceStations([]);setSplitError('');setView(v=>({...v,welds:true}));}
+    function editModelMode(mode){
+      setWrapFocus(null);setModelEditMode(mode);setSplitByFace(false);setFaceStations([]);setSplitError('');
+      setManualCreate(mode==='create'?{method:'face',kind:'line',picks:[],paths:[],error:''}:null);
+      setView(v=>({...v,welds:true,...(mode==='create'?{model:true}:{})}));
+    }
+    function setManualCreateMethod(fields){
+      setManualCreate(draft=>({...draft,...fields,picks:[],paths:[],error:''}));
+    }
+    function selectManualWeldPoint(pick,mesh){
+      if(!manualCreate||manualCreateLock.current)return;
+      const {method,kind,picks}=manualCreate,required=method==='point'?manualPointCount(kind):2;
+      if(!pick){
+        setManualCreate({...manualCreate,error:'请点击模型上的'+(method==='face'?'面':method==='solid'?'实体':'点')});
+        return;
+      }
+      const previous=picks.length===required?[]:picks;
+      if(previous.some(item=>method==='point'?distance(item.point,pick.point)<.1:item.part===pick.part&&item.face===pick.face)){
+        setManualCreate({...manualCreate,error:'请选择另一个'+(method==='face'?'面':method==='solid'?'实体':'点')});
+        return;
+      }
+      const next=[...previous,pick];
+      try{
+        const paths=next.length<required?[]:method==='point'?[manualWeldThroughPoints(kind,next.map(item=>item.point))]:manualWeldIntersections(mesh,...next);
+        setManualCreate({...manualCreate,picks:next,paths,error:''});
+      }catch(error){setManualCreate({...manualCreate,picks:next,paths:[],error:error.message});}
+    }
+    async function confirmManualWeld(){
+      if(!manualCreate?.paths.length||manualCreateLock.current||workspaceSave.current||geometryProgress)return;
+      const current=dataRef.current;
+      manualCreateLock.current=true;
+      setCreatingWelds(true);
+      try{
+        const welds=[...current.welds],ids=[];
+        const defaults=settingsDefaults(context).actionParameters.defaultLegs;
+        for(const path of manualCreate.paths){
+          const segments=manualWeldSegments(path),position=segments[0].position;
+          const leg=defaults[weldPositionCode(position)==='PF'?'vertical':'flat'];
+          const weld=createManualWeld([...welds,...(current.collisionOriginals??[])],segments,{
+            name:'手动焊缝',model:current.model,position,leg:leg?.enabled?Number(leg.height):null,withoutProcess:true,
+            closed:manualCreate.method==='point'?manualCreate.kind==='circle':undefined
+          });
+          welds.push(weld);ids.push(weld.id);
+        }
+        const next={...current,welds,selected:ids[0],manualEditHistory:[...(current.manualEditHistory??[]),{
+          kind:'create',id:ids[0],ids,previousSelected:current.selected
+        }]};
+        if(!valid(next))throw Error('创建结果未通过焊缝路径校验');
+        const planned=await replanEditedGeometry(next);
+        if(dataRef.current!==current)throw Error('工艺规划已更新，请重新确认创建');
+        const saved=await persistGeometry(planned);
+        if(dataRef.current!==planned)return;
+        editModelMode('');
+        setSearch('');
+        setLeftTab('结构树');
+        setPlanningSelection(null);
+        weldTreeLocation.current=next.selected;
+        if(saved)notify('已创建 '+ids.length+' 条焊缝');
+        log('手动创建焊缝 '+ids.join('、'));
+      }catch(error){setManualCreate(draft=>draft&&({...draft,error:error.message}));}
+      finally{manualCreateLock.current=false;setCreatingWelds(false);}
+    }
     function locateModelWeld(id){
       if(page!=='工艺规划')return;
       if(leftTab!=='结构树')setLeftTab('结构树');
@@ -437,7 +534,7 @@ function Workspace({initialData}) {
     }
     function replanEditedGeometry(workspace){
       const added=workspace.manualEditHistory?.at(-1);
-      const ids=new Set(added?.kind==='split'?workspace.manualSplitHistory.at(-1).childIds:[workspace.selected]);
+      const ids=new Set(added?.kind==='split'?workspace.manualSplitHistory.at(-1).childIds:added?.kind==='create'?added.ids:[workspace.selected]);
       const welds=workspace.welds.map(weld=>{
         if(!ids.has(weld.id))return weld;
         const geometry=materializeEndpointWraps(weld,settingsDefaults(context).wrapParameters);
@@ -453,7 +550,16 @@ function Workspace({initialData}) {
     async function undoGeometryEdit(){
       const current=dataRef.current,history=current.manualEditHistory??[],last=history.at(-1);
       if(!last)return;
-      try{const restored=last.kind==='merge'?undoManualMerge(current,last.id):undoLastSplit(current);if(!await persistGeometry({...restored,manualEditHistory:history.slice(0,-1)}))return;setSplitError('');notify('已撤销上一次焊缝操作');}
+      try{
+        let restored;
+        if(last.kind==='create'){
+          restored=removePlanningWelds(current,last.ids);
+          if(restored.welds.some(weld=>weld.id===last.previousSelected))restored={...restored,selected:last.previousSelected};
+          restored={...restored,welds:assignWeldingOrder(restored.welds,context)};
+        }else restored=last.kind==='merge'?undoManualMerge(current,last.id):undoLastSplit(current);
+        if(!await persistGeometry({...restored,manualEditHistory:history.slice(0,-1)}))return;
+        setSplitError('');notify('已撤销上一次焊缝操作');
+      }
       catch(error){notify(error.message);}
     }
     async function undoSplit(){try{if(!await persistGeometry(undoLastSplit(dataRef.current)))return;setSplitError('');notify('已撤销上一次手动打断');}catch(e){setSplitError(e.message);}}
@@ -479,7 +585,7 @@ function Workspace({initialData}) {
       window.addEventListener('beforeunload',waitForSave);
       return ()=>window.removeEventListener('beforeunload',waitForSave);
     },[savingWorkspace]);
-    useEffect(() => () => {clearTimeout(toastTimer.current);geometryWorker.current?.terminate();stepImportWorker.current?.terminate();collisionPool?.dispose();}, [collisionPool]);
+    useEffect(() => () => {clearTimeout(toastTimer.current);geometryWorker.current?.terminate();stepImportWorker.current?.terminate();reverseRequest.current?.abort();collisionPool?.dispose();}, [collisionPool]);
     useEffect(()=>{
       const timer=setTimeout(()=>{
         if(dataRef.current===initialData&&!geometryWorker.current)void startPlanning(initialData,{saveResult:false});
@@ -609,6 +715,7 @@ function Workspace({initialData}) {
       if(workspaceSave.current||geometryProgress)return;
       const current=dataRef.current.welds.find(weld=>weld.id===dataRef.current.selected);
       if(!current)return;
+      if(key==='direction'&&(trackingWeld?.laserTrackingDirection||trackingWeld?.laserTrackingIssue))return;
       if(!weldEditBaseline.current.has(current.id))weldEditBaseline.current.set(current.id,structuredClone(current));
       const next={...current,[key]:value};
       if(key!=='scanSettings'){
@@ -646,6 +753,7 @@ function Workspace({initialData}) {
       setModelInfo(null);
       setModelLoadRevision(value=>value+1);
       setModelEditMode('');
+      setManualCreate(null);
       setMergeIds([]);
       setClosedPointTree('');
       setPlanningSelection(null);
@@ -655,8 +763,9 @@ function Workspace({initialData}) {
     function checkModelSwitch(){
       if(workspaceSave.current)throw Error('正在保存本机工作区，请稍后重试');
       if(geometryWorker.current||geometryProgress)throw Error('请等待当前一键规划完成');
+      if(manualCreateLock.current)throw Error('请等待焊缝创建完成');
     }
-    async function openStepModel(model,reference,{autoPlan=false}={}){
+    async function openModelWorkspace(model,reference,{autoPlan=false}={}){
       const discarded=weldEditBaseline.current.size>0;
       await installStepWorkspace(switchStepWorkspace(dataRef.current,model,reference));
       setSearch('');setBatchSelect(false);
@@ -664,7 +773,8 @@ function Workspace({initialData}) {
       setHiddenGeometry(new Set());
       setPointOffsetPreview(null);
       log('已加载 '+model+'。');
-      if(discarded)notify('模型已加载，未应用的焊缝属性修改已舍弃');
+      if(reference?.kind==='pointCloud'){notify('点云已加载');return;}
+      else if(discarded)notify('模型已加载，未应用的焊缝属性修改已舍弃');
       if(autoPlan)await startPlanning(dataRef.current);
       else if(!discarded)notify('模型已加载，可点击一键规划');
     }
@@ -675,24 +785,27 @@ function Workspace({initialData}) {
         setStepError('');
         setStepImporting(model);
         const reference=model===STARTUP_STEP_MODEL?STARTUP_STEP_REFERENCE:undefined;
-        await openStepModel(model,reference,{autoPlan:true});
+        await openModelWorkspace(model,reference,{autoPlan:true});
       }catch(error){
         stopStepImport();
         setStepError(error.message);
       }
     }
-    function importStep(event){
+    function importModel(event,kind){
       const chosen=event.target.files?.[0];
       event.target.value='';
-      if(chosen)importStepFile(chosen);
+      if(chosen)importModelFile(chosen,kind);
     }
-    function importStepFile(chosen){
+    function importModelFile(chosen,kind){
       if(stepImportWorker.current)return;
       setStepError('');
       try{
         checkModelSwitch();
-        if(!/\.(step|stp)$/i.test(chosen.name))throw Error('请选择 .step 或 .stp 文件');
-        const worker=new Worker(new URL('./stepImport.worker.js',import.meta.url),{type:'module'});
+        const cloud=kind==='pointCloud';
+        if(cloud?!/\.(txt|xyz|ply|pcd)$/i.test(chosen.name):!/\.(step|stp)$/i.test(chosen.name))throw Error(
+          cloud?'请选择 TXT、XYZ、PLY 或 PCD 点云文件':'请选择 .step 或 .stp 文件');
+        const worker=cloud?new Worker(new URL('./pointCloudImport.worker.js',import.meta.url),{type:'module'}):
+          new Worker(new URL('./stepImport.worker.js',import.meta.url),{type:'module'});
         stepImportWorker.current=worker;
         setStepImporting(chosen.name);
         const fail=message=>{
@@ -700,27 +813,67 @@ function Workspace({initialData}) {
           stopStepImport();
           setStepError(message);
         };
-        worker.onerror=()=>fail('STEP 解析失败，请检查文件或尝试重新导出');
+        worker.onerror=()=>fail((cloud?'点云':'STEP')+'解析失败，请检查文件或尝试重新导出');
         worker.onmessage=async({data:result})=>{
           if(stepImportWorker.current!==worker)return;
           if(result.error){fail(result.error);return;}
           try{
             const model=result.model;
-            const reference=model.name===EXAMPLE_MODEL&&model.sourceSha256===DEMO_SOURCE_SHA256?undefined:{sourceSha256:model.sourceSha256};
-            if(reference)await cacheStepMesh({...model,sourceFile:chosen});
+            const reference=cloud?{kind:'pointCloud',sourceSha256:model.sourceSha256}:
+              model.name===EXAMPLE_MODEL&&model.sourceSha256===DEMO_SOURCE_SHA256?undefined:{sourceSha256:model.sourceSha256};
+            if(reference)await cacheStepMesh(cloud?model:{...model,sourceFile:chosen});
             if(stepImportWorker.current!==worker)return;
             checkModelSwitch();
-            await openStepModel(model.name,reference);
+            await openModelWorkspace(model.name,reference);
           }catch(error){fail(error.message);}
         };
         worker.postMessage(chosen);
       }catch(error){stopStepImport();setStepError(error.message);}
     }
+    function closeReverseModel(){
+      reverseRequest.current?.abort();
+      reverseRequest.current=null;
+      setReverseResult(null);
+      closeImport();
+    }
+    async function runReverseModel(){
+      if(reverseRequest.current||stepImportWorker.current)return;
+      const workspace=dataRef.current;
+      if(!isPointCloudWorkspace(workspace)){
+        setDialog('import-point-cloud');
+        return;
+      }
+      try{checkModelSwitch();}catch(error){notify(error.message);return;}
+      const request=new AbortController();
+      reverseRequest.current=request;
+      setReverseResult({running:true});
+      setStepError('');
+      setDialog('reverse-model');
+      try{
+        const cloud=await loadStepMesh(workspace.model,workspace.stepModel);
+        const result=await reversePointCloud(cloud,workspace.workpieceType,request.signal);
+        if(reverseRequest.current!==request)return;
+        setReverseResult(result);
+        log(`逆向建模完成：${result.parts} 个实体。`);
+      }catch(error){
+        if(reverseRequest.current===request)setReverseResult({error:error.message});
+      }finally{
+        if(reverseRequest.current===request)reverseRequest.current=null;
+      }
+    }
+    function downloadReconstructedStep(file){
+      const url=URL.createObjectURL(file);
+      const download=document.createElement('a');
+      download.href=url;
+      download.download=file.name;
+      download.click();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }
     function exportTask(){
       const url=URL.createObjectURL(new Blob([JSON.stringify(planningTaskDocument(data),null,2)],{type:'application/json'}));
       const download=document.createElement('a');
       download.href=url;
-      download.download=(data.model||'Weldone').replace(/\.(step|stp)$/i,'')+'-规划任务.pf';
+      download.download=(data.model||'Weldone').replace(/\.(step|stp|txt|xyz|pcd|ply)$/i,'')+'-规划任务.pf';
       download.click();
       setTimeout(()=>URL.revokeObjectURL(url),1000);
       log('已导出规划任务');
@@ -804,11 +957,12 @@ function Workspace({initialData}) {
       notify(welds.length?'焊缝提取成功':'本次未提取到可规划的焊道',welds.length?'success':'warning');
     }
     async function startPlanning(workspace,{saveResult=true}={}){
+      if(isPointCloudWorkspace(workspace))return;
       const settings=planningContext({...workspace,deviceControl:workspace.deviceControl??deviceControl});
       try{
         if(isDemoModel(workspace)||workspace.stepModel){
           const options=geometryOptionsForPlanning(DEFAULT_GEOMETRY_OPTIONS,settings);
-          if(settings.splitParameters?.toolHeadCollisionEnabled===true)collisionPool.prepare(workspace,false);
+          if(settings.splitParameters?.toolHeadCollisionEnabled===true)collisionPool.prepare(workspace,false,settings.laserMountSide);
           extractAndPlan(options,workspace,saveResult);
           return;
         }
@@ -817,10 +971,11 @@ function Workspace({initialData}) {
       }catch(error){notify(error.message);}
     }
     async function plan(){
-      if(geometryProgress||geometryWorker.current||workspaceSave.current)return;
+      if(geometryProgress||geometryWorker.current||workspaceSave.current||manualCreateLock.current)return;
       if(weldEditBaseline.current.size){notify('请先应用或取消焊缝属性修改');return;}
-      if(stepImportWorker.current){notify('请等待 STEP 模型导入完成');return;}
+      if(stepImportWorker.current){notify('请等待文件导入完成');return;}
       const workspace=dataRef.current;
+      if(isPointCloudWorkspace(workspace)){notify('请先导入 STEP 模型进行一键规划');return;}
       if(!isDemoModel(workspace)&&!workspace.stepModel&&!workspace.welds.length){notify('请先导入 STEP 模型');return;}
       await startPlanning(workspace);
     }
@@ -837,8 +992,17 @@ function Workspace({initialData}) {
     }
     function patchWeldWrap(index,side,kind){
       if(workspaceSave.current||geometryProgress||!selected)return;
-      const {physical,blocked,value}=endpointWrapAt(selected,index,side);
+      const {physical,blocked,value,junction,pending}=endpointWrapAt(selected,index,side);
       if(blocked)return;
+      const downgrade=junction?.canUseU&&selected.segments[junction.segment]?.strategyWrapKind==='U'&&kind==='L';
+      const splitEdit=kind==='none'&&junction||downgrade;
+      if(splitEdit||pending&&kind===junction?.kind){
+        const replaced=downgrade||pending?.type==='L'?junction.joints:[junction.id];
+        const other=(selected.pendingWrapEdits??[]).filter(edit=>!replaced.includes(edit.id));
+        patch('pendingWrapEdits',splitEdit?[...other,{id:junction.id,type:kind}]:other);
+        setWrapFocus({weldId:selected.id,index,side,message:downgrade?'应用后将生成两条独立的 L 形焊缝':undefined});
+        return;
+      }
       const current=selected.segments[index];
       const baseSegments=selected.segments.filter(segment=>!segment.generatedEndpointWrap);
       const source={...selected,segments:baseSegments},at=baseSegments.indexOf(current);
@@ -925,11 +1089,10 @@ function Workspace({initialData}) {
             return;
           }
         }
-        if(!selected.name.trim()||roundWeldLeg(selected.leg)===null||!validGroove(selected.groove)||selected.segments.some(segment=>!segment.position||segment.position==='待确认')){notify('请完善焊缝名称、焊脚、位置及坡口');return;}
         if(selected.pendingWrapEdits?.length){
           const original=previous??selected;
           const fragments=applyWeldWrapEdits(selected,selected.pendingWrapEdits,settingsDefaults(context).wrapParameters);
-          if(!fragments.length)throw Error('所选连接点无法拆分');
+          if(!fragments.length)throw Error('所选连接点无法拆分，请检查包角距离');
           const split=installWrapSplit({...data,welds:data.welds.map(weld=>weld.id===original.id?original:weld)},original,fragments);
           if(!valid(split))throw Error('包角拆分结果未通过路径校验');
           const children=new Set(split.manualSplitHistory.at(-1).childIds);
@@ -942,6 +1105,7 @@ function Workspace({initialData}) {
           notify('已拆分为 '+children.size+' 条焊缝');
           return;
         }
+        if(!selected.name.trim()||roundWeldLeg(selected.leg)===null||!validGroove(selected.groove)||selected.segments.some(segment=>!segment.position||segment.position==='待确认')){notify('请完善焊缝名称、焊脚、位置及坡口');return;}
         const overrides={...selected.attributeOverrides};
         for(const key of ['name','leg','position','weldType','machineCount','groove','workFace','direction','tracking','scanSettings','endpointFacts','edgeDistance','planningPointOverrides'])if(previous&&JSON.stringify(previous[key])!==JSON.stringify(selected[key]))overrides[key]=structuredClone(selected[key]);
         if(previous&&JSON.stringify(previous.segments)!==JSON.stringify(selected.segments)){
@@ -1060,6 +1224,17 @@ function Workspace({initialData}) {
       const deleting=values.templates&&data.templates.some(template=>!values.templates.some(entry=>entry.id===template.id));
       const next=updateProjectPlanning(data,values);
       try {
+        if(input.deviceControl){
+          const options={...planningContext(next),measureTemplateNeighborhood:context.measureTemplateNeighborhood};
+          const changed=laserMountSide!==options.laserMountSide||
+            context.deviceCapabilities.laserTracking!==options.deviceCapabilities.laserTracking;
+          if(changed){
+            const processes=next.processLibrary.filter(process=>belongsToDevice(process,options.activeDevice));
+            next.welds=assignWeldingOrder(next.welds.map(weld=>weld.enabled&&!weld.mergedInto&&!weld.splitInto?
+              planWeld({...weld,collisionVerified:false,collisionPasses:undefined,collisionResult:undefined,collisionState:undefined},
+               next.templates,processes,options):weld),{...options,requireCollisionVerification:planningCollisionEnabled});
+          }
+        }
         if(deleting||disabledTemplates.size||removedProcesses.size){
           const options={...planningContext({...next,deviceControl}),measureTemplateNeighborhood:context.measureTemplateNeighborhood};
           next.welds=next.welds.map(weld=>{
@@ -1122,14 +1297,36 @@ function Workspace({initialData}) {
        <nav className="app-nav" aria-label="主导航">{modules.map(name=><button type="button" key={name} aria-current={page===name?'page':undefined} onClick={()=>navigate(name)}>{name}</button>)}</nav>
        <details className="app-help"><summary aria-label="帮助菜单" title="帮助"><CircleHelp size={20}/></summary><div>{[['帮助','help'],['快捷键','shortcuts'],['关于 Weldone','about']].map(([label,target])=><button key={label} type="button" onClick={event=>{event.currentTarget.closest('details').open=false;setDialog(target);}}>{label}</button>)}</div></details>
       </header>
-      <main id="main-content" tabIndex={-1}>{!libraryEditing&&page!=='焊接模板库'&&page!=='设备控制'&&page!=='生产统计'&&<PageHeader title={page} actions={<><Btn icon={Settings} aria-label={page==='工艺参数库'?'设备信息配置':'工艺规划设置'} onClick={()=>page==='工艺参数库'?window.dispatchEvent(new Event('process-device-settings')):setDialog('settings')}>{page==='工艺参数库'?'设备配置':'设置'}</Btn>{page==='工艺规划' ? <><Btn onClick={() => setDialog('import')}>导入模型</Btn><Btn primary aria-label="一键规划" aria-busy={!!geometryProgress} title={geometryProgress?.stage??(data.model?'提取焊道并进行工艺规划':'请先导入模型')} data-tooltip={!data.model?'请先导入模型':undefined} disabled={!data.model||!!geometryProgress} onClick={plan}><span aria-live="polite">{geometryProgress?.phase==='extract'?'提取焊道 '+geometryProgress.percent+'%':geometryProgress?.phase==='collision'?'碰撞检测 '+geometryProgress.percent+'%':geometryProgress?'工艺规划中…':'一键规划'}</span></Btn><Btn onClick={()=>taskFile.current?.click()}>导入 PF 文件</Btn><Btn disabled={!data.model} title={!data.model?'请先导入模型':undefined} onClick={exportTask}>导出任务</Btn></> : <Btn primary disabled={!data.processDeviceProfiles.length} title={!data.processDeviceProfiles.length?'请先添加设备信息配置':undefined} onClick={()=>setProcessRequest({fromWeld:false})}><img src="/assets/process-library/plus.svg" alt=""/>新建工艺参数</Btn>}</>}/> }    {page==='工艺规划' ? <div className={'workspace planning-workspace'+(collapsed?' collapsed':'')+(inspectorOpen?' inspector-open':'')}><aside className="structure"><div className="panel-tabs"><button className="icon rail-button" aria-label="收起结构树" title="收起结构树" ref={treeToggle} onClick={()=>{flushSync(()=>setCollapsed(true));modelTreeToggle.current?.focus();}}><PanelLeftClose size={17}/></button>{['结构树', '零件管理'].map(t => <button key={t} className={leftTab === t ? 'active' : ''} onClick={() => setLeftTab(t)}>{t}</button>)}</div>{!data.model ? <Empty model text="请导入模型"/> : <><div className="tree-search"><Search size={14}/><TextInput aria-label="搜索焊缝" title="焊缝来源：灰色为几何提取，蓝色为合并，橙色为手工" placeholder="搜索名称 / 编号" value={search} onChange={e => setSearch(e.target.value)}/></div><div className="tree-root"><ChevronDown size={14}/><FolderOpen size={15}/><strong>{data.model}</strong></div>{leftTab === '零件管理' ? <div className="parts-list">{(modelInfo?.parts||[]).map((p, i) => <div key={i}><Box size={15}/><span>{p}</span><small>P00{i + 1}</small></div>)}</div> : <><div className="tree-section"><ChevronDown size={13}/>焊缝 <small>({data.welds.length})</small></div>{page==='工艺规划'&&<div className="weld-list-actions">
+      <main id="main-content" tabIndex={-1}>
+       {!libraryEditing&&page==='工艺规划'&&<PageHeader title={page} actions={<>
+        <Btn onClick={()=>setDialog('import')}>导入模型</Btn>
+        <Btn onClick={()=>setDialog('import-point-cloud')}>导入点云</Btn>
+        <Btn disabled={!!stepImporting||!!geometryProgress} onClick={runReverseModel}>逆向建模</Btn>
+        <div className="planning-action-group" role="group" aria-label="一键规划与设置">
+         <Btn primary aria-label="一键规划" aria-busy={!!geometryProgress}
+          title={geometryProgress?.stage??(pointCloudWorkspace?'请先导入 STEP 模型':data.model?'提取焊道并进行工艺规划':'请先导入模型')}
+          data-tooltip={!data.model?'请先导入模型':undefined} disabled={!data.model||pointCloudWorkspace||!!geometryProgress||creatingWelds} onClick={plan}>
+          <span aria-live="polite">{geometryProgress?.phase==='extract'?'提取焊道 '+geometryProgress.percent+'%':
+           geometryProgress?.phase==='collision'?'碰撞检测 '+geometryProgress.percent+'%':geometryProgress?'工艺规划中…':'一键规划'}</span>
+         </Btn>
+         <Btn icon={Settings} aria-label="工艺规划设置" onClick={()=>setDialog('settings')}/>
+        </div>
+        <Btn onClick={()=>taskFile.current?.click()}>导入 PF 文件</Btn>
+        <Btn disabled={!data.model} title={!data.model?'请先导入模型':undefined} onClick={exportTask}>导出任务</Btn>
+       </>}/>}
+       {!libraryEditing&&page==='工艺参数库'&&<PageHeader title={page} actions={<>
+        <Btn icon={Settings} aria-label="设备信息配置" onClick={()=>window.dispatchEvent(new Event('process-device-settings'))}>设备配置</Btn>
+        <Btn primary disabled={!data.processDeviceProfiles.length} title={!data.processDeviceProfiles.length?'请先添加设备信息配置':undefined}
+         onClick={()=>setProcessRequest({fromWeld:false})}><img src="/assets/process-library/plus.svg" alt=""/>新建工艺参数</Btn>
+       </>}/>}
+    {page==='工艺规划' ? <div className={'workspace planning-workspace'+(collapsed?' collapsed':'')+(inspectorOpen?' inspector-open':'')}><aside className="structure"><div className="panel-tabs"><button className="icon rail-button" aria-label="收起结构树" title="收起结构树" ref={treeToggle} onClick={()=>{flushSync(()=>setCollapsed(true));modelTreeToggle.current?.focus();}}><PanelLeftClose size={17}/></button>{(pointCloudWorkspace?['结构树']:['结构树', '零件管理']).map(t => <button key={t} className={leftTab === t ? 'active' : ''} onClick={() => setLeftTab(t)}>{t}</button>)}</div>{!data.model ? <Empty model text="请导入模型"/> : <>{!pointCloudWorkspace&&<div className="tree-search"><Search size={14}/><TextInput aria-label="搜索焊缝" title="焊缝来源：灰色为几何提取，蓝色为合并，橙色为手工" placeholder="搜索名称 / 编号" value={search} onChange={e => setSearch(e.target.value)}/></div>}<div className="tree-root"><ChevronDown size={14}/><FolderOpen size={15}/><strong>{data.model}</strong></div>{pointCloudWorkspace?<p className="point-cloud-count">{modelInfo?.pointCount!==undefined?modelInfo.pointCount.toLocaleString('zh-CN')+' 个点':''}</p>:leftTab === '零件管理' ? <div className="parts-list">{(modelInfo?.parts||[]).map((p, i) => <div key={i}><Box size={15}/><span>{p}</span><small>P00{i + 1}</small></div>)}</div> : <><div className="tree-section"><ChevronDown size={13}/>焊缝 <small>({data.welds.length})</small></div>{page==='工艺规划'&&<div className="weld-list-actions">
  <button type="button" className="btn" aria-pressed={batchSelect} onClick={()=>{setBatchSelect(!batchSelect);if(batchSelect&&modelEditMode!=='merge')setMergeIds([]);}}>删除</button>
  {(batchSelect||modelEditMode==='merge')&&<div className="weld-multi-tools"><label><input type="checkbox" aria-label="全选可见焊道" checked={selectableWelds.length>0&&selectableWelds.every(w=>mergeIds.includes(w.id))} onChange={e=>setMergeIds(e.target.checked?[...new Set([...mergeIds,...selectableWelds.map(w=>w.id)])]:mergeIds.filter(id=>!selectableWelds.some(w=>w.id===id)))}/>已选 {mergeIds.length} 条</label><button type="button" className="btn danger-outline" disabled={!mergeIds.length||!!geometryProgress} onClick={()=>setDeleteWeldIds(mergeIds)}>删除所选</button>{mergeIds.length>0&&<button type="button" className="btn" onClick={()=>setMergeIds([])}>清空</button>}</div>}
  </div>}<div className="weld-list" ref={weldList}>{filteredWelds.map(w => {const route=weldMatchResults.get(w.id)?.route,matched=route==='whole'||route==='automatic'||route==='local';const showPoints=page==='工艺规划'&&w.id===data.selected&&closedPointTree!==w.id;return <div key={w.id} className={'weld-tree-branch'+(showPoints?' expanded':'')}><div data-weld-id={w.id} className={'weld-row ' + (w.id === data.selected ? 'selected' : '')} onClick={event=>{if(!event.target.closest('button,input,summary,label,.weld-row-menu'))selectTreeWeld(w.id);}}>{page==='工艺规划'&&(batchSelect||modelEditMode==='merge')&&<input type="checkbox" className="merge-checkbox" aria-label={`选择焊道 ${w.id}`} disabled={!removablePlanningWeld(w)||modelEditMode==='merge'&&!w.enabled} checked={mergeIds.includes(w.id)} onChange={e=>setMergeIds(ids=>e.target.checked?[...ids,w.id]:ids.filter(id=>id!==w.id))}/>}<input type="checkbox" aria-label={`启用 ${w.id}`} disabled={!!w.mergedInto||!!w.splitInto} checked={w.enabled} onChange={e => change(d => ({ ...d, welds: d.welds.map(x => x.id === w.id ? { ...x, enabled: e.target.checked, disabledByMinWeldLength: undefined } : x) }))}/><button className="weld-row-main" onClick={() => selectTreeWeld(w.id)}><Cable size={14}/><span>{w.id}<small className={'weld-row-origin origin-'+(w.source==='manual'?'manual':w.topology||w.source==='manual-merge'?'merged':'extracted')}>{w.name}</small></span><span className={'status-dot ' + (matched?'green':route==='blocked'?'wa-pending-dot':'')} title={matched?'已匹配':route==='blocked'?'未匹配':undefined}/></button>{page==='工艺规划'&&<><button type="button" className="weld-point-action" title={showPoints?'收起点位':'展开点位'} aria-label={(showPoints?'收起 ':'展开 ')+w.id+' 点位'} aria-expanded={showPoints} onClick={()=>showPoints?setClosedPointTree(w.id):selectTreeWeld(w.id)}><ChevronDown size={13}/></button><details className="weld-row-actions"><summary title="更多焊缝操作" aria-label={'更多操作 '+w.id}><MoreHorizontal size={16}/></summary><div className="weld-row-menu">
  <button type="button" onClick={event=>{toggleGeometry(weldViewKey(w.id));event.currentTarget.closest('details').open=false;}}>{hiddenWelds.has(w.id)?'显示焊缝':'隐藏焊缝'}</button>
  <button type="button" disabled={!w.enabled||!!w.mergedInto||!!w.splitInto||!!geometryProgress||!w.segments?.every(segment=>segment.pathPoints?.length>=2)} onClick={event=>{event.currentTarget.closest('details').open=false;addWeldLayer(w);}}>新建层</button>
  <button type="button" className="danger-text" disabled={!removablePlanningWeld(w)||!!geometryProgress} onClick={event=>{event.currentTarget.closest('details').open=false;setDeleteWeldIds([w.id]);}}>删除焊缝</button>
- </div></details></>}</div>{showPoints&&<WeldPointTree weldId={w.id} groups={planningPointGroups} selection={activeSelection} onSelect={selectWeldPoint} onAddPoint={beginWeldPoint} onAddPass={addWeldPass} onRemove={setRemoveLayoutTarget} isVisible={node=>!hiddenGeometry.has(layoutViewKey(w.id,node))} onToggleVisibility={node=>toggleGeometry(layoutViewKey(w.id,node))} editable={w.enabled&&!w.mergedInto&&!w.splitInto&&!geometryProgress}/>}</div>;})}{!filteredWelds.length && <p className="no-match">{data.welds.length?'没有匹配的焊道':'尚未生成焊道，请点击一键规划'}</p>}</div></>}</>}</aside><section className="center"><div className="model-title">{collapsed&&<button className="icon rail-button" aria-label="展开结构树" title="展开结构树" ref={modelTreeToggle} onClick={()=>{flushSync(()=>setCollapsed(false));treeToggle.current?.focus();}}><PanelLeftOpen size={17}/></button>}<strong>模型视图</strong></div><div className="viewport">{page==='工艺规划'&&<PlanningModelTools canUndo={!!data.manualEditHistory?.length} onUndo={undoGeometryEdit} splitByFace={splitByFace} faceStations={faceStations} onSplitByFace={value=>{setSplitByFace(value);setFaceStations([]);setSplitError('');}} mode={modelEditMode} onMode={editModelMode} weld={selected} ids={mergeIds} onUndoMerge={undoMerge} onMerge={()=>{setMergeError('');setMerging(true);}} splitAt={splitAt} onSplitAt={setSplitAt} onSplit={confirmSplit} onUndoSplit={undoSplit} canUndoSplit={!!data.manualSplitHistory?.length} disabled={!modelInfo||!!geometryProgress} error={splitError}/>}<Viewer wrapPreview={wrapPreview} onSelectWrapEdge={wrapFocus?.picking&&wrapFocus.weldId===selected?.id?selectWrapEdge:undefined} key={stepModelKey(data)+':'+modelLoadRevision} stepModel={data.stepModel} mergeIds={modelEditMode==='merge'?mergeIds:undefined} editMode={modelEditMode} splitPoint={modelEditMode==='split'&&selected&&splitAt!==''?{id:selected.id,distance:Number(splitAt)}:null} planningPoints={visiblePlanningPoints} sampleMarker={sampleMarker} collisionMarker={collisionMarker} headPoint={measurementView?measurementPoint:headPoint} headCoverOpen={!!measurementPoint} headFieldOfView={!!measurementPoint&&cameraFieldOfView} measurementPlan={measurementPlan} measurementIndex={measurementIndex} measurementFocus={measurementFocus} passPaths={measurementPoint?undefined:passPaths} hiddenWelds={hiddenWelds} passFocus={passFocus} onSelectPass={id=>selectModelPlanningItem('pass',id)} selectedPlanningPointId={activePoint?.id} onPlanningPointSelect={id=>selectModelPlanningItem('point',id)} onCoverCaptureReady={capture=>{coverCapture.current=capture;}} onModelInfo={setModelInfo} model={data.model} selected={data.selected} welds={data.welds} view={view} reset={reset} camera={camera} onSelect={selectModelWeld} onSelectFace={modelEditMode==='split'&&splitByFace?selectSplitFace:undefined}/><PlanningViewDisplay view={view} onChange={setView}/><div className="view-tools" role="group" aria-label="模型视图操作">{measurementPoint&&!modelEditMode&&<button type="button" aria-label="近看测量点" title="近看测量点" onClick={()=>setMeasurementFocus(value=>value+1)}><Crosshair size={18}/></button>}{!measurementPoint&&passPaths.length>0&&<button type="button" aria-label="近看层道偏移" title="近看层道偏移" onClick={()=>{setView(current=>({...current,passes:true}));setPassFocus(value=>value+1);}}><Layers size={18}/></button>}<button aria-label="适应视图" title="适应视图" onClick={() => setReset(r => r + 1)}><Maximize2 size={20}/></button><button aria-label="切换俯视" title="切换俯视" onClick={() => setCamera(c => c === 'top' ? 'iso' : 'top')}><Minimize2 size={20}/></button><button aria-label="透明模型" title="透明模型" className={view.transparent ? 'active' : ''} onClick={() => setView(v => ({ ...v, transparent: !v.transparent }))}><Box size={20}/></button><button aria-label="恢复默认" title="恢复默认" onClick={() => { setCamera('iso'); setReset(r => r + 1); setHiddenGeometry(new Set()); setView(DEFAULT_PLANNING_VIEW); }}><RotateCcw size={20}/></button><PlanningViewDisplay geometry view={view} onChange={setView}/></div><div className="view-orientation" role="group" aria-label="模型视角"><ViewCube onView={setCamera}/><div className="view-cameras">{[['top', '上'], ['front', '前'], ['right', '右'], ['iso', '等轴']].map(([id, l]) => <button key={id} className={camera === id ? 'active' : ''} aria-label={l==='等轴'?'等轴视图':l+'视图'} aria-pressed={camera===id} onClick={() => setCamera(id)}>{l}</button>)}</div></div>{data.model && <div className="canvas-note">{selected?selected.id+' · '+selected.position+' · '+formatLength(selected.length)+' mm':demoModel?'可一键规划':''}</div>}</div><section className={'logs'+(logsOpen?' logs-open':'')} style={{'--logs-height':logHeight+'px'}}>
+ </div></details></>}</div>{showPoints&&<WeldPointTree weldId={w.id} groups={planningPointGroups} selection={activeSelection} onSelect={selectWeldPoint} onAddPoint={beginWeldPoint} onAddPass={addWeldPass} onRemove={setRemoveLayoutTarget} isVisible={node=>!hiddenGeometry.has(layoutViewKey(w.id,node))} onToggleVisibility={node=>toggleGeometry(layoutViewKey(w.id,node))} editable={w.enabled&&!w.mergedInto&&!w.splitInto&&!geometryProgress}/>}</div>;})}{!filteredWelds.length && <p className="no-match">{data.welds.length?'没有匹配的焊道':'可以手动创建焊缝，或点击一键规划'}</p>}</div></>}</>}</aside><section className="center"><div className="model-title">{collapsed&&<button className="icon rail-button" aria-label="展开结构树" title="展开结构树" ref={modelTreeToggle} onClick={()=>{flushSync(()=>setCollapsed(false));treeToggle.current?.focus();}}><PanelLeftOpen size={17}/></button>}<strong>模型视图</strong></div><div className="viewport">{page==='工艺规划'&&data.model&&!pointCloudWorkspace&&<PlanningModelTools manualCreate={manualCreate} onCreateMethod={setManualCreateMethod} onCreateUndo={()=>setManualCreate(draft=>({...draft,picks:draft.picks.slice(0,-1),paths:[],error:''}))} onCreateConfirm={confirmManualWeld} creating={creatingWelds} canUndo={!!data.manualEditHistory?.length} onUndo={undoGeometryEdit} splitByFace={splitByFace} faceStations={faceStations} onSplitByFace={value=>{setSplitByFace(value);setFaceStations([]);setSplitError('');}} mode={modelEditMode} onMode={editModelMode} weld={selected} ids={mergeIds} onUndoMerge={undoMerge} onMerge={()=>{setMergeError('');setMerging(true);}} splitAt={splitAt} onSplitAt={setSplitAt} onSplit={confirmSplit} onUndoSplit={undoSplit} canUndoSplit={!!data.manualSplitHistory?.length} disabled={!modelInfo||!!geometryProgress} error={splitError}/>}<Viewer laserMountSide={laserMountSide} invertModelZ={invertModelZ} manualCreate={modelEditMode==='create'?manualCreate:null} onManualCreatePick={modelEditMode==='create'&&manualCreate?selectManualWeldPoint:undefined} wrapPreview={wrapPreview} onSelectWrapEdge={wrapFocus?.picking&&wrapFocus.weldId===selected?.id?selectWrapEdge:undefined} key={stepModelKey(data)+':'+modelLoadRevision} stepModel={data.stepModel} mergeIds={modelEditMode==='merge'?mergeIds:undefined} editMode={modelEditMode} splitPoint={modelEditMode==='split'&&selected&&splitAt!==''?{id:selected.id,distance:Number(splitAt)}:null} planningPoints={visiblePlanningPoints} sampleMarker={sampleMarker} collisionMarker={collisionMarker} headPoint={measurementView?measurementHead:headPoint} headCoverOpen={!!measurementPoint} headFieldOfView={!!measurementPoint&&cameraFieldOfView} measurementPlan={measurementPlan} measurementIndex={measurementIndex} measurementFocus={measurementFocus} passPaths={measurementPoint?undefined:passPaths} hiddenWelds={hiddenWelds} passFocus={passFocus} onSelectPass={id=>selectModelPlanningItem('pass',id)} selectedPlanningPointId={activePoint?.id} onPlanningPointSelect={id=>selectModelPlanningItem('point',id)} onCoverCaptureReady={capture=>{coverCapture.current=capture;}} onModelInfo={setModelInfo} model={data.model} selected={data.selected} welds={data.welds} view={view} reset={reset} camera={camera} onSelect={selectModelWeld} onSelectFace={modelEditMode==='split'&&splitByFace?selectSplitFace:undefined}/><PlanningViewDisplay view={view} onChange={setView}/><div className="view-tools" role="group" aria-label="模型视图操作">{measurementPoint&&!modelEditMode&&<button type="button" aria-label="近看测量点" title="近看测量点" onClick={()=>setMeasurementFocus(value=>value+1)}><Crosshair size={18}/></button>}{!measurementPoint&&passPaths.length>0&&<button type="button" aria-label="近看层道偏移" title="近看层道偏移" onClick={()=>{setView(current=>({...current,passes:true}));setPassFocus(value=>value+1);}}><Layers size={18}/></button>}<button aria-label="适应视图" title="适应视图" onClick={() => setReset(r => r + 1)}><Maximize2 size={20}/></button><button aria-label="切换俯视" title="切换俯视" onClick={() => setCamera(c => c === 'top' ? 'iso' : 'top')}><Minimize2 size={20}/></button><button aria-label="透明模型" title="透明模型" className={view.transparent ? 'active' : ''} onClick={() => setView(v => ({ ...v, transparent: !v.transparent }))}><Box size={20}/></button><button aria-label="恢复默认" title="恢复默认" onClick={() => { setCamera('iso'); setReset(r => r + 1); setHiddenGeometry(new Set()); setView(DEFAULT_PLANNING_VIEW); }}><RotateCcw size={20}/></button><PlanningViewDisplay geometry view={view} onChange={setView}/></div><div className="view-orientation" role="group" aria-label="模型视角"><ViewCube onView={setCamera} invertModelZ={invertModelZ}/><div className="view-cameras">{[['top', '上'], ['front', '前'], ['right', '右'], ['iso', '等轴']].map(([id, l]) => <button key={id} className={camera === id ? 'active' : ''} aria-label={l==='等轴'?'等轴视图':l+'视图'} title={id==='top'?'上视图（从 '+(invertModelZ?'Z-':'Z+')+' 方向）':undefined} aria-pressed={camera===id} onClick={() => setCamera(id)}>{l}</button>)}</div></div>{data.model && <div className="canvas-note">{selected?selected.id+' · '+selected.position+' · '+formatLength(selected.length)+' mm':demoModel?'可一键规划':''}</div>}</div><section className={'logs'+(logsOpen?' logs-open':'')} style={{'--logs-height':logHeight+'px'}}>
   {logsOpen&&<div className="log-resize-handle" title="拖动调整日志面板高度" aria-hidden="true"
    onPointerDown={event=>{event.currentTarget.setPointerCapture(event.pointerId);logResizeStart.current={y:event.clientY,height:logHeight};}}
    onPointerMove={event=>{const start=logResizeStart.current;if(start)setLogHeight(Math.max(100,Math.min(320,start.height+start.y-event.clientY)));}}
@@ -1140,10 +1337,10 @@ function Workspace({initialData}) {
  <button type="button" className="icon inspector-toggle" aria-label={inspectorOpen?'收起焊缝属性':'展开焊缝属性'} title={inspectorOpen?'收起焊缝属性':'展开焊缝属性'} aria-expanded={inspectorOpen} onClick={()=>setInspectorOpen(open=>!open)}>{inspectorOpen?<PanelRightClose size={18}/>:<PanelRightOpen size={18}/>}</button>
  <div className="inspector-content" inert={!inspectorOpen}>{!selected ? <Empty text={data.model?null:"请先导入 STEP 模型"}/> : <WeldAttributes onCreateTemplate={page==='工艺规划'?createWholeTemplate:undefined} createTemplateUnavailable={templateCreateDisabled?templateCreateHint:''} onCreateProcess={page==='工艺规划'&&data.processDeviceProfiles.length?()=>{setProcessRequest({fromWeld:true});go('工艺参数库');}:undefined} onChooseTemplate={()=>setDialog('templatePicker')} onChooseProcess={()=>setDialog('processPicker')} planningSelection={activeSelection} planningPoint={activePoint} planningPointPose={previewPoint?.pose} planningPassPreview={stationPose?{pose:stationPose,from:firstStation,to:lastStation,sampleStations:selectedPass.sampleStations,sampleStation,
    speedAt:selectedPass.speedAt, collision:passCollision,
-   onStation:updatePreviewStation}:undefined} defaultPosePreview={pointStrategy?.settingsOnly&&!pointStrategy.templateAngles} planningPointBasePosition={pointBasePosition} planningPointGroup={pointGroup} onSavePoint={point=>saveWeldPoint(point,true)} onSaveLayerOrPass={saveLayerOrPass} onOffsetPreview={setPointOffsetPreview} onOffsetPreviewEnd={clearPointOffsetPreview} onPlanningViewChange={setPlanningPointsVisible} onScanningViewChange={setMeasurementView} measurementPreview={measurementPreview} onUndoMerge={undoMerge} onSeparateSegments={page==='工艺规划'&&!geometryProgress&&canSeparateWeldSegments(selected)?()=>setSegmentSeparation({id:selected.id,indices:[],error:''}):undefined} decision={selectedDecision} trackingSegments={plannedTracking(selected,context).segments} weld={selected} templates={data.templates} processLibrary={data.processLibrary} onPatch={patch} onWrapChange={patchWeldWrap} onWrapFocus={focusWrapEndpoint} onClearWrapFocus={()=>setWrapFocus(null)} wrapFocus={wrapPreview?.overlap?{...wrapPreview,message:'包角轨迹与 '+wrapPreview.overlap+' 重叠'}:wrapPreview} busy={!!geometryProgress} deviceCapabilities={context.deviceCapabilities} onCancel={weldEditBaseline.current.has(selected.id)?cancelWeldEdit:undefined} onSave={applyWeldAttributes}/>}</div></aside></div> : page==='焊接模板库' ? <TemplateLibrary templateImpact={templateImpact} measureNeighborhood={measureLibraryTemplate} captureRange={data.templateCaptureRange} templates={data.templates} project={data.project} projectNames={data.templateProjects} processLibrary={data.processLibrary} onUpdate={updateTemplates} onEditingChange={setLibraryEditing} onGoPlanning={()=>go('工艺规划')} notify={notify}/> : page==='工艺参数库' ? <ProcessParameterLibrary welds={data.welds} deletedDeviceProfiles={data.deletedProcessDevices} onRestoreDevice={async id=>{try{return await updateTemplates(restoreDeviceLibrary(dataRef.current,id));}catch(error){return error.message;}}} onEditingChange={setLibraryEditing} entries={data.processLibrary} deviceProfiles={data.processDeviceProfiles} selected={selected?plannedTracking(selected,context):null} editorRequest={processRequest} onEditorRequestHandled={()=>setProcessRequest(null)} onUpdate={updateTemplates} onApply={p=>{if(applyProcess(p)){go('工艺规划');}}} notify={notify}/> : page === '设备控制' ? <DeviceControl value={deviceControl} coverOpen={precisionCoverOpen} onCoverChange={setPrecisionCoverOpen} fieldOfView={cameraFieldOfView} onFieldOfViewChange={setCameraFieldOfView} onSave={async deviceControl=>{
+   onStation:updatePreviewStation}:undefined} defaultPosePreview={pointStrategy?.settingsOnly&&!pointStrategy.templateAngles} planningPointBasePosition={pointBasePosition} planningPointGroup={pointGroup} onSavePoint={point=>saveWeldPoint(point,true)} onSaveLayerOrPass={saveLayerOrPass} onOffsetPreview={setPointOffsetPreview} onOffsetPreviewEnd={clearPointOffsetPreview} onPlanningViewChange={setPlanningPointsVisible} onScanningViewChange={setMeasurementView} measurementPreview={measurementPreview} onUndoMerge={undoMerge} onSeparateSegments={page==='工艺规划'&&!geometryProgress&&canSeparateWeldSegments(selected)?()=>setSegmentSeparation({id:selected.id,indices:[],error:''}):undefined} decision={selectedDecision} trackingSegments={trackingWeld?.segments} trackingWeld={trackingWeld} weld={selected} templates={data.templates} processLibrary={data.processLibrary} onPatch={patch} onWrapChange={patchWeldWrap} onWrapFocus={focusWrapEndpoint} onClearWrapFocus={()=>setWrapFocus(null)} wrapFocus={wrapPreview?.overlap?{...wrapFocus,message:'包角轨迹与 '+wrapPreview.overlap+' 重叠'}:wrapFocus} busy={!!geometryProgress} deviceCapabilities={context.deviceCapabilities} onCancel={weldEditBaseline.current.has(selected.id)?cancelWeldEdit:undefined} onSave={applyWeldAttributes}/>}</div></aside></div> : page==='焊接模板库' ? <TemplateLibrary templateImpact={templateImpact} measureNeighborhood={measureLibraryTemplate} captureRange={data.templateCaptureRange} templates={data.templates} project={data.project} projectNames={data.templateProjects} processLibrary={data.processLibrary} onUpdate={updateTemplates} onEditingChange={setLibraryEditing} onGoPlanning={()=>go('工艺规划')} notify={notify}/> : page==='工艺参数库' ? <ProcessParameterLibrary welds={data.welds} deletedDeviceProfiles={data.deletedProcessDevices} onRestoreDevice={async id=>{try{return await updateTemplates(restoreDeviceLibrary(dataRef.current,id));}catch(error){return error.message;}}} onEditingChange={setLibraryEditing} entries={data.processLibrary} deviceProfiles={data.processDeviceProfiles} selected={selected?plannedTracking(selected,context):null} editorRequest={processRequest} onEditorRequestHandled={()=>setProcessRequest(null)} onUpdate={updateTemplates} onApply={p=>{if(applyProcess(p)){go('工艺规划');}}} notify={notify}/> : page === '设备控制' ? <DeviceControl value={deviceControl} coverOpen={precisionCoverOpen} onCoverChange={setPrecisionCoverOpen} fieldOfView={cameraFieldOfView} onFieldOfViewChange={setCameraFieldOfView} onSave={async deviceControl=>{
   const error=await updateTemplates({deviceControl});if(!error)notify('设备配置已保存');return error;
  }}/> : <ProductionStatisticsWorkspace/>}
-    </main><footer className="statusbar"><span>项目：{data.project || '本地项目'}</span><span className="status-dot"/><span>设备未连接</span>{page==='工艺规划'&&data.welds.length>0&&<span className="status-welds">已启用 {enabled.length.toLocaleString('zh-CN')} / {data.welds.length.toLocaleString('zh-CN')} 条 · {formatLength(total)} mm</span>}{(savingWorkspace||saved)&&<><span className="status-spacer"/><span role="status" className={'save-indicator'+(!savingWorkspace&&saved==='已保存至本机'?' saved':'')}>{savingWorkspace?'正在保存至本机':saved}{!savingWorkspace&&saved==='已保存至本机'&&savedAt&&' · '+savedAt}</span></>}</footer><input hidden type="file" accept=".pf" aria-label="PF 文件" ref={taskFile} onChange={importTask}/><input hidden type="file" accept=".step,.stp" aria-label="STEP 文件" ref={stepFile} onChange={importStep}/>{toast && <Feedback {...toast} onDismiss={()=>setToast(null)}/>}
+    </main><footer className="statusbar"><span>项目：{data.project || '本地项目'}</span><span className="status-dot"/><span>设备未连接</span>{page==='工艺规划'&&data.welds.length>0&&<span className="status-welds">已启用 {enabled.length.toLocaleString('zh-CN')} / {data.welds.length.toLocaleString('zh-CN')} 条 · {formatLength(total)} mm</span>}{(savingWorkspace||saved)&&<><span className="status-spacer"/><span role="status" className={'save-indicator'+(!savingWorkspace&&saved==='已保存至本机'?' saved':'')}>{savingWorkspace?'正在保存至本机':saved}{!savingWorkspace&&saved==='已保存至本机'&&savedAt&&' · '+savedAt}</span></>}</footer><input hidden type="file" accept=".pf" aria-label="PF 文件" ref={taskFile} onChange={importTask}/><input hidden type="file" accept=".step,.stp" aria-label="STEP 文件" ref={stepFile} onChange={event=>importModel(event)}/><input hidden type="file" accept={POINT_CLOUD_EXTENSIONS} aria-label="点云文件" ref={pointCloudFile} onChange={event=>importModel(event,'pointCloud')}/>{toast && <Feedback {...toast} onDismiss={()=>setToast(null)}/>}
     {merging&&<WeldMergeDialog settings={context} welds={data.welds} ids={mergeIds} onClose={()=>setMerging(false)} onMerge={mergeSelection} error={mergeError}/>}
     {segmentSeparation&&selected?.id===segmentSeparation.id&&<Dialog title="拆分焊缝段" onClose={()=>setSegmentSeparation(null)}>
       <div className="dialog-body">
@@ -1184,6 +1381,32 @@ function Workspace({initialData}) {
         </div>
       </div>
       <footer><Btn onClick={closeImport}>{stepImporting?'取消导入':'取消'}</Btn></footer>
+    </Dialog>}
+    {dialog==='import-point-cloud'&&<Dialog title="导入点云" onClose={closeImport}>
+      <div className="dialog-body">
+        <div className="import-zone"><Box size={38}/><h3>导入本地点云</h3><p>支持 TXT、XYZ、PLY 和 PCD。TXT 每行三列，依次为 X、Y、Z。</p>
+          <Btn primary disabled={!!stepImporting} onClick={()=>pointCloudFile.current?.click()}>选择点云文件</Btn>
+        </div>
+        {stepImporting&&<p role="status">正在解析 {stepImporting}…</p>}
+        {stepError&&<p role="alert" className="tpl-errors">{stepError}</p>}
+      </div>
+      <footer><Btn onClick={closeImport}>{stepImporting?'取消导入':'取消'}</Btn></footer>
+    </Dialog>}
+    {dialog==='reverse-model'&&<Dialog title="逆向建模" onClose={closeReverseModel}>
+      <div className="dialog-body">
+        {reverseResult?.running&&<p role="status">正在重建 {data.model}…</p>}
+        {reverseResult?.error&&<p role="alert" className="tpl-errors">{reverseResult.error}</p>}
+        {reverseResult?.file&&<p role="status">{reverseResult.type==='subassembly'?'小组立':'重磅板'} STEP 已生成，共 {reverseResult.parts} 个实体。</p>}
+        {stepImporting&&<p role="status">正在载入 STEP…</p>}
+        {stepError&&<p role="alert" className="tpl-errors">{stepError}</p>}
+      </div>
+      <footer>
+        <Btn onClick={closeReverseModel}>{reverseResult?.running||stepImporting?'取消':'关闭'}</Btn>
+        {reverseResult?.file&&<>
+          <Btn onClick={()=>downloadReconstructedStep(reverseResult.file)}>下载 STEP</Btn>
+          <Btn primary disabled={!!stepImporting} onClick={()=>importModelFile(reverseResult.file)}>载入模型</Btn>
+        </>}
+      </footer>
     </Dialog>}
     {dialog==='weldPoint'&&selected?.id===newPointTarget?.weldId&&<Dialog title={'添加点位 · '+selected.id} onClose={()=>setDialog(null)}><WeldControlPointForm key={selected.id} groups={editablePointGroups} initialGroup={newPointTarget.passId} existing={planningPoints} onSave={saveWeldPoint} onCancel={()=>setDialog(null)}/></Dialog>}
     {selected&&dialog==='templatePicker'&&<Dialog title="选择焊接模板" onClose={()=>setDialog(null)}><PlanningLibraryPicker key={selected.id} kind="template" weld={selected} templates={data.templates} project={data.project} projectNames={data.templateProjects} onCancel={()=>setDialog(null)} onConfirm={template=>{if(applyTemplate(template))setDialog(null);}}/></Dialog>}

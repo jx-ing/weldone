@@ -24,7 +24,7 @@ function editablePoint(point,key,weld){
  const position=point.position.map((value,index)=>value+(Number.isFinite(override[axes[index]])?override[axes[index]]:0));
  let orientation=point.orientation;
  if(Array.isArray(orientation)&&poseAxes.some(axis=>Number.isFinite(override[axis]))){
-  orientation=point.tangent&&point.normal?weldTorchOrientation(point.tangent,point.normal,pose,point.up).toArray():
+  orientation=point.tangent&&point.normal?weldTorchOrientation(point.tangent,point.normal,pose,point.up,point.sectionRoll).toArray():
    new Quaternion().fromArray(orientation).multiply(localRotation(original).invert()).multiply(localRotation(pose)).toArray();
  }
  return {...point,overrideKey,override,originalPose:original,position,pose,...(orientation?{orientation}:{})};

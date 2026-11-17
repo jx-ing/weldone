@@ -59,7 +59,7 @@ export function verticalTraversal(segments=[],position){
 export const verticalTraversalIssue='焊缝包含无法按同一方向向上焊接的立焊段，请先拆分焊缝';
 export function weldTravelReversed(weld){
   const vertical=verticalTraversal(weld.segments,weld.position);
-  return vertical==='down'||vertical===null&&weld.direction==='反向';
+  return vertical==='down'||vertical===null&&(weld.laserTrackingDirection??weld.direction)==='反向';
 }
 export function normalizeVerticalWeld(weld){
   const segments=weld.segments??[];

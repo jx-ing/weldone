@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { newTemplate, point, resizeSegments, resizeCorners, validateTemplate, fixedLayout, validateFixed, reuseLayout, migrateDraft, matchTemplate, targetFromWeld, applyTemplateToWeld } from '../src/templateModel.mjs';
+import { newTemplate, point, resizeSegments, resizeCorners, validateTemplate, fixedLayout, validateFixed, reuseLayout, migrateDraft, migrateTemplate, matchTemplate, targetFromWeld, applyTemplateToWeld } from '../src/templateModel.mjs';
 
 const whole = () => ({ ...newTemplate(), name: '整道测试' });
 const target = t => ({ leg:t.leg, segments:structuredClone(t.segments), cornerAngles:Array.from({length:t.cornerCount}, () => 90), completeStart:true, completeEnd:true, atConnection:t.type === 'local', groove:structuredClone(t.groove), startHole:t.startHole, endHole:t.endHole });
@@ -89,4 +89,16 @@ test('旧模板迁移保留参数，新旧草稿往返保留固定骨架和点�
 test('缺少完整性证据的焊道禁止整道匹配', () => {
   const t=whole(),w=targetFromWeld({leg:6,length:100,position:'PB · 横角焊',joint:'T 形接头'});
   assert.equal(matchTemplate(t,w).ok,false);assert.equal(matchTemplate(t,null).ok,false);
+});
+
+test('工作区移除未编辑的预置模板，保留用户修改和自行创建的模板',()=>{
+  const raw={id:'TPL-001',name:'碳钢横角焊 · 6 mm',position:'PB · 横角焊',leg:6,current:210,voltage:24.5,speed:340};
+  const saved=migrateTemplate({id:'TPL-002',name:'薄板角焊 · 5 mm',position:'PB · 横角焊',leg:5,current:180,voltage:23,speed:360});
+  const edited=migrateTemplate({id:'TPL-003',name:'立向上焊 · 5 mm',position:'PF · 立向上焊',leg:5,current:160,voltage:22,speed:220});
+  edited.layers[0].passes[0].offset.y=3;
+  const userTemplate={...raw,id:'custom-template'};
+  const draft=migrateDraft({templates:[raw,{...saved,project:'旧项目'},edited,userTemplate],welds:[]});
+  assert.deepEqual(draft.templates.map(template=>template.id),['TPL-003','custom-template']);
+  assert.equal(draft.templates[0].layers[0].passes[0].offset.y,3);
+  assert.deepEqual(migrateDraft(JSON.parse(JSON.stringify(draft))).templates,draft.templates);
 });

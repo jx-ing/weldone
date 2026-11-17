@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {BoxGeometry} from 'three';
 import {createWeldCollisionScene,detectWeldCollision} from '../src/weldCollision.mjs';
-import {splitWeldWrap,weldWrapJunctions} from '../src/weldWrapJunctions.mjs';
+import {applyWeldWrapEdits,endpointWrapAt,materializeEndpointWraps,splitWeldWrap,weldWrapJunctions} from '../src/weldWrapJunctions.mjs';
 import {installWrapSplit,undoLastSplit} from '../src/manualSplitModel.mjs';
 import {resolvePlanningCollisions} from '../src/planningCollision.mjs';
 import {weldLayerLayout} from '../src/weldLayerLayout.mjs';
@@ -33,6 +33,16 @@ test('仅有近距离间隙时保留焊段并回传最近零件',()=>{
   assert.equal(result.passes[0].closest.part,'侧板');
   assert(Math.abs(result.passes[0].closest.distance-.06)<1e-5);
  }finally{scene.dispose();plate.dispose();}
+});
+
+test('拍照光路检查在拍照点前命中立板，但不把目标表面算作遮挡',()=>{
+ const surface=shape(2,2,2,4),tool=shape(1,1,1,0);
+ const scene=createWeldCollisionScene({origin:[10,20,30],meshes:[mesh(surface,'立板')]},[tool]);
+ try{
+  assert.equal(scene.lineObstruction([10,20,30],[13,20,30]),null);
+  assert.equal(scene.lineObstruction([10,20,30],[17,20,30]).part,'立板');
+  assert.equal(scene.solidAt([14,20,30]),true);
+ }finally{scene.dispose();surface.dispose();}
 });
 const segment=(a,b,length,flags={})=>({pathPoints:[a,b],length,position:'PB',geometry:'直线',...flags});
 const wrapped={id:'W10001',name:'包角',enabled:true,closure:'open',length:25,position:'PB',weldType:'角焊缝',leg:4,
@@ -86,6 +96,27 @@ test('U 包角改为两个 L 时，两端按板厚比例加调整偏移分别取
  assert(Math.abs(second.length-10/3)<.0001);
  assert(first.pathPoints.at(-1)[1]>second.pathPoints[0][1]);
  assert(overlaps.every(weld=>weldWrapJunctions(weld).length===1));
+});
+
+test('端点 U 改 L 应用后产生两条有独立编号的 L，自动规划不会重新生成旧 U',()=>{
+ const settings={lDistanceRatio:'2/3'};
+ const main={...wrapped,closure:'open',segments:[{...wrapped.segments[2],startWrapKind:null,
+  subplateThickness:5,startWrapEdit:{kind:'U',edges:[[[10,5,0],[10,0,0]],[[10,0,0],[0,0,0]]]}}]};
+ const source=materializeEndpointWraps(main,settings);
+ const end=endpointWrapAt(source,source.segments.length-1,'start');
+ assert.equal(end.value,'U');
+ assert.equal(end.junction.canUseU,true);
+ const edited={...source,pendingWrapEdits:[{id:end.junction.id,type:'L'}]};
+ assert.equal(endpointWrapAt(edited,source.segments.length-1,'start').value,'L');
+ const children=applyWeldWrapEdits(edited,edited.pendingWrapEdits,settings);
+ const saved=installWrapSplit({model:'fixture',selected:source.id,welds:[source]},source,children);
+ assert.equal(saved.welds[0].enabled,false);
+ assert.deepEqual(saved.welds.slice(1).map(child=>child.topology),['L','L']);
+ assert.equal(new Set(saved.welds.slice(1).map(child=>child.id)).size,2);
+ for(const child of saved.welds.slice(1)){
+  assert.equal(child.segments.length,2);
+  assert.equal(materializeEndpointWraps(child,settings),child);
+ }
 });
 
 test('不包角断开所选连接点，保留所有焊缝段；反向只改变显示顺序',()=>{
