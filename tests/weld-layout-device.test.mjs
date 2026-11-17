@@ -41,6 +41,14 @@ test('无精定位相机保留两套配置并独立于跟踪能力',()=>{
  assert.equal(legacyDisabled.precisionCamera.brand,'none');
 });
 
+test('结构光关闭有效激光跟踪，切回线激光时恢复机器人能力',()=>{
+ const deviceControl=migrateDeviceControl({trackingModes:['laser','arc']});
+ assert.equal(planningContext({deviceControl}).deviceCapabilities.laserTracking,false);
+ assert.equal(planningContext({deviceControl}).deviceCapabilities.arcTracking,true);
+ const laser={...deviceControl,precisionCamera:{...deviceControl.precisionCamera,brand:'yinglai'}};
+ assert.equal(planningContext({deviceControl:laser}).deviceCapabilities.laserTracking,true);
+});
+
 test('后续层道直接继承第一道的起终点与姿态，并叠加自身偏移',()=>{
  const weld={id:'W001',enabled:true,closure:'open',segments:[{geometry:'直线',length:100,pathPoints:[[0,0,0],[100,0,0]]}]};
  const layout=weldLayerLayout(weld,{ready:false},[],[],{});

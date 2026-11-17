@@ -8,16 +8,53 @@ import {weldForm,weldPositionCode} from './planningRequirements.mjs';
 import {grooveType,grooveValue,GROOVE_TYPES,grooveFieldsFor} from './grooveModel.mjs';
 import {endpointWrapAt,endpointWrapChoices} from './weldWrapJunctions.mjs';
 import {processPositionLabel} from './processLibraryView.mjs';
-import {WELD_TYPES,patchWeldGroup,patchWeldSegment,patchWeldGroove,segmentName,weldPrecisionMethod} from './weldAttributeModel.mjs';
+import {OFFSET_AXES,POSE_AXES} from './planningSettingsModel.mjs';
+import {formatDecimal} from './numericPrecision.mjs';
+import {WELD_TYPES,patchWeldGroup,patchWeldSegment,patchWeldGroove,segmentName,weldPrecisionMethod,weldPrecisionOptions} from './weldAttributeModel.mjs';
 import WeldPlanningPointDetails from './WeldPlanningPointDetails';
 import './weldAttributes.css';
 
 const tabs=[['information','焊缝信息'],['welding','焊接规划'],['scanning','扫描规划']];
-const precisionMethods=[['laserSweep','线激光推扫'],['lineIntersection','打线求交'],['fixedPhoto','定点拍照'],['manual','手动精定位'],['continuous','连续扫描'],['separateEnds','首尾分别设置']];
-const endpointPrecisionMethods=precisionMethods.slice(0,5);
 function Row({label,children}){return <div className="wa-row"><span>{label}</span>{children}</div>;}
 function Options({label,value,onChange,values,placeholder='请选择',...props}){return <span className="wa-select"><select aria-label={label} value={value??''} onChange={event=>onChange(event.target.value)} {...props}>{!value&&<option value="">{placeholder}</option>}{value&&!values.some(v=>(Array.isArray(v)?v[0]:v)===value)&&<option value={value}>{value}</option>}{values.map(item=>{const [id,name]=Array.isArray(item)?item:[item,item];return <option key={id} value={id}>{name}</option>;})}</select><ChevronDown size={12}/></span>;}
 function NumberField({label,value,onChange,unit,min=0,max,step='any',disabled=false}){return <span className={'wa-number'+(disabled?' disabled':'')}><NumericInput aria-label={label} min={min} max={max} step={step} disabled={disabled} required={!disabled} value={value??''} onChange={event=>{const number=event.target.value===''?'':+event.target.value;if(number===''||Number.isFinite(number)&&number>=min&&(max===undefined||number<=max))onChange(number);}}/>{unit&&<small>{unit}</small>}</span>;}
+
+function CameraAdjustmentRow({label,actual,value,unit,onChange}){
+ return <label className="wa-offset-row wa-actual-pose">
+  <span>{label}</span><output className="wa-offset-value" aria-label={label+'实际值'}>{formatDecimal(actual)} {unit}</output>
+  <span className="wa-offset-input"><NumericInput aria-label={label+'偏移'} step="any" value={value===null?'':value??0}
+   onChange={event=>{
+    const input=event.currentTarget;
+    if(!input.validity.badInput)onChange(input.value===''?null:input.valueAsNumber);
+   }}/><span>{unit}</span></span>
+ </label>;
+}
+
+function MeasurementPreview({plan,index,onPoint,fieldOfView,onFieldOfView,adjustment,onAdjustment,disabled}){
+ const point=plan.points[index];
+ const alongPath=plan.method==='continuous';
+ const setOffset=(group,axis,value)=>onAdjustment({...adjustment,[group]:{...adjustment?.[group],[axis]:value}});
+ return <section className="wa-measurement" aria-label="测量轨迹预览">
+  <h3 className="wa-section-heading">测量轨迹预览</h3>
+  <Row label="测量点位">{alongPath?<div className="wa-measurement-range">
+   <output>{point.label} · {formatLength(point.distance)} mm</output>
+   <input type="range" aria-label="测量点位" aria-valuetext={point.label} min={0} max={plan.points.length-1} value={index}
+    onChange={event=>onPoint(Number(event.target.value))}/>
+  </div>:<Options label="测量点位" value={String(index)} values={plan.points.map((item,i)=>[String(i),item.label])}
+   onChange={value=>onPoint(Number(value))}/>}</Row>
+  <Row label="相机视野"><label className="wa-measurement-fov"><input type="checkbox" checked={fieldOfView}
+   onChange={event=>onFieldOfView(event.target.checked)}/>显示相机视野</label></Row>
+  {plan.method==='fixedPhoto'&&<Row label="镜头高度 (mm)"><output className="wa-camera-height">{formatDecimal(point.opticalPosition[2])}</output></Row>}
+  <fieldset className="wa-camera-adjustment" disabled={disabled}>
+   <legend>相机位置与姿态（整条焊缝）</legend>
+   <div className="wa-offset-row wa-actual-pose wa-actual-pose-header" aria-hidden="true"><span>轴</span><span>当前值</span><span>偏移量</span></div>
+   {OFFSET_AXES.map((axis,i)=><CameraAdjustmentRow key={axis} label={'TCP '+axis.toUpperCase()} unit="mm" actual={point.position[i]}
+    value={adjustment?.position?.[axis]} onChange={value=>setOffset('position',axis,value)}/>)}
+   {POSE_AXES.map(([axis,label])=><CameraAdjustmentRow key={axis} label={label} unit="°" actual={point.toolPose.angles[axis]}
+    value={adjustment?.angles?.[axis]} onChange={value=>setOffset('angles',axis,value)}/>)}
+  </fieldset>
+ </section>;
+}
 
 function MatchCard({label,value,onChoose,onCreate,createLabel,createUnavailable}){
  const tooltipId=useId();
@@ -38,6 +75,7 @@ export default function WeldAttributes(props){
  const [tab,setTab]=useState(props.planningSelection?'welding':'information'),[segmentIndex,setSegmentIndex]=useState(0);
  useEffect(()=>{if(props.planningSelection)setTab('welding');},[props.planningSelection]);
  useEffect(()=>{props.onPlanningViewChange?.(tab==='welding');return()=>props.onPlanningViewChange?.(false);},[tab,props.onPlanningViewChange]);
+ useEffect(()=>{props.onScanningViewChange?.(tab==='scanning');return()=>props.onScanningViewChange?.(false);},[tab,props.onScanningViewChange]);
  useEffect(()=>{setSegmentIndex(0);},[w.id]);
  useEffect(()=>{const body=panel.current?.querySelector('.wa-scroll');if(body)body.scrollTop=0;},[tab,w.id,props.planningSelection]);
  const segments=w.segments.filter(segment=>!segment.generatedEndpointWrap);
@@ -53,6 +91,9 @@ export default function WeldAttributes(props){
   {...part,arcTracking:mode==='arc',laserTracking:mode==='laser'}:part));
  const wrapFocus=props.wrapFocus?.weldId===w.id&&props.wrapFocus.index===index?props.wrapFocus:null;
  const blocked=!w.enabled||!!w.mergedInto||!!w.splitInto||props.busy;
+ const precisionMethods=weldPrecisionOptions(props.deviceCapabilities);
+ const endpointPrecisionMethods=weldPrecisionOptions(props.deviceCapabilities,true);
+ const endpointMethod=value=>endpointPrecisionMethods.some(([method])=>method===value)?value:'';
  const precisionMethod=weldPrecisionMethod(scan,props.deviceCapabilities);
  const canReverse=w.closure!=='closed'&&w.segments.length>0&&w.segments.every(
   segment=>weldPositionCode(segment.position)==='PB'&&segment.pathPoints?.length>=2
@@ -115,11 +156,14 @@ export default function WeldAttributes(props){
     <h3 className="wa-section-heading">扫描配置</h3>
     <Row label="精测量方式"><Options label="精测量方式" value={precisionMethod} values={precisionMethods} onChange={precisionMethod=>updateScan({precisionMethod})}/></Row>
     {precisionMethod==='separateEnds'?<>
-     <Row label="起点精测量方式"><Options label="起点精测量方式" required value={scan.startPrecisionMethod} values={endpointPrecisionMethods} onChange={startPrecisionMethod=>updateScan({startPrecisionMethod})}/></Row>
-     <Row label="终点精测量方式"><Options label="终点精测量方式" required value={scan.endPrecisionMethod} values={endpointPrecisionMethods} onChange={endPrecisionMethod=>updateScan({endPrecisionMethod})}/></Row>
-    </>:precisionMethod&&<Row label="精测量范围"><Options label="精测量范围" value={scan.measurementScope??'both'} values={[[ 'start','仅精测量起点'],['both','首尾精测量']]} onChange={measurementScope=>updateScan({measurementScope})}/></Row>}
+     <Row label="起点精测量方式"><Options label="起点精测量方式" required value={endpointMethod(scan.startPrecisionMethod)} values={endpointPrecisionMethods} onChange={startPrecisionMethod=>updateScan({startPrecisionMethod})}/></Row>
+     <Row label="终点精测量方式"><Options label="终点精测量方式" required value={endpointMethod(scan.endPrecisionMethod)} values={endpointPrecisionMethods} onChange={endPrecisionMethod=>updateScan({endPrecisionMethod})}/></Row>
+    </>:precisionMethod&&!['laserSweep','continuous'].includes(precisionMethod)&&<Row label="精测量范围"><Options label="精测量范围" value={scan.measurementScope??'both'} values={[[ 'start','仅精测量起点'],['both','首尾精测量']]} onChange={measurementScope=>updateScan({measurementScope})}/></Row>}
     <Row label="扫描方向"><Options label="扫描方向" disabled={!precisionMethod} value={scan.direction||'forward'} values={[[ 'forward','沿焊接方向'],['reverse','逆焊接方向']]} onChange={direction=>updateScan({direction})}/></Row>
-    <p className="wa-muted">{precisionMethod?'未连接扫描设备':'当前焊缝未设置精测量方式'}</p>
+    {props.measurementPreview?<MeasurementPreview {...props.measurementPreview} disabled={blocked}
+     adjustment={scan.cameraAdjustments?.[props.measurementPreview.plan.camera]}
+     onAdjustment={adjustment=>updateScan({cameraAdjustments:{...scan.cameraAdjustments,[props.measurementPreview.plan.camera]:adjustment}})}/>:<p className="wa-muted">{!precisionMethod?'请选择精测量方式':
+     ['laserSweep','fixedPhoto','continuous'].includes(precisionMethod)?'当前焊缝暂无可预览的测量点位':'当前方式暂无测量轨迹预览'}</p>}
    </div>}
   </div>
   <footer className="wa-footer">{props.onCancel&&<button type="button" className="btn" onClick={props.onCancel}>取消</button>}{tab==='welding'&&props.planningPointGroup?<button type="submit" form={planningFormId} disabled={blocked} className="btn primary">应用</button>:<button type="button" className="btn primary" disabled={props.busy||wrapFocus?.picking} onClick={()=>{for(const field of panel.current.querySelectorAll('input,select'))if(!field.checkValidity()){const section=field.closest('details');if(section)section.open=true;field.reportValidity();return;}onSave();}}>应用</button>}</footer>

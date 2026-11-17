@@ -78,6 +78,14 @@
 .weld-segment-options label,.weld-segment-select-all{display:flex;align-items:center;gap:8px;padding:7px 0}
 .weld-segment-options small{margin-left:auto;color:#777}
 .wa-scan-settings .wa-row{grid-template-columns:112px minmax(0,1fr)}
+.wa-measurement{margin-top:16px}
+.wa-measurement-range{display:grid;gap:3px;color:#262626}
+.wa-measurement-range input{width:100%;margin:0;accent-color:#176cba}
+.wa-camera-adjustment{min-width:0;margin:12px 7px 0;padding:4px 0 0;border:0}
+.wa-camera-adjustment legend{color:#555}
+.wa-camera-height{color:#262626;font-variant-numeric:tabular-nums}
+.wa-measurement-fov{display:flex;align-items:center;gap:6px;color:#262626;cursor:pointer}
+.wa-measurement-fov input{margin:0;accent-color:#176cba}
 
 .wa-point-adjustment{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;border:1px solid #f0d6b6;border-radius:4px;margin:8px 0;padding:8px}.wa-point-adjustment label{display:grid;gap:3px;min-width:0;color:#555;font-size:11px}.wa-point-adjustment input{width:100%;min-width:0;height:25px;padding:2px 4px;border:1px solid #ddd;border-radius:3px}
 

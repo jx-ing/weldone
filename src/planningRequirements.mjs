@@ -72,6 +72,7 @@ export function planningContext(workspace) {
     deviceCapabilities.structuredLightPrecision=hardware.precisionCameras.structuredLight?.enabled===true;
   }
   if(workspace.deviceControl)Object.assign(deviceCapabilities,deviceControlCapabilities(workspace.deviceControl));
+  else if(deviceCapabilities.structuredLightPrecision===true&&deviceCapabilities.laserPrecision!==true)deviceCapabilities.laserTracking=false;
   const settings=workspace.planningSettings??{},merge=settings.mergeParameters??{};
   return {...settings,topologyVersion:1,weldPreprocessing:{...settings.weldPreprocessing,outerClearance:planningOuterClearance(settings)},mergeParameters:{...merge,enabled:true,angleEnabled:true,grooveEnabled:true},planningRevision:3,deviceCapabilities,activeDevice,requireLibraryTemplate:true};
 }

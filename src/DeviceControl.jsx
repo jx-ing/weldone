@@ -34,7 +34,7 @@ function Connection({kind,device,patch}){
   <InputRow label={kind+'端口'} value={device.port} onChange={port=>patch({port})} numeric min={1} max={65535} step={1}/>
  </Group>;
 }
-function RobotPanel({device,patch}){
+function RobotPanel({device,patch,structuredLight}){
  const checked=mode=>device.trackingModes.includes(mode);
  return <>
   <Connection kind="机器人" device={device} patch={patch}/>
@@ -45,7 +45,7 @@ function RobotPanel({device,patch}){
    <Row label="运行倍率"><span className="dc-muted">—</span></Row>
    <Row label="焊缝跟踪能力">
     <div className="dc-choice" role="group" aria-label="焊缝跟踪能力">
-     {DEVICE_TRACKING_MODES.map(([mode,label])=><label key={mode}><input type="checkbox" checked={checked(mode)}
+     {DEVICE_TRACKING_MODES.filter(([mode])=>mode!=='laser'||!structuredLight).map(([mode,label])=><label key={mode}><input type="checkbox" checked={checked(mode)}
       onChange={event=>patch({trackingModes:event.target.checked?[...device.trackingModes,mode]:device.trackingModes.filter(item=>item!==mode)})}/>支持{label}</label>)}
     </div>
    </Row>
@@ -179,7 +179,7 @@ export default function DeviceControl({value,onSave,coverOpen,onCoverChange,fiel
      laser={id==='precisionCamera'&&brand==='yinglai'} noCamera={id==='precisionCamera'&&brand==='none'} onSelect={setSelected} coverOpen={coverOpen}/>)}</div>
    </aside>
    <section className="dc-main" aria-label={robot?'焊接机器人控制':precision?'精定位相机控制':'粗定位相机控制'}>
-    {robot?<RobotPanel device={device} patch={patch}/>:precision?(device?<PrecisionPanel device={device} patch={patch} laser={laser} coverOpen={coverOpen} onCoverChange={onCoverChange} fieldOfView={fieldOfView} onFieldOfViewChange={onFieldOfViewChange}/>:null):<CoarsePanel device={device} patch={patch}/>}
+    {robot?<RobotPanel device={device} patch={patch} structuredLight={brand==='weijing'}/>:precision?(device?<PrecisionPanel device={device} patch={patch} laser={laser} coverOpen={coverOpen} onCoverChange={onCoverChange} fieldOfView={fieldOfView} onFieldOfViewChange={onFieldOfViewChange}/>:null):<CoarsePanel device={device} patch={patch}/>}
    </section>
    <aside className="dc-details" aria-label="设备详情">
     {robot?<RobotDetails device={device} patch={patch}/>:<CameraDetails device={device} patch={patch} precision={precision} brand={brand} onBrand={chooseBrand} laser={laser}/>}

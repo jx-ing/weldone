@@ -22,9 +22,10 @@ export default function StepViewer(props){
     renderer.setPixelRatio(Math.min(devicePixelRatio,1.8));renderer.setClearColor('#f4f6f8');el.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label',props.model+' 三维模型，可旋转、缩放和选择焊缝');
     const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-8000,8000,5000,-5000,.1,200000);camera.position.set(10000,9000,10000);
     const controls=new OrbitControls(camera,renderer.domElement);controls.update();scene.add(new THREE.HemisphereLight(0xffffff,0x8996a1,2.8));const light=new THREE.DirectionalLight(0xffffff,2.8);light.position.set(8000,14000,10000);scene.add(light);
-    const body=new THREE.Group(),edges=new THREE.Group(),welds=new THREE.Group(),passMeshes=new THREE.Group(),planningMarkers=new THREE.Group();scene.add(body,edges,welds,passMeshes,planningMarkers);
+    const body=new THREE.Group(),edges=new THREE.Group(),welds=new THREE.Group(),passMeshes=new THREE.Group(),planningMarkers=new THREE.Group(),measurementPaths=new THREE.Group();
+    scene.add(body,edges,welds,passMeshes,planningMarkers,measurementPaths);
     let grid,model,span=10000,down,previousWelds,previousSelected,previousMergeIds,previousPasses;
-    let containsSolid,orientedPasses=[];
+    let containsSolid,orientedPasses=[],previousMeasurement;
     let toolHead,loadingHead=false,headLoadFailed=false;
     const sectionCache=new WeakMap(),reverseSectionCache=new WeakMap();
     const origin=()=>model?.origin||[0,0,0],world=p=>vec(p.map((v,i)=>v-origin()[i])),cad=p=>[p.x+origin()[0],-p.z+origin()[1],p.y+origin()[2]];
@@ -35,7 +36,7 @@ export default function StepViewer(props){
         toolHead.object.visible=visible;
         if(visible){
           toolHead.setCover(p.headCoverOpen);
-          toolHead.setFieldOfView(p.headFieldOfView);
+          toolHead.setFieldOfView(p.headFieldOfView,p.measurementPlan?.camera);
           positionNanyangToolHead(toolHead.object,point,world,vec);
         }
       }else if(visible&&!loadingHead&&!headLoadFailed){
@@ -53,6 +54,30 @@ export default function StepViewer(props){
       }
       if(!headLoadFailed)el.dataset.headModel=toolHead?.object.visible?(p.headCoverOpen?'open':'closed'):'hidden';
       el.dataset.headFieldOfView=toolHead?.object.visible&&p.headFieldOfView?'visible':'hidden';
+    }
+    function updateMeasurement(p){
+      const plan=p.measurementPlan;
+      measurementPaths.visible=!!plan&&!p.editMode;
+      if(plan!==previousMeasurement){
+        previousMeasurement=plan;
+        clear(measurementPaths);
+        for(const path of plan?.paths??[]){
+          const trace=line(path.map(world),0x008eaa);
+          trace.material.depthTest=false;
+          trace.renderOrder=6;
+          measurementPaths.add(trace);
+        }
+      }
+      if(!measurementPaths.visible)return;
+      const marks=plan.method==='continuous'?[...new Set([0,plan.points.length-1,p.measurementIndex])]:plan.points.map((_,i)=>i);
+      for(const index of marks){
+        const active=index===p.measurementIndex;
+        const dot=new THREE.Mesh(new THREE.SphereGeometry(1,12,12),new THREE.MeshBasicMaterial({color:active?0xfa8c16:0x008eaa,depthTest:false}));
+        dot.position.copy(world(plan.points[index].position));
+        dot.userData.pixelRadius=active?5:3;
+        dot.renderOrder=active?8:7;
+        planningMarkers.add(dot);
+      }
     }
     function weldMesh(pass,color){
       const geometry=pass&&weldPassMeshGeometry(pass,world);
@@ -95,6 +120,23 @@ export default function StepViewer(props){
       const maxLeg=Math.max(...passes.map(pass=>pass.leg??0));
       const extent=Math.max(size.x+maxLeg*2,size.y+maxLeg*2,8)*2.8;
       camera.zoom=Math.max(1,Math.min((camera.right-camera.left)/extent,(camera.top-camera.bottom)/extent));
+      camera.updateProjectionMatrix();
+      controls.update();
+      render();
+    }
+    function focusMeasurement(){
+      const {measurementPlan,measurementIndex}=latest.current;
+      const point=measurementPlan?.points[measurementIndex];
+      if(!model||!point)return;
+      const positions=[point.position,point.target,point.opticalPosition];
+      if(measurementPlan.method==='laserSweep')positions.push(...measurementPlan.paths[Math.floor(measurementIndex/2)]);
+      const points=positions.map(world);
+      const center=new THREE.Box3().setFromPoints(points).getCenter(new THREE.Vector3());
+      camera.position.add(center.clone().sub(controls.target));
+      controls.target.copy(center);
+      const size=projectedBounds(points).getSize(new THREE.Vector3());
+      const padding=140;
+      camera.zoom=Math.max(1,Math.min((camera.right-camera.left)/(size.x+padding),(camera.top-camera.bottom)/(size.y+padding)));
       camera.updateProjectionMatrix();
       controls.update();
       render();
@@ -166,6 +208,7 @@ export default function StepViewer(props){
       el.dataset.weldMeshes=String(welds.visible?welds.children.filter(mesh=>mesh.visible).length:0);
       el.dataset.passMeshes=String(passMeshes.visible?passMeshes.children.length:0);
       clear(planningMarkers);
+      updateMeasurement(p);
       if(p.wrapPreview){
         const marker=new THREE.Mesh(new THREE.SphereGeometry(1,12,12),new THREE.MeshBasicMaterial({color:0xfa8c16,depthTest:false}));
         marker.position.copy(world(p.wrapPreview.anchor));marker.userData.pixelRadius=5;marker.renderOrder=7;
@@ -236,13 +279,14 @@ export default function StepViewer(props){
         p.onSelect(id,sampleManualWeldPath(target.segments,weldPointDistance(target,position)).position);
       }else p.onSelect(id,position);
     };
-    renderer.domElement.addEventListener('pointerdown',pd);renderer.domElement.addEventListener('pointerup',pu);controls.addEventListener('change',render);const observer=new ResizeObserver(resize);observer.observe(el);api.current={rebuild,resize,orient,focusPasses};
+    renderer.domElement.addEventListener('pointerdown',pd);renderer.domElement.addEventListener('pointerup',pu);controls.addEventListener('change',render);const observer=new ResizeObserver(resize);observer.observe(el);api.current={rebuild,resize,orient,focusPasses,focusMeasurement};
     loadStepMesh(props.model,props.stepModel).then(data=>{if(closed)return;model=data;span=Math.max(...data.size);for(const [i,m] of data.meshes.entries()){const g=new THREE.BufferGeometry(),a=[];for(let j=0;j<m.positions.length;j+=3)a.push(m.positions[j],m.positions[j+2],-m.positions[j+1]);g.setAttribute('position',new THREE.Float32BufferAttribute(a,3));g.setIndex(m.indices);if(m.normals){const n=[];for(let j=0;j<m.normals.length;j+=3)n.push(m.normals[j],m.normals[j+2],-m.normals[j+1]);g.setAttribute('normal',new THREE.Float32BufferAttribute(n,3));}else g.computeVertexNormals();const mesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0xaab4bf,metalness:.35,roughness:.6,side:THREE.DoubleSide}));mesh.userData.part=i;body.add(mesh);}containsSolid=weldSolidTest(body.children);for(const edge of data.edges){const shape=line(edge.points.map(vec),0x65727f);shape.material.transparent=true;shape.material.opacity=.7;shape.userData.edge=edge;edges.add(shape);}grid=new THREE.GridHelper(span*2,40,0xc2c9cf,0xe0e5e9);grid.position.y=-data.size[2]/2-span*.004;scene.add(grid);orient();resize();rebuild();latest.current.onCoverCaptureReady?.((weld,range)=>{if(!model)throw Error('模型尚未加载完成');try{return captureWeldRegion({renderer,camera,body,edges,model,weld,modelName:latest.current.model,range});}finally{render();}});setStatus('');setReady(true);latest.current.onModelInfo?.({name:data.name,parts:data.meshes.map(m=>m.name),size:data.size,edgeCount:data.edges.length});}).catch(e=>{if(!closed)setStatus(`模型加载失败：${e.message}`);});
     resize();return()=>{closed=true;observer.disconnect();controls.dispose();renderer.domElement.removeEventListener('pointerdown',pd);renderer.domElement.removeEventListener('pointerup',pu);scene.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});renderer.dispose();renderer.domElement.remove();api.current=null;latest.current.onCoverCaptureReady?.(null);};
   },[]);
-  useEffect(()=>{api.current?.rebuild();},[props.model,props.welds,props.hiddenWelds,props.selected,props.view,props.planningPoints,props.sampleMarker,props.collisionMarker,props.selectedPlanningPointId,props.headPoint,props.headCoverOpen,props.headFieldOfView,props.mergeIds,props.editMode,props.splitPoint,props.passPaths,props.wrapPreview,ready]);
+  useEffect(()=>{api.current?.rebuild();},[props.model,props.welds,props.hiddenWelds,props.selected,props.view,props.planningPoints,props.sampleMarker,props.collisionMarker,props.selectedPlanningPointId,props.headPoint,props.headCoverOpen,props.headFieldOfView,props.measurementPlan,props.measurementIndex,props.mergeIds,props.editMode,props.splitPoint,props.passPaths,props.wrapPreview,ready]);
   useEffect(()=>{api.current?.orient();api.current?.resize();},[props.camera,props.reset]);
   useEffect(()=>{if(props.passFocus)api.current?.focusPasses();},[props.passFocus]);
+  useEffect(()=>{if(props.measurementFocus)api.current?.focusMeasurement();},[props.measurementFocus]);
   const {labels:showNames,order:showOrder,welds:showWelds}=props.view;
   return <>
     <div ref={host} className="three-host" data-pass-paths={props.passPaths?.length||undefined}/>

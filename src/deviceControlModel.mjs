@@ -26,8 +26,9 @@ export function migrateDeviceControl(legacy,capabilities={}){
 
 export function deviceControlCapabilities(control){
  const modes=control.robot.trackingModes;
- return {arcTracking:modes.includes('arc'),laserTracking:modes.includes('laser'),
-  structuredLightPrecision:control.precisionCamera.brand==='weijing',laserPrecision:control.precisionCamera.brand==='yinglai'};
+ const structuredLightPrecision=control.precisionCamera.brand==='weijing';
+ return {arcTracking:modes.includes('arc'),laserTracking:!structuredLightPrecision&&modes.includes('laser'),
+  structuredLightPrecision,laserPrecision:control.precisionCamera.brand==='yinglai'};
 }
 
 export function deviceControlError(value){

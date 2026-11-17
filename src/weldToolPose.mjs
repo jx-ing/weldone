@@ -15,6 +15,16 @@ export const NANYANG_TOOL_CALIBRATION=Object.freeze({
  coverAngle:1.798713552887
 });
 
+export const NANYANG_CAMERA_PREVIEW=Object.freeze({
+ // Optical midpoint from the camera mesh and virtual TCP in head coordinates (mm).
+ opticalOrigin:Object.freeze([-15,49,-179.11]),
+ tcp:Object.freeze(vector(NANYANG_TOOL_CALIBRATION.wireTip)
+  .addScaledVector(vector(NANYANG_TOOL_CALIBRATION.wireAxis).normalize(),-150).toArray()),
+ laserWorkingDistance:400,
+ laserViewDepth:550,
+ laserWidthAtWorkingDistance:180
+});
+
 export function weldTorchFrame(tangent,normal,sectionUp){
  const t=vector(tangent).normalize();
  const n=vector(normal);
