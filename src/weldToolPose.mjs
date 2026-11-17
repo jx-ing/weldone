@@ -86,6 +86,10 @@ const nanyangSourceBasis=new Matrix4().makeBasis(
  vector(NANYANG_TOOL_CALIBRATION.wireAxis).normalize()
 ).invert();
 
+export function nanyangVisualAxesInWeldTcp(){
+ return nanyangSourceBasis.clone();
+}
+
 function sourceRotation(calibration){
  if(calibration===NANYANG_TOOL_CALIBRATION)return nanyangSourceBasis;
  const z=vector(calibration.wireAxis).normalize(),x=vector(calibration.referenceX);

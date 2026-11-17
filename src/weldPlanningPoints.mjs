@@ -1,6 +1,6 @@
 import {directedWeld} from './weldDirectionGeometry.mjs';
 import {applyTemplateToWeld,targetFromWeld,TRACKING,OVERRIDES,uid} from './templateModel.mjs';
-import {analyzeWeldMatch} from './weldMatching.mjs';
+import {analyzeWeldMatch} from './weldMatchAnalysis.mjs';
 import {Euler,Quaternion} from 'three';
 import {resolvePassPoint,passOffsetValues,passOffsetWithLayer,weldTorchOrientation} from './templatePassOffsets.mjs';
 import {clonePassPoints} from './templateLayers.mjs';

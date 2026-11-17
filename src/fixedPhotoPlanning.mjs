@@ -45,18 +45,25 @@ function openingBisector(frame,segment,target,side,scene){
  return main.add(sub).normalize();
 }
 
-export function planFixedPhotoPose(frame,segment,target,{offset,rotation,preferredDistance,checks}){
- const camera=NANYANG_CAMERA_PREVIEW;
- const targetPoint=new Vector3(...target),scene=checks?.scene;
+export function measurementOrientation(frame,segment,target,rotation,scene){
+ const targetPoint=new Vector3(...target);
  const side=scene?openingSide(frame,segment,targetPoint,scene):null;
  const weldNormal=openingBisector(frame,segment,targetPoint,side,scene);
  const section=weldTorchFrame(frame.tangent,frame.normal,frame.up);
  const work=Math.atan2(weldNormal.dot(new Vector3(...section.up)),weldNormal.dot(new Vector3(...section.normal)))/radians;
  const angles={advance:0,work,rotation};
- // The mechanical head and the lens are rigidly coupled. Use welding roll about
- // the actual wire axis and move the whole assembly along the optical ray.
  const headPose=resolveWeldToolPose({...section,sectionRoll:frame.sectionRoll,position:target,pose:angles});
- const orientation=new Quaternion(...headPose.head.quaternion);
+ return {angles,orientation:new Quaternion(...headPose.head.quaternion),weldNormal,side};
+}
+
+export function planFixedPhotoPose(frame,segment,target,{offset,rotation,angleOffsets,preferredDistance,checks}){
+ const camera=NANYANG_CAMERA_PREVIEW;
+ const targetPoint=new Vector3(...target),scene=checks?.scene;
+ const {angles,orientation,weldNormal,side}=measurementOrientation(frame,segment,target,rotation,scene);
+ if(angleOffsets){
+  for(const [axis,value] of Object.entries(angleOffsets))if(axis in angles&&Number.isFinite(value))angles[axis]+=value;
+  orientation.fromArray(resolveWeldToolPose({...frame,position:target,pose:angles}).head.quaternion);
+ }
  const axis=up.clone().applyQuaternion(orientation);
  const opticalOrigin=new Vector3(...camera.opticalOrigin);
  const relativeTcp=new Vector3(...camera.tcp).sub(opticalOrigin).applyQuaternion(orientation);
@@ -67,15 +74,15 @@ export function planFixedPhotoPose(frame,segment,target,{offset,rotation,preferr
  const minDistance=Math.max(minTcpDistance,minSideDistance);
  const nominal=Number.isFinite(preferredDistance)&&preferredDistance>0?
   preferredDistance:Math.max(workingDistance,minDistance);
- const distance=Math.max(EPS,minDistance,nominal+offset.dot(axis));
- const opticalPosition=targetPoint.clone().addScaledVector(axis,distance);
+ const distance=Math.max(EPS,minDistance,nominal);
+ const opticalPosition=targetPoint.clone().addScaledVector(axis,distance).add(offset);
  const headOrigin=opticalPosition.clone().sub(opticalOrigin.applyQuaternion(orientation));
  const position=opticalPosition.clone().add(relativeTcp);
  const toTarget=targetPoint.clone().sub(position).normalize();
  const tcpRotation=orientation.clone().premultiply(new Quaternion().setFromUnitVectors(axis,toTarget));
  const coordinates=position.toArray();
  const head={position:headOrigin.toArray(),quaternion:orientation.toArray()};
- const point={position:coordinates,target,opticalPosition:opticalPosition.toArray(),photoDistance:distance,weldNormal:weldNormal.toArray(),
+ const point={position:coordinates,target,opticalPosition:opticalPosition.toArray(),photoDistance:opticalPosition.distanceTo(targetPoint),weldNormal:weldNormal.toArray(),
   toolPose:{head,tcp:{position:coordinates,quaternion:tcpRotation.toArray()},angles}};
  const blocked=reason=>({...point,photoCheck:{state:'blocked',reasons:[reason]}});
  if(checks?.error)return blocked(checks.error);
@@ -87,7 +94,7 @@ export function planFixedPhotoPose(frame,segment,target,{offset,rotation,preferr
   return blocked('缺少该拍照点的焊接姿态');
  const alignment=axis.dot(new Vector3(...axisAtWeld).normalize());
  if(alignment<-1e-10)return blocked('光轴与焊接焊丝轴的夹角超过 90°');
- if(side&&outward<=EPS)return blocked('镜头位于立板背侧');
+ if(side&&side.dot(opticalPosition.clone().sub(targetPoint))<=EPS)return blocked('镜头位于立板背侧');
  const obstruction=scene.lineObstruction(point.opticalPosition,target);
  if(obstruction)return blocked('光路遮挡 · '+obstruction.part);
  const collision=scene.contact(head);

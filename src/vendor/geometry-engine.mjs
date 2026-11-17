@@ -10197,7 +10197,7 @@ function computeAllSplits(weldsData, meshData, partsData, edgesData, contactPair
 function computeWeldSplit(weld, meshData, partsData, edgesData, contactPairs, offset, extendThreshold, offsetThreshold) {
   // Local planning edge threshold adapter
   const edgeThreshold = weld.planningEdgeBreakThreshold === undefined ? offsetThreshold : weld.planningEdgeBreakThreshold;
-  const edgeOffset = Number.isFinite(edgeThreshold) ? Math.max(offset, edgeThreshold) : offset;
+  const edgeOffset = weld.planningEdgeBreakThreshold === undefined ? Math.max(offset, edgeThreshold ?? 0) : edgeThreshold;
   const poly = weldPolyline(weld);
   const mkTrivial = () => ({
     algorithmRevision: WELD_SPLIT_ALGORITHM_REVISION,
@@ -10291,7 +10291,7 @@ function computeWeldSplit(weld, meshData, partsData, edgesData, contactPairs, of
   }
   if (edgesData) {
     const perp = getPerpCached(weld, meshData, partsData, edgesData, offset);
-    const edgePerp = edgeOffset === offset ? perp : getPerpCached(weld, meshData, partsData, edgesData, edgeOffset);
+    const edgePerp = !(edgeThreshold > 0) || edgeOffset === offset ? perp : getPerpCached(weld, meshData, partsData, edgesData, edgeOffset);
     const semantic = hasSemanticBoundaries(edgesData);
     const groups = ["\u4E3B\u677F\u9762", "\u526F\u677F\u9762"];
     const addSplitAt = (posArr, trig, continuousContact = false, ownOuterBoundary = false, outerStartTail = false, outerEndTail = false) => {

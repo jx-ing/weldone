@@ -58,7 +58,7 @@ export default function ProductionStatisticsWorkspace() {
       <div className="statistics-table-scroll"><table><thead><tr>{(consumables?['工件／焊道','道次','起弧时长 s','焊丝 kg','气体 m³','电弧能量 kWh','状态']:['开始时间','工件／焊道','道次／焊接位置','执行类型','运行距离 m','起弧焊接 m','状态']).map(h=><th key={h}>{h}</th>)}</tr></thead>
         <tbody>{rows.slice(page*50,page*50+50).map(({record:r,task:t})=><tr key={r.id+'|'+t.id}>{(consumables
           ?[`${r.modelName} / ${t.label}`,t.passIndex+1,number(t.arcSeconds),t.unknownWireSeconds>1e-8?'未配置':number(t.wireKg),t.unknownGasSeconds>1e-8?'未配置':number(t.gasM3),t.unknownEnergySeconds>1e-8?'未配置':number(t.energyKWh)]
-          :[new Date(r.startedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}),`${r.modelName} / ${t.label}`,`${t.passIndex+1} / ${t.position}`,r.kind==='preview'?'几何预览':r.arcEnabled?'起弧执行':'无弧运行',number(t.travelMm/1000),number(t.weldMm/1000)]).map((value,i)=><td key={i}>{value}</td>)}<td>{t.completed?'已完成':EXECUTION_STATUS_NAMES[r.status]}</td></tr>)}</tbody></table></div>
+          :[new Date(r.startedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}),`${r.modelName} / ${t.label}`,`${t.passIndex+1} / ${t.position}`,r.simulation?'机械臂仿真':r.kind==='preview'?'几何预览':r.arcEnabled?'起弧执行':'无弧运行',number(t.travelMm/1000),number(t.weldMm/1000)]).map((value,i)=><td key={i}>{value}</td>)}<td>{t.completed?'已完成':EXECUTION_STATUS_NAMES[r.status]}</td></tr>)}</tbody></table></div>
       {!rows.length&&<EmptyState text="当前筛选条件下无执行明细"/>}
       {rows.length>50&&<footer><button className="btn" disabled={!page} onClick={()=>setPage(p=>p-1)}>上一页</button><span>{page+1} / {Math.ceil(rows.length/50)}</span><button className="btn" disabled={(page+1)*50>=rows.length} onClick={()=>setPage(p=>p+1)}>下一页</button></footer>}
     </section>

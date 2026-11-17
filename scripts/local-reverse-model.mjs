@@ -1,11 +1,13 @@
 import {execFile} from 'node:child_process';
 import {createReadStream,createWriteStream,existsSync} from 'node:fs';
-import {mkdir,mkdtemp,rm,stat} from 'node:fs/promises';
+import {stat} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
 import {delimiter,join,resolve} from 'node:path';
 import {Transform} from 'node:stream';
 import {pipeline} from 'node:stream/promises';
 import {fileURLToPath} from 'node:url';
 import {promisify} from 'node:util';
+import {cadJobSignal,createCadJobDirectory,localCadRequest,removeCadJobDirectory} from './local-cad-job.mjs';
 
 const run=promisify(execFile);
 const project=fileURLToPath(new URL('../',import.meta.url));
@@ -13,7 +15,7 @@ const script=join(project,'scripts','reverse-model','reconstruct.py');
 const cache=join(project,'node_modules','.cache');
 const endpoint='/api/reverse-model';
 const supported=new Set(['auto','heavy-plate','subassembly']);
-const loopback=new Set(['127.0.0.1','::1','::ffff:127.0.0.1']);
+const prefix='weldone-reverse-';
 const uploadLimit=120_000_032;
 
 const error=(res,status,message)=>{
@@ -45,12 +47,11 @@ async function build(input,output,type,signal){
   }
 }
 
-export default function localReverseModel(){
+export default function localReverseModel({jobRoot=join(tmpdir(),'weldone-cad'),reconstruct=build}={}){
   let busy=false;
   const install=server=>{
   server.middlewares.use(endpoint,async(request,response)=>{
-    const origin=request.headers.origin;
-    if(!loopback.has(request.socket.remoteAddress)||origin&&origin!==`http://${request.headers.host}`){
+    if(!localCadRequest(request)){
       error(response,403,'逆向建模仅供本机使用');return;
     }
     const url=new URL(request.url||'/','http://localhost');
@@ -64,21 +65,19 @@ export default function localReverseModel(){
     }
     if(busy){error(response,409,'正在处理另一份点云');return;}
     busy=true;
-    const abort=new AbortController();
-    response.once('close',()=>abort.abort());
+    const signal=cadJobSignal(response);
     let directory;
     try{
-      await mkdir(cache,{recursive:true});
-      directory=await mkdtemp(join(cache,'weldone-reverse-'));
+      directory=await createCadJobDirectory(jobRoot,prefix);
       const input=join(directory,'input.cloud'),output=join(directory,'result.step');
       let bytes=0;
       const limit=new Transform({transform(chunk,encoding,done){
         bytes+=chunk.length;
         done(bytes>uploadLimit?Error('点云超过 500 万点'):null,chunk);
       }});
-      await pipeline(request,limit,createWriteStream(input,{flags:'wx'}),{signal:abort.signal});
-      const {type:selected,parts,timing}=await build(input,output,type,abort.signal);
-      if(abort.signal.aborted)return;
+      await pipeline(request,limit,createWriteStream(input,{flags:'wx'}),{signal});
+      const {type:selected,parts,timing}=await reconstruct(input,output,type,signal);
+      if(signal.aborted)return;
       response.writeHead(200,{
         'Content-Type':'model/step','Cache-Control':'no-store',
         'Content-Length':(await stat(output)).size,
@@ -90,7 +89,7 @@ export default function localReverseModel(){
       if(!response.destroyed&&!response.headersSent)error(response,422,failure.message);
     }finally{
       busy=false;
-      if(directory)await rm(directory,{recursive:true,force:true});
+      if(directory)await removeCadJobDirectory(directory,jobRoot,prefix).catch(()=>{});
     }
   });
   };

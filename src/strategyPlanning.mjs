@@ -1,20 +1,19 @@
-import {Quaternion,Vector3} from 'three';
+import {Vector3} from 'three';
 import {pathLength} from './manualWeldModel.mjs';
 import {TORCH_ANGLE_KEYS,resolveWeldToolPose,weldTorchAngles,weldTorchAxis,weldTorchOrientation} from './weldToolPose.mjs';
 import {prepareWeldSeamFrames} from './weldSeamFrames.mjs';
 import {directedWeld,directedClosingCorner,normalizeVerticalWeld,verticalTraversal} from './weldDirectionGeometry.mjs';
-import {FLAT_L_WRAP_LIMIT, settingsDefaults, trackingChoice} from './planningSettingsModel.mjs';
+import {settingsDefaults, trackingChoice} from './planningSettingsModel.mjs';
 import {weldPositionCode} from './planningRequirements.mjs';
 import {sharedCornerPoint} from './processFeaturePoints.mjs';
 import {weldPointDistance} from './manualSplitModel.mjs';
 import {configuredTracking} from './weldTracking.mjs';
-import {LASER_DIRECTION_ISSUE,laserTravelDirection,laserLeadsTravel} from './laserTrackingDirection.mjs';
-import {configuredWrapDistance,cornerPathDefaults,hasVerticalWrapLength,wrapDistanceRatio} from './planningConfiguration.mjs';
-import {continuousOpeningWrapAt} from './weldWrapJunctions.mjs';
+import {LASER_DIRECTION_ISSUE,laserTravelDirection,laserLeadsTravel,laserTrackingGeometry,laserTrackingSignature} from './laserTrackingDirection.mjs';
+import {configuredWrapDistance,cornerPathDefaults,hasVerticalWrapLength,planningOuterClearance,wrapDistanceRatio} from './planningConfiguration.mjs';
+import {continuousOpeningWrapAt,uWrapStartStation} from './weldWrapJunctions.mjs';
 
 const EPS = 1e-6;
-const FLAT_L_WRAP_TRANSITION = 8;
-export const WELD_POSE_REVISION = 2;
+export const WELD_POSE_REVISION = 6;
 const positive = value => Number.isFinite(value) && value > 0;
 const vertical = position => weldPositionCode(position)==='PF';
 const add = (position, axis, distance) => position.map((value, i) => value + axis[i] * distance);
@@ -23,7 +22,7 @@ const interpolatePose = (from,to,distance,span=1) => Object.fromEntries(TORCH_AN
 ]));
 const phaseName = {start:'起弧', weld:'焊接', end:'收弧', corner:'转角', wrap:'包角', travel:'空移'};
 
-export function endpointStrategy(facts, settings, position, endpoint, dualRobot = false, weldLength, lookingForPair = false) {
+export function endpointStrategy(facts, settings, position, endpoint, dualRobot = false, segmentLength, lookingForPair = false) {
   const wrap = settings.wrapParameters;
   if (!facts || facts.breakReason || facts.mainEdgeDistance < 0) return 'none';
   const size = facts.holeSize;
@@ -36,8 +35,9 @@ export function endpointStrategy(facts, settings, position, endpoint, dualRobot 
     if(upright){
       return !lookingForPair&&endpoint==='end'&&wrap.verticalEnabled&&facts.mainEdgeDistance>0&&hasVerticalWrapLength(wrap)?'vertical':'none';
     }
-    if(weldPositionCode(position)!=='PB'||!wrap.flatEnabled||weldLength>wrap.independentLength)return 'none';
-    if(wrap.outerClearance>0&&(!Number.isFinite(facts.mainEdgeDistance)||facts.mainEdgeDistance<wrap.outerClearance))return 'none';
+    if(weldPositionCode(position)!=='PB'||!wrap.flatEnabled||segmentLength>wrap.independentLength)return 'none';
+    const clearance=planningOuterClearance(settings);
+    if(clearance>0&&Number.isFinite(facts.gap)&&facts.gap>=0&&facts.gap<clearance)return 'none';
     if(facts.hasHole&&!(positive(size)&&size>=wrap.passHoleThreshold))return 'none';
     if(lookingForPair)return !dualRobot&&facts.junctionType==='两面交'?'U':'none';
     return wrapDistanceRatio(wrap)>0?'L':'none';
@@ -73,35 +73,6 @@ function cornerFrame(frame, incoming, outgoing, offset) {
   return {...frame,pathOffset,position:add(frame.position,pathOffset,1)};
 }
 
-function flatLWrapOrientation(frame,standard,reference,incoming,outgoing,wrapAtStart=false){
-  const up=new Vector3(0,0,1);
-  const turn=new Vector3(...incoming).cross(new Vector3(...outgoing)).dot(up);
-  const base=weldTorchOrientation(frame.tangent,frame.normal,standard,frame.up,frame.sectionRoll);
-  if(Math.abs(turn)<EPS)return base;
-
-  // At a left turn the short leg is 90 degrees ahead of an incoming main leg,
-  // or 90 degrees behind an outgoing main leg. Reverse advance and roll
-  // when the short leg comes first.
-  const angle=(wrapAtStart?-1:1)*Math.PI/2;
-  const rotated=axis=>new Vector3(...axis).applyAxisAngle(up,angle).toArray();
-  const left={tangent:rotated(frame.tangent),normal:rotated(frame.normal),up:frame.up};
-  const preferred=weldTorchAngles(left,base);
-  for(const key of Object.keys(preferred))if(Number.isFinite(reference[key])){
-    preferred[key]=wrapAtStart&&key!=='work'?-reference[key]:reference[key];
-  }
-  const delta=weldTorchOrientation(left.tangent,left.normal,preferred,left.up).multiply(base.clone().invert());
-  if(turn<0){
-    // Reflect the relative rotation across the plane spanned by the travel direction and up.
-    const normal=up.cross(new Vector3(...frame.tangent)).normalize();
-    const axis=new Vector3(delta.x,delta.y,delta.z);
-    axis.multiplyScalar(-1).addScaledVector(normal,-2*axis.dot(normal));
-    delta.set(axis.x,axis.y,axis.z,delta.w);
-  }
-  const target=delta.multiply(base);
-  const limit=FLAT_L_WRAP_LIMIT*Math.PI/180;
-  return base.slerp(target,Math.min(1,limit/(base.angleTo(target)||1)));
-}
-
 function cornerValues(pass, side) {
   const configured = sharedCornerPoint(pass, side);
   const values = configured?.enabled === false || !configured ? pass.weld : {...pass.weld, ...configured};
@@ -114,13 +85,15 @@ export function plannedTracking(weld, rawSettings={}) {
   const settings=settingsDefaults(rawSettings,capabilities);
   const {laserTrackingDirection,laserTrackingIssue,...source}=weld;
   const segments=weld.segments?.map(segment=>{
-    const effectiveArcTracking=capabilities.arcTracking!==false&&(configuredTracking(segment,weld,'arc')??settings.trackingParameters.arcEnabled);
-    const effectiveLaserTracking=!effectiveArcTracking&&capabilities.laserTracking!==false&&(configuredTracking(segment,weld,'laser')??(trackingChoice(segment,settings.trackingParameters,capabilities)==='激光跟踪'));
+    const arc=configuredTracking(segment,weld,'arc'),laser=configuredTracking(segment,weld,'laser');
+    const effectiveLaserTracking=capabilities.laserTracking!==false&&(laser??(arc!==true&&
+      trackingChoice(segment,settings.trackingParameters,capabilities)==='激光跟踪'));
+    const effectiveArcTracking=!effectiveLaserTracking&&capabilities.arcTracking!==false&&(arc??settings.trackingParameters.arcEnabled);
     return {...segment,effectiveArcTracking,effectiveLaserTracking};
   });
   const next={...source,segments};
   if(capabilities.laserPrecision!==true||!segments?.some(segment=>segment.effectiveLaserTracking))return next;
-  const direction=laserTravelDirection(next,{...settings,measureTemplateNeighborhood:rawSettings.measureTemplateNeighborhood});
+  const direction=laserTravelDirection(next,{...rawSettings,actionParameters:settings.actionParameters});
   return direction?{...next,laserTrackingDirection:direction}:{...next,laserTrackingIssue:LASER_DIRECTION_ISSUE};
 }
 
@@ -150,6 +123,9 @@ export function generateStrategyPlan(weld, process, rawSettings) {
   for (const segment of segments) stations.push(stations.at(-1) + pathLength(segment.pathPoints));
   const total = stations.at(-1);
   const closed = directed.closure === 'closed';
+  const hasU=segments.some(segment=>segment.strategyWrapKind==='U');
+  const hasClosedU=closed&&hasU;
+  if(!closed&&hasU&&uWrapStartStation(segments,stations,0,false)===null)return null;
   const action = settings.actionParameters;
   const lineStep = positive(action.lineStep) ? action.lineStep : 5;
   const lineStepEnabled = action.lineStepEnabled !== false;
@@ -182,6 +158,7 @@ export function generateStrategyPlan(weld, process, rawSettings) {
   const layers = process.processLayers?.length ? process.processLayers : [{passes:[process]}];
   const passes = [];
   let laserTrackingIssue=weld.laserTrackingIssue;
+  const laserGeometry=laserTrackingGeometry(weld,rawSettings);
   const segmentAt=at=>at>=total-EPS?segments.length-1:Math.max(0,stations.findIndex(value=>value>at+EPS)-1);
   if(stations.slice(1).some((station,index)=>station-stations[index]<=EPS))return null;
   const sample=prepareWeldSeamFrames(segments,directed.cornerReferenceNormal,closed,rawSettings?.measureTemplateNeighborhood?.referenceNormalAt);
@@ -193,7 +170,7 @@ export function generateStrategyPlan(weld, process, rawSettings) {
   const endpointActions = closed ? ['none','none'] : ends.map((facts, index) => {
     const segment=segments[index ? segments.length - 1 : 0];
     if(settings.weldPreprocessing||settings.topologyVersion===1&&weld.topology==='U')return 'none';
-    return endpointStrategy(facts,settings,segment.position,index?'end':'start',weld.machineCount===2,weld.length);
+    return endpointStrategy(facts,settings,segment.position,index?'end':'start',weld.machineCount===2,pathLength(segment.pathPoints));
   });
 
   const corners=new Map();
@@ -215,7 +192,28 @@ export function generateStrategyPlan(weld, process, rawSettings) {
     };
     const standard = segment => vertical(segment.position) ? action.verticalPose : flatPose;
     const startStandard = standard(segments[0]), endStandard = standard(segments.at(-1));
-    const wrapOrientations=new Map(),flatWraps=[],terminalWrapTransitions=new Map();
+    const flatWrapPose=(base,atStart)=>Object.fromEntries(TORCH_ANGLE_KEYS.map(key=>[
+      key,(base[key]??0)+(atStart&&key!=='work'?-1:1)*(settings.wrapParameters.flatLPoseOffset[key]??0)
+    ]));
+    const flatWrapOrientation=(frame,base,atStart)=>
+      weldTorchOrientation(frame.tangent,frame.normal,flatWrapPose(base,atStart),frame.up,frame.sectionRoll);
+    const wrapOrientations=new Map();
+    const continuousU=new Map();
+    const orientation=(frame,pose)=>weldTorchOrientation(frame.tangent,frame.normal,pose,frame.up,frame.sectionRoll);
+    for(const [index,segment] of segments.entries()){
+      if(segment.strategyWrapKind!=='U'||!closed&&(index===0||index===segments.length-1))continue;
+      const before=(index+segments.length-1)%segments.length,after=(index+1)%segments.length;
+      if(segments[before].strategyWrapKind==='U'||segments[after].strategyWrapKind==='U')continue;
+      const from=stations[index],to=stations[index+1],mid=(from+to)/2;
+      const incoming=sample(index===0?total:from,before),outgoing=sample(after===0?0:to,after),middle=sample(mid,index);
+      const enter=orientation(incoming,standard(segments[before])),leave=orientation(outgoing,standard(segments[after]));
+      const midpoint=weldTorchAngles(middle,enter.clone().slerp(leave,.5));
+      for(const key of TORCH_ANGLE_KEYS){
+        const configured=settings.wrapParameters.uPose[key];
+        if(Number.isFinite(configured))midpoint[key]=configured;
+      }
+      continuousU.set(index,{from,to,mid,before,after,incoming,outgoing,middle,enter,leave,midpoint});
+    }
     for(const [index,segment] of segments.entries()){
       if(!['L','vertical'].includes(segment.strategyWrapKind))continue;
       const previous=index>0?index-1:closed?segments.length-1:null;
@@ -226,43 +224,26 @@ export function generateStrategyPlan(weld, process, rawSettings) {
       if(mainIndex===null)continue;
       const boundary=before?stations[index]:stations[index+1];
       const main=sample(closed&&before&&index===0?total:closed&&!before&&next===0?0:boundary,mainIndex);
-      const wrap=sample(boundary,index);
       if(segment.strategyWrapKind==='vertical'){
+        const wrap=sample(boundary,index);
         const base=weldTorchAngles(wrap,weldTorchOrientation(main.tangent,main.normal,action.verticalPose,main.up));
         const configured=Object.fromEntries(Object.entries(settings.wrapParameters.verticalLPose).filter(([,value])=>value!==null));
         wrapOrientations.set(index,weldTorchOrientation(wrap.tangent,wrap.normal,{...base,...configured},wrap.up));
         continue;
       }
       if(weldPositionCode(segment.position)!=='PB'||weldPositionCode(segments[mainIndex].position)!=='PB')continue;
-      const [incoming,outgoing]=before?[main.tangent,wrap.tangent]:[wrap.tangent,main.tangent];
-      const standardOrientation=weldTorchOrientation(main.tangent,main.normal,flatPose,main.up,main.sectionRoll);
-      const preferred=flatLWrapOrientation(main,flatPose,settings.wrapParameters.flatLPose,incoming,outgoing,!before);
-      const adjusted=rawSettings.wrapPoseOverrides?.[directed.sourceSegmentIndices[index]];
-      const orientation=adjusted?new Quaternion().fromArray(adjusted).normalize():preferred;
-      const limit=FLAT_L_WRAP_LIMIT*Math.PI/180;
-      if(standardOrientation.angleTo(orientation)>limit+1e-9)orientation.copy(preferred);
-      wrapOrientations.set(index,orientation);
-      const flatWrap={segment:directed.sourceSegmentIndices[index],from:stations[index],to:stations[index+1],
-        reference:standardOrientation.toArray(),preferred:orientation.toArray(),frame:{tangent:main.tangent,normal:main.normal,up:main.up}};
-      flatWraps.push(flatWrap);
-      if(!closed&&segments[mainIndex].geometry==='直线'&&!segments[mainIndex].strategyRole&&
-         (index===0&&!before||index===segments.length-1&&before)){
-        const edge=before?Math.max(stations[mainIndex],boundary-FLAT_L_WRAP_TRANSITION):
-          Math.min(stations[mainIndex+1],boundary+FLAT_L_WRAP_TRANSITION);
-        if(Math.abs(boundary-edge)>EPS){
-          const from=Math.min(edge,boundary),to=Math.max(edge,boundary);
-          terminalWrapTransitions.set(before?mainIndex:index,{from,to,edge,boundary,standardOrientation,orientation,mainIndex,wrapIndex:index});
-          flatWrap.transition={from,to};
-        }
-      }
+      wrapOrientations.set(index,flatWrapOrientation(main,flatPose,!before));
     }
-    const lWrapPose = (segment,base) => ({...base,...Object.fromEntries(Object.entries(vertical(segment.position)?settings.wrapParameters.verticalLPose:settings.wrapParameters.flatLPose).filter(([,v])=>v!==null))});
+    const verticalWrapPose=base=>({...base,...Object.fromEntries(Object.entries(settings.wrapParameters.verticalLPose).filter(([,value])=>value!==null))});
+    const lWrapPose=(segment,base,atStart)=>vertical(segment.position)?verticalWrapPose(base):flatWrapPose(base,atStart);
     const wrapPose=(index,frame)=>weldTorchAngles(frame,wrapOrientations.get(index));
+    const wrapFlags=index=>wrapOrientations.has(index)?
+      (segments[index].strategyWrapKind==='vertical'?{verticalWrap:true}:{flatLWrap:index+1}):undefined;
     const verticalStart=endSettings.verticalStartPose;
     const startPose = wrapOrientations.has(0)?wrapPose(0,sample(0,0)):
       verticalWeld?{advance:verticalStart.advance??startStandard.advance,
         work:verticalStart.work??action.flatPose.work??startStandard.work,rotation:verticalStart.rotation??startStandard.rotation}:
-      segments[0].strategyWrapKind==='L'?lWrapPose(segments[0],startStandard):
+      segments[0].strategyWrapKind==='L'?lWrapPose(segments[0],startStandard,true):
       isInterference(ends[0])?{...startStandard,advance:endSettings.startAngle??startStandard.advance}:startStandard;
     const startDistance = verticalWeld ? endSettings.verticalStartDistance : isInterference(ends[0]) ? endSettings.startDistance : 0;
     const hasStartTransition = !closed && positive(startDistance) && startDistance < total;
@@ -272,9 +253,9 @@ export function generateStrategyPlan(weld, process, rawSettings) {
     const beforeCorner=side=>pass.cornerDistances?.[side]?.before??cornerDefaults[side].before;
     const afterCorner=side=>pass.cornerDistances?.[side]?.after??cornerDefaults[side].after;
     const cornerOffset=side=>pass.cornerOffsets?.[side]??cornerDefaults[side].offset;
-    const point = (at, kind, pose, parameters, frame = sample(at), flatLWrap = false) => {
+    const point = (at, kind, pose, parameters, frame = sample(at), motionFlags) => {
       const index=segmentAt(at),segment=segments[index],laserBlocked=blockedTracking[index].some(([from,to])=>at>=from-EPS&&at<=to+EPS);
-      const inVerticalStart=verticalWeld&&hasStartTransition&&kind==='weld'&&!flatLWrap&&at>0&&at<startDistance&&vertical(segment.position);
+      const inVerticalStart=verticalWeld&&hasStartTransition&&kind==='weld'&&!motionFlags&&at>0&&at<startDistance&&vertical(segment.position);
       if(inVerticalStart)pose=interpolatePose(startPose,startStandard,at,startDistance);
       const tracking=segment.effectiveArcTracking?'电弧跟踪':segment.effectiveLaserTracking&&!laserBlocked?'激光跟踪':'无跟踪';
       const fade=(distance,range)=>distance<=EPS?1:range>0?Math.max(0,1-distance/range):0;
@@ -283,24 +264,37 @@ export function generateStrategyPlan(weld, process, rawSettings) {
        (flatInterference[1]?endSettings.endLineOffset*fade(total-at,endSettings.endDistance):0):0;
       const motion=motionPoint(frame,pass,at,kind,pose,parameters,wireOffset);
       if(rawSettings.deviceCapabilities?.laserPrecision===true&&tracking==='激光跟踪'&&
-         !laserLeadsTravel(motion.orientation,sample(at,index).tangent,rawSettings.laserMountSide))
+         !laserLeadsTravel(motion.orientation,sample(at,index).tangent,laserGeometry))
         laserTrackingIssue=LASER_DIRECTION_ISSUE;
-      points.push({...motion,tracking,...(flatLWrap?{flatLWrap}: {})});
+      points.push({...motion,tracking,...motionFlags});
     };
     const emitWrap=(index,at,frame=sample(at,index))=>{
-      point(at,'wrap',wrapPose(index,frame),cornerValues(pass,'outer'),frame,true);
+      point(at,'wrap',wrapPose(index,frame),cornerValues(pass,'outer'),frame,wrapFlags(index));
       if(segments[index].strategyWrapKind==='vertical')points.at(-1).name='立焊上包角';
       else if(segments[index].endpointFacts?.start?.continuousOpeningWrap||segments[index].endpointFacts?.end?.continuousOpeningWrap)
         points.at(-1).name='L形包角';
+    };
+    const emitU=index=>{
+      const {from,to,mid,before,after,incoming,outgoing,middle,enter,leave,midpoint}=continuousU.get(index);
+      const start=from%total,end=to%total;
+      const first=sample(from,index),last=sample(to,index);
+      const offset=closed?0:cornerOffset('outer');
+      const entryFrame=cornerFrame(first,incoming.tangent,first.tangent,offset);
+      const exitFrame=cornerFrame(last,last.tangent,outgoing.tangent,offset);
+      const flags={uWrap:index+1};
+      point(start,'weld',standard(segments[before]),pass.weld,incoming);
+      point(end,'weld',standard(segments[after]),pass.weld,outgoing);
+      point(start,'wrap',weldTorchAngles(entryFrame,enter),cornerValues(pass,'outer'),entryFrame,flags);
+      point(mid,'wrap',midpoint,cornerValues(pass,'outer'),middle,flags);
+      point(end,'wrap',weldTorchAngles(exitFrame,leave),cornerValues(pass,'outer'),exitFrame,flags);
     };
     const emitOpeningWrap=(index,next)=>{
       const before=segments[index],after=segments[next];
       const at=stations[index+1],out=next===0?0:at;
       const incoming=sample(at,index),outgoing=sample(out,next);
       const flat=weldPositionCode(before.position)==='PB'&&weldPositionCode(after.position)==='PB';
-      const pose=flat?weldTorchAngles(outgoing,flatLWrapOrientation(incoming,standard(before),settings.wrapParameters.flatLPose,
-        incoming.tangent,outgoing.tangent)):standard(after);
-      point(out,'wrap',pose,cornerValues(pass,'outer'),outgoing,flat);
+      const pose=flat?weldTorchAngles(outgoing,flatWrapOrientation(incoming,standard(before))):standard(after);
+      point(out,'wrap',pose,cornerValues(pass,'outer'),outgoing,flat?{flatLWrap:true}:undefined);
       points.at(-1).name='L形包角';
     };
     const cornerWindow=({index,next,at,side})=>[
@@ -331,26 +325,34 @@ export function generateStrategyPlan(weld, process, rawSettings) {
         point(from+(to-from)*ratio,'weld',pose,pass.weld);
       }
     };
-    const startShift = closed ? (passes.length * action.staggerDistance) % total : 0;
+    const stagger=closed?(passes.length*action.staggerDistance)%total:0;
+    const startShift=hasClosedU?uWrapStartStation(segments,stations,stagger,true):stagger;
+    if(startShift===null)return null;
     const overlap = closed ? action.overlapDistance : 0;
     if (closed) {
-      point(startShift, 'start', startStandard, pass.start);
-      point(startShift, 'weld', startStandard, pass.weld);
+      const startIndex=segmentAt(startShift),startFrame=sample(startShift,startIndex);
+      const startAngles=hasClosedU&&wrapOrientations.has(startIndex)?wrapPose(startIndex,startFrame):
+        hasClosedU?standard(segments[startIndex]):startStandard;
+      point(startShift, 'start', startAngles, pass.start,startFrame,hasClosedU?wrapFlags(startIndex):undefined);
+      point(startShift, 'weld', startAngles, pass.weld,startFrame,hasClosedU?wrapFlags(startIndex):undefined);
       if(settings.topologyVersion===1){
-        for(const at of baseStations)if(!inCornerWindow(at)&&at!==startShift)point(at,'weld',standard(segments[segmentAt(at)]),pass.weld);
+        for(const at of baseStations)if(!inCornerWindow(at)&&at!==startShift&&!continuousU.has(segmentAt(at)))
+          point(at,'weld',standard(segments[segmentAt(at)]),pass.weld);
         for(const corner of corners.values())emitCorner(corner);
         for(const [index,before] of segments.entries()){
           const next=(index+1)%segments.length,after=segments[next];
           if(before.strategyRole!=='wrap'&&after.strategyRole!=='wrap'&&continuousOpeningWrapAt(before,after))emitOpeningWrap(index,next);
         }
-        if(settings.weldPreprocessing)for(const [index,segment] of segments.entries()){
+        for(const [index,segment] of segments.entries()){
           if(!segment.strategyWrapKind)continue;
+          if(continuousU.has(index)){emitU(index);continue;}
+          if(!settings.weldPreprocessing)continue;
           if(wrapOrientations.has(index)){
             const end=stations[index+1];
             for(const at of [stations[index],(stations[index]+end)/2,end])emitWrap(index,at%total,sample(at,index));
             continue;
           }
-          const pose=segment.strategyWrapKind==='L'?lWrapPose(segment,standard(segment)):{...standard(segment),...Object.fromEntries(Object.entries(settings.wrapParameters.uPose).filter(([,value])=>value!==null))};
+          const pose=segment.strategyWrapKind==='L'?lWrapPose(segment,standard(segment),segment.endWrapKind==='L'&&segment.startWrapKind!=='L'):{...standard(segment),...Object.fromEntries(Object.entries(settings.wrapParameters.uPose).filter(([,value])=>value!==null))};
           for(const at of [stations[index],(stations[index]+stations[index+1])/2,stations[index+1]]){
             const station=at%total;
             if(stations.some((start,i)=>i<segments.length&&Math.abs(station-start)<EPS&&vertical(segments[i].position)))continue;
@@ -366,32 +368,37 @@ export function generateStrategyPlan(weld, process, rawSettings) {
       point((startShift + overlap) % total, 'end', endStandard, pass.end);
     } else {
       const first = sample(0), last = sample(total);
-      point(0,'start',startPose,pass.start,first,wrapOrientations.has(0));
-      if(!endpointsOnly)point(0,'weld',startPose,pass.weld,first,wrapOrientations.has(0));
+      point(0,'start',startPose,pass.start,first,wrapFlags(0));
+      if(!endpointsOnly)point(0,'weld',startPose,pass.weld,first,wrapFlags(0));
       if (hasStartTransition&&!endpointsOnly)transition(0,startDistance,startPose,startStandard,true);
       for (const at of baseStations) {
         if(inCornerWindow(at)||stations.some(station=>Math.abs(station-at)<EPS))continue;
         const index = stations.findIndex(station=>station>at) - 1;
         if(segments[index].strategyRole==='wrap')continue;
-        if([...terminalWrapTransitions.values()].some(({from,to})=>at>=from-EPS&&at<=to+EPS))continue;
         point(at,'weld',standard(segments[index]),pass.weld);
       }
       for (const [index, at] of stations.slice(1,-1).entries()) {
         const before=segments[index],after=segments[index+1],corner=corners.get(index);
+        if(continuousU.has(index+1)){
+          const begin=Math.max(stations[index],at-beforeCorner('outer'));
+          if(begin<at)point(begin,'wrap',standard(before),cornerValues(pass,'outer'));
+          emitU(index+1);
+          continue;
+        }
+        if(continuousU.has(index)){
+          const depart=Math.min(stations[index+2],at+afterCorner('outer'));
+          if(depart>at)point(depart,'wrap',standard(after),cornerValues(pass,'outer'));
+          continue;
+        }
         const atCorner = side => {
           const incoming=sample(at,index), outgoing=sample(at,index+1);
           return cornerFrame(outgoing,incoming.tangent,outgoing.tangent,cornerOffset(side));
         };
-        const terminal=terminalWrapTransitions.get(index);
-        if(terminal){
-          const {edge,boundary,standardOrientation,orientation,mainIndex,wrapIndex}=terminal;
-          const count=Math.min(128,Math.max(1,Math.ceil(Math.abs(edge-boundary)/lineStep)));
-          for(let i=0;i<count;i++){
-            const fraction=i/count,station=edge+(boundary-edge)*fraction;
-            const frame=sample(station,mainIndex);
-            const attitude=standardOrientation.clone().slerp(orientation,fraction);
-            point(station,'weld',weldTorchAngles(frame,attitude),pass.weld,frame,true);
-          }
+        const wrapIndex=wrapFlags(index)?.flatLWrap?index:wrapFlags(index+1)?.flatLWrap?index+1:null;
+        if(wrapIndex!==null){
+          const mainIndex=wrapIndex===index?index+1:index;
+          const boundary=at;
+          point(boundary,'weld',standard(segments[mainIndex]),pass.weld,sample(boundary,mainIndex));
           emitWrap(wrapIndex,boundary,atCorner('outer'));
           emitWrap(wrapIndex,(stations[wrapIndex]+stations[wrapIndex+1])/2);
           continue;
@@ -432,7 +439,7 @@ export function generateStrategyPlan(weld, process, rawSettings) {
         point(total-endDistance,'weld',endStandard,pass.weld);
         transition(total-endDistance,total,endStandard,endPose,false);
       }
-      point(total,'end',endPose,pass.end,last,wrapOrientations.has(lastIndex));
+      point(total,'end',endPose,pass.end,last,wrapFlags(lastIndex));
       if(segments[lastIndex].strategyWrapKind==='vertical')points.at(-1).name='立焊上包角 · 收弧';
       points.sort((a,b)=>a.distance-b.distance);
       for (const [index, choice] of endpointActions.entries()) {
@@ -443,10 +450,7 @@ export function generateStrategyPlan(weld, process, rawSettings) {
         if(!positive(distance))continue;
         const offsetFrame = {...frame,position:add(frame.position,facts.offsetDirection,distance)};
         const standardPose=index?endStandard:startStandard;
-        const offsetTravel=new Vector3(...facts.offsetDirection).normalize();
-        const pose=choice==='vertical'?lWrapPose(segments.at(-1),standardPose):weldTorchAngles(frame,
-          flatLWrapOrientation(frame,standardPose,settings.wrapParameters.flatLPose,
-            index?frame.tangent:offsetTravel.clone().negate().toArray(),index?offsetTravel.toArray():frame.tangent));
+        const pose=choice==='vertical'?verticalWrapPose(standardPose):flatWrapPose(standardPose,index===0);
         const wrapPoint = motionPoint({...offsetFrame,pathOffset:add([0,0,0],facts.offsetDirection,distance)},pass,index?total:0,'wrap',pose,cornerValues(pass,'outer'));
         if(choice==='L')wrapPoint.flatLWrap=true;
         if(settings.topologyVersion===1)wrapPoint.name=choice==='vertical'?'立焊上包角':'L形包角';
@@ -470,11 +474,11 @@ export function generateStrategyPlan(weld, process, rawSettings) {
       return add(add(add(position,frame.tangent,offset.x),frame.normal,offset.y),binormal,offset.z);
     };
     const startFrame=sample(points[0]?.distance??0),endFrame=sample(points.at(-1)?.distance??total);
-    passes.push({layerIndex,passIndex,points,...(flatWraps.length?{flatWraps}:{}),approach:safePoint(start,startFrame,action.safeApproachOffset),
+    passes.push({layerIndex,passIndex,points,...(hasClosedU?{loopStartStation:startShift}:{}),approach:safePoint(start,startFrame,action.safeApproachOffset),
       transitionIn:safePoint(start,startFrame,action.safeTransitionOffset),
       retractNear:safePoint(end,endFrame,action.endSafeApproachOffset),
       retract:safePoint(end,endFrame,action.endSafeTransitionOffset)});
   }
   return {passes,endpointActions,poseRevision:WELD_POSE_REVISION,verticalUpOnly:true,externalAxis:total>action.externalAxisLength,collisionStatus:'未验证',
-    ...(laserTrackingIssue?{laserTrackingIssue}:{})};
+    laserTrackingSignature:laserTrackingSignature(weld,rawSettings),...(laserTrackingIssue?{laserTrackingIssue}:{})};
 }

@@ -3,6 +3,12 @@
 .planning-action-group>.btn:first-child{border-start-end-radius:0;border-end-end-radius:0}
 .planning-action-group>.btn:last-child{border-start-start-radius:0;border-end-start-radius:0}
 .planning-action-group>.btn:focus-visible{position:relative;z-index:1}
+.planning-task-export>details{position:relative;margin-left:-1px}
+.workspace-page-header:has(.planning-task-export details[open]){position:relative;z-index:12;overflow:visible}
+.planning-task-export>details>summary{display:flex;align-items:center;justify-content:center;min-width:27px;padding-inline:4px;border-radius:0 2px 2px 0;list-style:none;cursor:pointer}
+.planning-task-export .display-pop{top:calc(100% + 4px);right:0;width:max-content;padding:4px}
+.planning-task-export .display-pop button{width:100%;padding:6px 12px;border:0;background:#fff}
+.planning-task-export .display-pop button:hover{background:#fff3e3}
 .planning-settings-state{flex:none;margin:0;padding:9px 24px;background:#fffaf0;border-bottom:1px solid #f4ead7;color:#664a20;font-size:12px;line-height:1.6}
 .overlay:has(.planning-settings-form){padding:40px 20px 16px}
 .planning-settings{overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scroll-padding-block:12px}
@@ -265,3 +271,85 @@
 
 
 .step-import-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+
+/* Planning structure tree */
+.planning-workspace .tree-root {
+ flex:none;
+ min-height:35px;
+ gap:8px;
+ padding:7px 12px 2px;
+}
+.planning-workspace .tree-root strong,
+.planning-workspace .parts-list span {
+ overflow:hidden;
+ text-overflow:ellipsis;
+ white-space:nowrap;
+}
+.planning-workspace .tree-search {
+ flex:none;
+ margin:6px 10px 8px;
+ min-height:32px;
+ border-radius:4px;
+}
+.planning-workspace .tree-search:focus-within {border-color:var(--orange)}
+.planning-workspace .tree-search input {flex:1;outline:none}
+.planning-workspace .tree-search .icon {padding:3px}
+.planning-workspace .tree-section {
+ flex:none;
+ gap:8px;
+ min-height:36px;
+ padding:4px 10px;
+ background:#fafafa;
+ border-block:1px solid var(--line);
+}
+.planning-workspace .tree-section small {margin:0;color:var(--secondary);font-variant-numeric:tabular-nums}
+.tree-group-toggle {
+ display:flex;
+ align-items:center;
+ gap:6px;
+ min-width:0;
+ padding:4px 0;
+ border:0;
+ background:transparent;
+}
+.tree-group-toggle[aria-expanded="false"] svg {transform:rotate(-90deg)}
+.tree-batch-toggle {margin-left:auto;height:26px;padding:0 7px;font-size:11px}
+.planning-workspace .weld-list {padding:4px 6px}
+.planning-workspace .weld-list[hidden] {display:none}
+.planning-workspace .weld-row {
+ display:flex;
+ gap:5px;
+ min-height:42px;
+ margin:0 0 1px;
+ padding:2px 5px;
+ border-radius:4px;
+}
+.planning-workspace .weld-row:not(.selected):hover {background:#f7f7f7}
+.planning-workspace .weld-row .weld-row-main {min-height:36px;gap:5px}
+.weld-row-label strong {display:block;font-size:12px;font-weight:600}
+.planning-workspace .weld-row .status-dot {margin-left:0;flex:none}
+.planning-workspace .weld-row .weld-point-action,
+.planning-workspace .weld-row-actions summary {min-width:20px;width:20px;flex:0 0 20px}
+.planning-workspace .weld-row .weld-point-action[aria-expanded="false"] svg {transform:rotate(-90deg)}
+.planning-workspace .structure>.weld-multi-tools {flex:none;padding:5px 10px}
+.planning-workspace .parts-list {flex:1;padding:0 10px}
+.planning-workspace .parts-list>div {gap:6px;min-height:36px;padding:7px 2px}
+.planning-workspace .parts-list small {flex:none}
+
+.planning-robot-loads {display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.planning-robot-loads button {
+ flex:1 1 135px;
+ min-width:0;
+ display:grid;
+ gap:4px;
+ text-align:left;
+ padding:8px 10px;
+ border-radius:4px;
+}
+.planning-robot-loads button[aria-pressed="true"] {border-color:var(--orange);background:#fff9f0}
+.planning-robot-loads small,.planning-allocation-search span {color:var(--secondary);font-size:12px}
+.planning-allocation-search {display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0}
+.planning-allocation-table {max-height:320px;overflow:auto;border:1px solid var(--line)}
+.planning-allocation-table :is(th,td) {padding:6px 8px;font-size:12px;white-space:nowrap}
+.planning-allocation-table th {position:sticky;top:0}
+.tree-weld-arm {margin-left:6px;font-size:10px;font-weight:500;color:var(--secondary)}

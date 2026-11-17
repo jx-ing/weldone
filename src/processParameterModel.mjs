@@ -1,10 +1,9 @@
 import {formatDecimal} from './numericPrecision.mjs';
 import {PROCESS_TYPES} from './processLibraryView.mjs';
 import {newCornerPointGroups,newWrapPoints,processFeaturePointChanges} from './processFeaturePoints.mjs';
-import {grooveType,grooveValue,validGroove,grooveFieldsFor,normalizeWeldGroove} from './grooveModel.mjs';
+import {GROOVE_TYPES as GROOVES,grooveType,grooveValue,validGroove,grooveFieldsFor,normalizeWeldGroove} from './grooveModel.mjs';
 import {segmentUsesArcTracking} from './weldTracking.mjs';
-import {migrateProcessWeldForms,migrateProcessPasses,normalizeCornerOffsets,normalizeWeldPosition,processWeldForms,roundWeldLeg,weldForm,weldPositionCode} from './planningRequirements.mjs';
-import {GROOVES,POSITIONS} from './templateModel.mjs';
+import {migrateProcessWeldForms,migrateProcessPasses,normalizeCornerOffsets,normalizeWeldPosition,POSITIONS,processWeldForms,roundWeldLeg,weldForm,weldPositionCode} from './planningRequirements.mjs';
 export const MACHINE_MODES={synergic:'一元',separate:'分别',job:'JOB'};
 export const WELDING_MODES={dc:'直流',pulse:'脉冲'};
 export const WEAVE_PATTERNS={sine:'正弦摆动',triangle:'三角摆动',l:'L摆动'};

@@ -124,15 +124,14 @@ export function geometryOptionsForPlanning(defaults,settings={}){
   options.mergeParams.最大合并距离=0;
   options.offsetThreshold=clearance>0?clearance:null;
   options.offset=Math.max(options.offset,options.offsetThreshold??0);
-  options.extendThreshold=Math.max(options.extendThreshold??0,clearance);
   options.weldPreprocessing=true;
  }
  if(settings.wrapParameters){options.wrapParameters=structuredClone(settings.wrapParameters);options.wrapDistanceRatio=wrapDistanceRatio(settings.wrapParameters);}
  if(settings.planningRevision===3)options.planningRevision=3;
- if(settings.splitParameters||settings.planningRevision===3){
+ if(settings.splitParameters||settings.planningRevision===3||settings.weldPreprocessing){
   const {enabled,length,edgeThreshold,gapThreshold,toolHeadCollisionEnabled,...thresholds}=structuredClone(settings.splitParameters??{});
   options.splitParameters={...thresholds,...(!settings.weldPreprocessing&&gapThreshold!==undefined?{gapThreshold}:{}),
-   ...(settings.planningRevision===3||edgeThreshold!==undefined?{edgeThreshold:null}:{})};
+   ...(settings.planningRevision===3||settings.weldPreprocessing||edgeThreshold!==undefined?{edgeThreshold:null}:{})};
  }
  if(!settings.weldPreprocessing&&Number.isFinite(settings.splitParameters?.gapThreshold)){options.offsetThreshold=settings.splitParameters.gapThreshold;options.offset=Math.max(options.offset,settings.splitParameters.gapThreshold);}
  if(settings.interferenceEndParameters)options.interferenceEndParameters=structuredClone(settings.interferenceEndParameters);

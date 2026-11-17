@@ -7,9 +7,9 @@ let scene,measure;
 self.onmessage=async({data})=>{
  try{
   if(data.type==='prepare'){
-   const {model,stepModel,coverOpen,laserMountSide}=data;
+   const {model,stepModel,coverOpen,laserMountSide,structuredLightInstalled}=data;
    [scene,measure]=await Promise.all([
-    loadWeldCollisionScene({model,stepModel},{coverOpen,laserMountSide}),
+    loadWeldCollisionScene({model,stepModel},{coverOpen,laserMountSide,structuredLightInstalled}),
     stepModel?loadStepNeighborhood(stepModel.sourceSha256).then(value=>value?createTemplateNeighborhoodMeasurer(value):undefined).catch(()=>undefined):
      loadDemoTemplateNeighborhood()
    ]);

@@ -23,14 +23,15 @@ export function recipeConflicts(entries, recipe) {
   });
 }
 
-export function normalizeActiveDevices(profiles) {
-  const active = profiles.findLast(profile=>profile.enabled) ?? profiles[0];
+export function normalizeActiveDevices(profiles,canEnable=()=>true) {
+  const eligible = profiles.filter(canEnable);
+  const active = eligible.findLast(profile=>profile.enabled) ?? eligible[0];
   return profiles.map(profile=>({...profile,enabled:profile.id===active?.id}));
 }
 
-export function deviceLibraryUpdates(workspace, values) {
+export function deviceLibraryUpdates(workspace, values, canEnable) {
   if (!values.processDeviceProfiles) return values;
-  const profiles = normalizeActiveDevices(values.processDeviceProfiles);
+  const profiles = normalizeActiveDevices(values.processDeviceProfiles,canEnable);
   if (values.deletedProcessDevices) return {...values,processDeviceProfiles:profiles};
   const ids = new Set(profiles.map(profile=>profile.id));
   const removed = (workspace.processDeviceProfiles??[]).filter(profile=>!ids.has(profile.id));

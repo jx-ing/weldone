@@ -2,6 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {patchWeldGroup,patchWeldSegment,patchWeldGroove,segmentName,weldPrecisionMethod,weldPrecisionOptions} from '../src/weldAttributeModel.mjs';
 test('精测量方式只显示匹配的相机选项，保留可用的已有选择',()=>{
+ const dual={laserPrecision:true,structuredLightPrecision:true};
+ assert.equal(weldPrecisionMethod({},dual),'fixedPhoto');
+ assert.equal(weldPrecisionMethod({precisionMethod:'laserSweep'},dual),'laserSweep');
+ assert.equal(weldPrecisionMethod({precisionMethod:'continuous'},dual),'continuous');
  assert.equal(weldPrecisionMethod({}, {laserPrecision:true,structuredLightPrecision:false}),'laserSweep');
  assert.equal(weldPrecisionMethod({}, {laserPrecision:false,structuredLightPrecision:true}),'fixedPhoto');
  assert.equal(weldPrecisionMethod({}, {laserPrecision:false,structuredLightPrecision:false}),'');

@@ -1,5 +1,6 @@
 import {autoWeldReferenceNormal} from './weldDirectionGeometry.mjs';
 import {cornerSide} from './templateCornerAngles.mjs';
+import {wrapPathStation} from './manualWeldModel.mjs';
 const number = v => Number.isFinite(v) ? v : 0;
 const round = v => Math.round(v * 100) / 100;
 const add=(a,b)=>({x:a.x+b.x,y:a.y+b.y}),mul=(a,k)=>({x:a.x*k,y:a.y*k});
@@ -114,7 +115,7 @@ export function previewCorner(path,index,radius,standard) {
   return {center,start,end,label:{x:center.x+Math.cos(mid)*radius*1.65,y:center.y+Math.sin(mid)*radius*1.65},d,angle:angle*180/Math.PI,actualAngle:actual,guide:Number.isFinite(standard)&&Math.abs(standard-actual)>.05?add(center,mul(sub(end,center),1.45)):null};
 }
 export function samplePath(path,distance) {
-  if(path.closed&&path.totalLength>0&&(distance<0||distance>path.totalLength))distance=((distance%path.totalLength)+path.totalLength)%path.totalLength;
+  if(path.closed&&(distance<0||distance>path.totalLength))distance=wrapPathStation(distance,path.totalLength);
   const frame=path.frames.find((f,i)=>distance<f.distance+f.length-1e-8||i===path.frames.length-1)||path.frames[0];
   return {...sampleFrame(frame,distance-frame.distance),frame,index:path.frames.indexOf(frame),distance};
 }
@@ -124,7 +125,8 @@ export function previewPoint(point,path,plane='xy',layoutOnly=false,points=[],vi
   const resolvedReference=reference?previewPoint(reference,path,plane,layoutOnly,points,visited):null;
   const basis=reference||point,frame=path.frames[basis.segment-1]||path.frames[0],key=plane==='xz'?'height':'normal',offsetKey=plane==='xz'?'z':'y';
   const referenceAlong=reference&&!layoutOnly?number(reference.offset?.x):0;
-  const at=resolvedReference?resolvedReference.distance:frame.distance+number(basis.percent)*frame.length/100+referenceAlong;
+  const at=resolvedReference?resolvedReference.distance:Number.isFinite(basis.pathStation)?basis.pathStation:
+    frame.distance+number(basis.percent)*frame.length/100+referenceAlong;
   const along=number(point.location?.along)+(layoutOnly?0:number(point.offset?.x));
   const distance=at+along,baseSample=samplePath(path,at),shifted=samplePath(path,distance);
   const inherited=resolvedReference?((resolvedReference.position.x-baseSample.position.x)*normal(baseSample.tangent).x+(resolvedReference.position.y-baseSample.position.y)*normal(baseSample.tangent).y):0;

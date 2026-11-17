@@ -37,3 +37,18 @@ export function readExecutionRecords(storage) {
         ? { ...record, status: 'stopped', note: '上次页面关闭，记录保留已完成的执行区间。' } : record)
   } catch { return [] }
 }
+
+export function saveSimulationRecord(run,frame,status,storage=window.localStorage){
+  const completed=status==='completed';
+  const record={id:run.id,modelName:run.modelName,modelId:run.modelId,startedAt:run.startedAt,status,
+    kind:'preview',arcEnabled:false,simulation:true,tasks:[{
+      ...emptyExecutionMetrics(),id:run.passId,label:run.weldLabel,position:run.position,passIndex:run.passIndex,
+      completed,weldIds:[run.weldId],plannedSeconds:run.duration,
+      travelMm:frame?.travelMm??0,simulationSeconds:frame?.time??0
+    }]};
+  const raw=storage.getItem(EXECUTION_RECORDS_KEY);
+  const saved=raw?JSON.parse(raw):{version:1,records:[]};
+  if(saved?.version!==1||!Array.isArray(saved.records))throw Error('现有执行记录格式不受支持');
+  const records=saved.records.filter(previous=>previous?.id!==record.id);
+  storage.setItem(EXECUTION_RECORDS_KEY,JSON.stringify({version:1,records:[...records,record].slice(-300)}));
+}

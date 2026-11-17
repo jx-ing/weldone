@@ -5,6 +5,7 @@ import {distance,pathLength} from './manualWeldModel.mjs';
 import {mergeCornerAngles} from './mergeIntersectionGeometry.mjs';
 import {MAX_PLANNING_WELDS,weldPositionCode} from './planningRequirements.mjs';
 import {sliceWeldSegments} from './planningPathSettings.mjs';
+import {partitionWelds} from './multiRobotAllocation.mjs';
 
 const subtract = (a,b) => a.map((value,index)=>value-b[index]);
 const dot = (a,b) => a.reduce((sum,value,index)=>sum+value*b[index],0);
@@ -80,7 +81,7 @@ export function prepareStrategyGeometry(welds,rawSettings){
    !weld.segments.every(segment=>segment.pathPoints?.length>=2))continue;
   for(const side of ['start','end']){
    const facts=weld.endpointFacts?.[side],end=boundary(weld,side);
-   if(endpointStrategy(facts,settings,end.segment.position,side,weld.machineCount===2,weld.length,true)!=='U')continue;
+   if(endpointStrategy(facts,settings,end.segment.position,side,weld.machineCount===2,pathLength(end.segment.pathPoints),true)!=='U')continue;
    if(!end.tangent||!Number.isFinite(facts?.plateThickness)||facts.plateThickness<=0||!facts.offsetDirection||!end.segment.subPartId||!end.segment.mainPartId)continue;
    const key=[end.segment.mainPartId,end.segment.subPartId,weld.leg,weldPositionCode(end.segment.position)].join('|');
    if(!buckets.has(key))buckets.set(key,[]);
@@ -119,9 +120,13 @@ export function prepareStrategyGeometry(welds,rawSettings){
 }
 
 export function assignWeldingOrder(welds, settings){
+ const robots=settings.planningRobots??[];
+ const multi=robots.length>1;
+ const tasks=multi?partitionWelds(welds,robots,settings.allocationParameters):[];
+ const allocation=new Map(tasks.map(task=>[task.weldId,task]));
  const verticalByPart=new Map();
  const parts=weld=>new Set(weld.segments?.flatMap(segment=>[segment.mainPartId,segment.subPartId]).filter(Boolean));
- const available=welds.filter(weld=>weld.enabled&&weld.planned&&(!settings.requireCollisionVerification||weld.collisionVerified));
+ const available=welds.filter(weld=>weld.enabled&&weld.planned&&(!multi||allocation.get(weld.id)?.robotId)&&(!settings.requireCollisionVerification||weld.collisionVerified));
  for(const weld of available.filter(isVertical))for(const part of parts(weld)){
   if(!verticalByPart.has(part))verticalByPart.set(part,[]);
   verticalByPart.get(part).push(weld);
@@ -131,7 +136,7 @@ export function assignWeldingOrder(welds, settings){
   const point=weld.segments?.[0]?.pathPoints?.[0];
   return Array.isArray(direction)&&direction.length===3&&direction.every(Number.isFinite)&&point?dot(point,direction):0;
  };
- available.sort((a,b)=>projected(b)-projected(a)||Number(isVertical(b))-Number(isVertical(a)));
+ available.sort((a,b)=>(multi?allocation.get(a.id).order-allocation.get(b.id).order:0)||projected(b)-projected(a)||Number(isVertical(b))-Number(isVertical(a)));
  const order=new Map();
  for(const weld of available){
   if(!isVertical(weld))for(const part of parts(weld))for(const dependency of verticalByPart.get(part)??[]){
@@ -139,5 +144,10 @@ export function assignWeldingOrder(welds, settings){
   }
   if(!order.has(weld.id))order.set(weld.id,order.size+1);
  }
- return welds.map(weld=>({...weld,weldingOrder:order.get(weld.id)??null}));
+ return welds.map(weld=>{
+  const {assignedRobot,robotAllocation,...base}=weld;
+  const task=allocation.get(weld.id);
+  return {...base,weldingOrder:order.get(weld.id)??null,...(task&&{assignedRobot:task.robotId,
+   robotAllocation:{block:task.block,seconds:task.seconds,manual:task.manual,candidates:task.candidates}})};
+ });
 }

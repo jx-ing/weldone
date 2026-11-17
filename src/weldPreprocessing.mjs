@@ -99,7 +99,27 @@ function openingCanContinue(segment,facts,rules){
   !(finite(rules.maxHolePlateThickness)&&(!finite(thickness)||thickness>rules.maxHolePlateThickness));
 }
 
+function isShortFlatReturn(segment){
+ const thickness=plateThickness(segment,segment.endpointFacts?.start)??plateThickness(segment,segment.endpointFacts?.end);
+ return !isVertical(segment)&&!segment.connectionGap&&segment.geometry==='直线'&&
+  thickness>0&&pathLength(segment.pathPoints)<=thickness+INTERSECTION_TOLERANCE;
+}
+
+function terminalOpeningReturn(before,after,end,start,connection,rules){
+ const left=isShortFlatReturn(before),right=isShortFlatReturn(after);
+ if(left===right||connection.gap>INTERSECTION_TOLERANCE||!pairKey(before)||pairKey(before)!==pairKey(after))return null;
+ const facts=left?start:end;
+ if(!hole(facts)||!facts.openingBoundaryPoints?.length)return null;
+ const [angle]=mergeCornerAngles([before,after]);
+ if(!(angle>5&&angle<175))return null;
+ const thickness=plateThickness(left?after:before,facts);
+ return !facts.breakReason&&finite(facts.holeSize)&&facts.holeSize>Math.max(0,rules.minCornerHoleSize??0)&&
+  !(finite(rules.maxHolePlateThickness)&&(!finite(thickness)||thickness>rules.maxHolePlateThickness));
+}
+
 function crossesDisallowedOpening(before,after,start,end,connection,rules){
+ const terminalReturn=terminalOpeningReturn(before,after,end,start,connection,rules);
+ if(terminalReturn!==null)return !terminalReturn;
  const openings=[[before,end],[after,start]].filter(([,facts])=>hole(facts));
  if(!openings.length)return false;
  const sameOpening=end?.openingBoundaryIds?.some(id=>start?.openingBoundaryIds?.includes(id));
@@ -302,6 +322,18 @@ export function classifyWeldWrap(weld,maximum,measureCorner,settings,rules={}){
  const ends=weld.segments.map(()=>({startWrapKind:null,endWrapKind:null}));
  const openingEnds=weld.segments.map(()=>new Set());
  const sourceSide=side=>weldTravelReversed(weld)?(side==='start'?'end':'start'):side;
+ const first=directed.segments[0],last=directed.segments.at(-1);
+ const shortReturn=segment=>{
+  const thickness=plateThickness(segment,segment.endpointFacts?.start)??plateThickness(segment,segment.endpointFacts?.end);
+  return !isVertical(segment)&&!segment.connectionGap&&segment.geometry==='直线'&&
+   finite(thickness)&&pathLength(segment.pathPoints)<=thickness+EPS&&(!finite(maximum)||thickness<maximum);
+ };
+ // A merged open chain may already meet around the whole plate. Classify
+ // the real corner across its coincident ends before shortening either leg.
+ const closingReturn=weld.closure!=='closed'&&ends.length>=3&&shortReturn(first)!==shortReturn(last)&&
+   ![endFacts(weld,'start'),endFacts(weld,'end')].some(facts=>facts?.breakReason||hole(facts))&&
+   distance(endPoint(last,'end'),endPoint(first,'start'))<=INTERSECTION_TOLERANCE?
+   measureDirectedConnection(directed,last,first,measureCorner):null;
  const continuousOpenings=directed.segments.map((before,index)=>{
   const after=directed.segments[index+1]??(weld.closure==='closed'&&ends.length>1?directed.segments[0]:null);
   if(!after||before.connectionGap||after.connectionGap||distance(endPoint(before,'end'),endPoint(after,'start'))>INTERSECTION_TOLERANCE)return false;
@@ -312,11 +344,10 @@ export function classifyWeldWrap(weld,maximum,measureCorner,settings,rules={}){
   const next=directed.segments[(index+1)%directed.segments.length];
   if(isVertical(next))return false;
   return directed.cornerDirections[index]?.angleSide==='outer'||
-   weld.closure==='closed'&&directed.closingCorner?.angleSide==='outer'&&(index===-1||index===directed.segments.length-1);
+   (directed.closingCorner??closingReturn)?.angleSide==='outer'&&(index===-1||index===directed.segments.length-1);
  };
  for(const [index,segment] of directed.segments.entries()){
-  const thickness=plateThickness(segment,segment.endpointFacts?.start)??plateThickness(segment,segment.endpointFacts?.end);
-  if(isVertical(segment)||segment.connectionGap||segment.geometry!=='直线'||!finite(thickness)||pathLength(segment.pathPoints)>thickness+EPS||finite(maximum)&&thickness>=maximum)continue;
+  if(!shortReturn(segment))continue;
   const previousIndex=(index+ends.length-1)%ends.length;
   const nextIndex=(index+1)%ends.length;
   const original=directed.sourceSegmentIndices[index];
@@ -339,7 +370,10 @@ export function classifyWeldWrap(weld,maximum,measureCorner,settings,rules={}){
   const opposing=incoming&&outgoing&&incoming.reduce((dot,value,axis)=>dot+value*outgoing[axis],0)<-.98;
   const twoReturns=!upper&&before&&after;
   const opening=continuousOpenings[previousIndex]||continuousOpenings[index];
-  const u=twoReturns&&samePair&&opposing&&!opening;
+  const isOpeningLeg=(left,right)=>terminalOpeningReturn(left,right,left.endpointFacts?.end,right.endpointFacts?.start,
+   {gap:distance(endPoint(left,'end'),endPoint(right,'start'))},rules)===true;
+  const openingReturn=before&&isOpeningLeg(previous,segment)||after&&isOpeningLeg(segment,next);
+  const u=twoReturns&&samePair&&opposing&&!opening&&!openingReturn;
   const kind=opening?'L':upper?'vertical':u?'U':'L';
   if(kind==='L'&&wrapDistanceRatio(settings)===0||kind==='vertical'&&!hasVerticalWrapLength(settings))continue;
   if(twoReturns&&!u&&!opening)separateReturns.add(original);
@@ -362,7 +396,9 @@ export function classifyWeldWrap(weld,maximum,measureCorner,settings,rules={}){
  }
  const kinds=[...markers.values()];
  if(continuousOpenings.some(Boolean))kinds.push('L');
- return {...weld,...(kinds.length?{topology:kinds.includes('U')?'U':kinds.includes('vertical')?'vertical':'L'}:{}),segments:weld.segments.map((segment,index)=>({
+ const closesWithU=closingReturn?.angleSide==='outer'&&[0,ends.length-1].some(index=>
+  markers.get(index)==='U'&&ends[index].startWrapKind==='U'&&ends[index].endWrapKind==='U');
+ return {...weld,...(closesWithU?{closure:'closed'}:{}),...(kinds.length?{topology:kinds.includes('U')?'U':kinds.includes('vertical')?'vertical':'L'}:{}),segments:weld.segments.map((segment,index)=>({
    ...segment,...ends[index],separateWrapReturns:separateReturns.has(index)||undefined,
    ...openingEndpointFacts(segment,openingEnds[index]),
    ...(markers.has(index)?{strategyRole:'wrap',strategyWrapKind:markers.get(index)}:{strategyRole:segment.strategyRole==='wrap'?undefined:segment.strategyRole,strategyWrapKind:undefined})
@@ -385,7 +421,8 @@ function openingEndpointFacts(segment,ends){
 const touchesContinuousOpening=segment=>segment.endpointFacts?.start?.continuousOpeningWrap||segment.endpointFacts?.end?.continuousOpeningWrap;
 
 function splitIndependentReturns(weld,settings){
- const at=weld.segments.findIndex(segment=>segment.separateWrapReturns===true);
+ const at=weld.segments.findIndex((segment,index)=>segment.separateWrapReturns===true&&
+  (weld.closure==='closed'||index>0&&index<weld.segments.length-1));
  if(at<0)return [weld];
  const segments=weld.segments.map((segment,index)=>index===at?{...segment,separateWrapReturns:undefined}:segment);
  const candidate={...weld,segments};
@@ -433,8 +470,16 @@ function splitInternalWrapDistances(weld,settings){
 function sizeWrapSegments(weld,settings){
  const {uniformJoint,...weldData}=weld;
  if(!settings||weld.closure==='closed')return weldData;
- const last=weld.segments.length-1;
- const segments=weld.segments.map((segment,index)=>{
+ const terminalReturn=[0,weld.segments.length-1].find(index=>weld.segments[index]?.separateWrapReturns);
+ const source=weld.segments.slice();
+ if(terminalReturn!==undefined){
+  const [connector]=source.splice(terminalReturn,1);
+  const {separateWrapReturns,...edge}=connector;
+  source.unshift({...edge,startWrapKind:null});
+  source.push({...edge,endWrapKind:null});
+ }
+ const last=source.length-1;
+ const segments=source.map((segment,index)=>{
   if(!['L','vertical'].includes(segment.strategyWrapKind)||touchesContinuousOpening(segment))return segment;
   const distance=wrapSegmentDistance(segment,settings);
   if(index===last&&segment.startWrapKind)return sliceWrapSegment(segment,'start',distance);

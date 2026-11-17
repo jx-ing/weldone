@@ -17,7 +17,7 @@ const weld=(segments,closed=false)=>({id:'W001',enabled:true,position,leg:6,clos
  length:segments.reduce((sum,item)=>sum+item.length,0)});
 const process={id:'test',offset:{y:0,z:0},start:{},weld:{speed:300},end:{}};
 const settings={topologyVersion:1,actionParameters:{lineStep:5,arcStep:5,flatPose:flatAngles},
- wrapParameters:{flatLPose:{work:65},uPose:{work:70}},weldPreprocessing:{}};
+ wrapParameters:{flatLPoseOffset:{work:25},uPose:{work:70}},weldPreprocessing:{}};
 const layoutFor=target=>weldLayerLayout(target,{ready:false},[],[],settings);
 
 test('三角度零位、正向与反向行走使用同一坐标约定',()=>{
@@ -89,6 +89,39 @@ test('整圆闭合时机头首尾重合，圆弧切向随几何旋转',()=>{
  assert.ok(Math.abs(new Quaternion(...a.head.quaternion).dot(new Quaternion(...b.head.quaternion)))>1-1e-9);
 });
 
+test('闭合 U 形从正常段内起焊，正反向都完整走过两处短包角',()=>{
+ const a=[0,0,0],b=[12,0,0],c=[12,100,0],d=[0,100,0];
+ const short={strategyRole:'wrap',strategyWrapKind:'U',startWrapKind:'U',endWrapKind:'U'};
+ const segments=[segment([a,b],short),segment([b,c]),segment([c,d],short),segment([d,a])];
+ const config={...settings,actionParameters:{...settings.actionParameters,staggerDistance:12}};
+ for(const direction of ['正向','反向']){
+  const target={...weld(segments,true),direction};
+  const layout=layoutFor(target);
+  const plan=generateStrategyPlan(target,{...process,processLayers:[{passes:[process,process]}]},config);
+  const [base,staggered]=plan.passes;
+  const forward=direction==='正向',start=forward?62:50,startPoint=forward?[12,50,0]:[0,50,0];
+  assert.equal(base.points[0].distance,start);
+  assert.deepEqual(base.points[0].position,startPoint);
+  assert.equal(staggered.loopStartStation,forward?62:12);
+  const [pass]=weldLayerPassPaths(target,layout,plan);
+  assert.equal(pass.startStation,start);
+  assert.equal(pass.endStation,start+224);
+  close(pass.toolPoses[0].position,startPoint);
+  close(pass.toolPoses.at(-1).position,startPoint);
+  close(pass.posesAtGeometryStation(forward?6:106)[0].position,forward?[6,0,0]:[6,100,0]);
+  const [tree]=weldLayerTreeGroups(target,layout,process,plan);
+  close(tree.points.find(p=>p.kind==='start').position,startPoint);
+  const shifted=[{...layout[0],passes:[{...layout[0].passes[0],offset:{...layout[0].passes[0].offset,start:-50}}]}];
+  const [offsetPass]=weldLayerPassPaths(target,shifted,plan);
+  assert.equal(offsetPass.startStation,start);
+  assert.equal(offsetPass.endStation,start+224);
+ }
+ const withL=weld([segments[0],{...segments[1],strategyRole:'wrap',strategyWrapKind:'L',endWrapKind:'L'},...segments.slice(2)],true);
+ const lPlan=generateStrategyPlan(withL,process,config);
+ const [lPass]=weldLayerPassPaths(withL,layoutFor(withL),lPlan);
+ close(lPass.posesAt(lPass.startStation)[0].position,[12,50,0]);
+});
+
 test('机头预览列出当前道的实际轨迹采样里程，不把模型顶点当成采样点',()=>{
  const target=weld([segment([[0,0,0],[7,0,0],[30,0,0]])]);
  const layout=layoutFor(target);
@@ -103,64 +136,62 @@ test('机头预览列出当前道的实际轨迹采样里程，不把模型顶�
  assert.deepEqual(weldLayerPassPaths(target,layout,step5)[0].sampleStations,[0,5,10,15,20,25,30]);
 });
 
-test('同一 L 形参考姿态按实际方向处理左右转及反向焊接，机头偏差不超过 35°',()=>{
+test('L 形包角首尾镜像前进角与旋转角偏移，正反向都保留工作角偏移和主段标准姿态',()=>{
  const standard={advance:0,work:45,rotation:180};
- const config={...settings,actionParameters:{...settings.actionParameters,flatPose:standard},
-  wrapParameters:{flatLPose:{advance:45,work:85,rotation:90}}};
- const relative=new Map();
+ const config={...settings,actionParameters:{...settings.actionParameters,flatPose:standard}};
+ const toQuat=pose=>new Quaternion().fromArray(pose.tcp.quaternion);
+ const sameOrientation=(a,b)=>assert.ok(1-Math.abs(a.dot(b))<1e-9);
  for(const sign of [1,-1])for(const direction of ['正向','反向']){
   const main=segment([[0,0,0],[100,0,0]]);
-  const short=segment([[100,0,0],[100,sign*10,0]],{strategyRole:'wrap',strategyWrapKind:'L',startWrapKind:'L'});
+  const short=segment([[100,0,0],[100,sign*8,0]],{strategyRole:'wrap',strategyWrapKind:'L',startWrapKind:'L'});
   const target={...weld([main,short]),direction};
-  const plan=generateStrategyPlan(target,process,config);
-  const [preview]=weldLayerPassPaths(target,layoutFor(target),plan);
-  const toQuat=pose=>new Quaternion().fromArray(pose.tcp.quaternion);
-  const standardPose=toQuat(preview.posesAt(direction==='正向'?60:50)[0]);
-  const midpoint=direction==='正向'?105:5;
-  const planned=plan.passes[0].points.find(point=>point.distance===midpoint&&point.flatLWrap);
-  assert.ok(planned);
-  if(direction==='正向'){
-   const asymmetric=generateStrategyPlan(target,process,{...config,wrapParameters:{flatLPose:{advance:-43,work:45,rotation:108}}});
-   const midpointPose=asymmetric.passes[0].points.find(point=>point.distance===midpoint&&point.flatLWrap);
-   relative.set(sign,new Quaternion(...midpointPose.orientation).multiply(standardPose.clone().invert()));
+  const reversed=direction==='反向';
+  for(const [advance,work,rotation] of [[0,0,0],[0,0,80],[12,7,80]]){
+   const plan=generateStrategyPlan(target,process,{...config,wrapParameters:{flatLPoseOffset:{advance,work,rotation}}});
+   const [preview]=weldLayerPassPaths(target,layoutFor(target),plan);
+   const mainPose=preview.posesAt(reversed?20:80)[0];
+   const mainOrientation=toQuat(mainPose);
+   const sign=reversed?-1:1;
+   const mirroredPose={advance:sign*advance,work:45+work,rotation:180+sign*rotation};
+   const expected=toQuat(resolveWeldToolPose({...mainPose.frame,position:mainPose.position,pose:mirroredPose}));
+   const wrapStations=reversed?[0,2,4,7.9,8]:[100,100.1,103,105,108];
+   for(const station of wrapStations)sameOrientation(toQuat(preview.posesAt(station)[0]),expected);
+   for(const station of reversed?[8.01,9,12]:[95,99,99.99])
+    sameOrientation(toQuat(preview.posesAt(station)[0]),mainOrientation);
+   if(advance===0&&work===0)assert.ok(Math.abs(mainOrientation.angleTo(expected)*180/Math.PI-rotation)<1e-5);
   }
-  assert.ok(Math.abs(standardPose.angleTo(new Quaternion(...planned.orientation))*180/Math.PI-5)<1e-6);
-  const stations=direction==='正向'?[70,90,99.9,100,102.5,105,110]:[0,2.5,5,9.9,10,20,40];
-  for(const station of stations)assert.ok(standardPose.angleTo(toQuat(preview.posesAt(station)[0]))*180/Math.PI<=35.000001);
  }
- assert.ok(relative.get(1).angleTo(relative.get(-1))>1e-4);
- const target=weld([segment([[0,0,0],[100,0,0]]),segment([[100,0,0],[100,10,0]],{
-  strategyRole:'wrap',strategyWrapKind:'L',startWrapKind:'L'})]);
- const clipped=generateStrategyPlan(target,process,{...config,wrapParameters:{flatLPose:{advance:0,work:0,rotation:0}}});
- const at=clipped.passes[0].points;
- const standardPose=new Quaternion(...at[0].orientation);
- const wrapped=at.find(point=>point.distance===105);
- assert.ok(Math.abs(standardPose.angleTo(new Quaternion(...wrapped.orientation))*180/Math.PI-35)<1e-6);
 });
 
-test('两侧 L 形包角共用默认参考姿态并在相邻直段渐变 8 mm',()=>{
- const config={...settings,actionParameters:{...settings.actionParameters,lineStep:2,flatPose:{advance:0,work:45,rotation:180}},wrapParameters:{}};
- const short=segment([[100,0,0],[100,8,0]],{strategyRole:'wrap',strategyWrapKind:'L',
-  subFaceNormal:[Math.SQRT1_2,0,-Math.SQRT1_2]});
- const left=segment([[0,0,0],[100,0,0]],{subFaceNormal:[0,-1,0]});
- const right=segment([[100,8,0],[0,8,0]],{subFaceNormal:[0,1,0]});
- for(const intoShort of [true,false]){
-  const target=weld(intoShort?[left,{...short,startWrapKind:'L'}]:[{...short,endWrapKind:'L'},right]);
-  const plan=generateStrategyPlan(target,process,config);
-  const [wrap]=plan.passes[0].flatWraps;
-  const boundary=intoShort?100:8,edge=intoShort?92:16;
-  assert.deepEqual(wrap.transition,{from:Math.min(boundary,edge),to:Math.max(boundary,edge)});
-  const [pass]=weldLayerPassPaths(target,layoutFor(target),plan);
-  const sign=intoShort?1:-1;
-  const midpoint=pass.posesAt(intoShort?104:4)[0];
-  for(const [key,value] of Object.entries({advance:sign*-42.01,work:42.97,rotation:sign*114.18})){
-   assert.ok(Math.abs(midpoint.angles[key]-value)<1e-8, key+' '+midpoint.angles[key]);
-  }
-  const orientationAt=station=>new Quaternion().fromArray(pass.posesAt(station)[0].tcp.quaternion);
-  const main=orientationAt(edge),wrapped=orientationAt(boundary);
-  const variation=main.angleTo(wrapped)*180/Math.PI;
-  assert.ok(variation>34.9&&variation<35);
-  assert.ok(1-Math.abs(orientationAt((boundary+edge)/2).dot(main.slerp(wrapped,.5)))<1e-9);
+test('关闭直线采样时两个 L 形包角之间仍使用主段标准姿态',()=>{
+ const standard={advance:0,work:45,rotation:180};
+ const config={...settings,actionParameters:{...settings.actionParameters,lineStepEnabled:false,flatPose:standard},
+  wrapParameters:{flatLPoseOffset:{rotation:80}}};
+ const target=weld([
+  segment([[0,8,0],[0,0,0]],{strategyRole:'wrap',strategyWrapKind:'L',endWrapKind:'L'}),
+  segment([[0,0,0],[100,0,0]]),
+  segment([[100,0,0],[100,8,0]],{strategyRole:'wrap',strategyWrapKind:'L',startWrapKind:'L'})
+ ]);
+ const [preview]=weldLayerPassPaths(target,layoutFor(target),generateStrategyPlan(target,process,config));
+ const pose=preview.posesAt(58)[0];
+ const actual=new Quaternion().fromArray(pose.tcp.quaternion);
+ const expected=new Quaternion().fromArray(resolveWeldToolPose({...pose.frame,position:pose.position,pose:standard}).tcp.quaternion);
+ assert.ok(1-Math.abs(actual.dot(expected))<1e-9);
+});
+
+test('U 包角出口沿共享 TCP 姿态连续接入背侧正常焊接段',()=>{
+ const common={referenceNormal:[0,0,1]};
+ const target=weld([
+  segment([[0,0,0],[100,0,0]],{...common,subFaceNormal:[0,-1,0],endWrapKind:'U'}),
+  segment([[100,0,0],[100,12,0]],{...common,subFaceNormal:[1,0,0],strategyRole:'wrap',strategyWrapKind:'U',startWrapKind:'U',endWrapKind:'U'}),
+  segment([[100,12,0],[0,12,0]],{...common,subFaceNormal:[0,1,0],startWrapKind:'U'})
+ ]);
+ for(const direction of ['正向','反向']){
+  const directed={...target,direction};
+  const plan=generateStrategyPlan(directed,process,settings);
+  const [pass]=weldLayerPassPaths(directed,layoutFor(directed),plan);
+  const pose=at=>new Quaternion().fromArray(pass.posesAt(at)[0].tcp.quaternion);
+  for(const station of [100,112])assert.ok(pose(station-.01).angleTo(pose(station+.01))<.02);
  }
 });
 

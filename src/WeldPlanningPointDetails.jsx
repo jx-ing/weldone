@@ -98,10 +98,6 @@ function LayerOrPassEditor({group,layerOnly,editable,onSave,formId,passPreview})
     </label>
    </>}
    <PassPlayback preview={passPreview} seekVersion={seekVersion}/>
-   <dl className="wa-point-values">{poseFields.map(([key,label])=><div key={key}><dt>{label}</dt>
-    <dd>{display(passPreview.pose.angles[key],'°')}</dd></div>)}
-    <div><dt>导电嘴距离</dt><dd>{passPreview.pose.contactDistance==null?'待标定':display(passPreview.pose.contactDistance,'mm')}</dd></div>
-   </dl>
   </div>}
   <h3>层道偏移</h3>
   <p className="wa-point-context">{[group.layerName,!layerOnly&&group.passName].filter(Boolean).join(' / ')}</p>

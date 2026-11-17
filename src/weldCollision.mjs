@@ -33,23 +33,30 @@ export function excludeWireTip(geometry,calibration=NANYANG_TOOL_CALIBRATION){
  return new BufferGeometry().setAttribute('position',new Float32BufferAttribute(result,3));
 }
 
-export async function loadWeldCollisionScene(workspace,{coverOpen=false,includeWireTip=false,laserMountSide}={}){
+export async function loadWeldCollisionScene(workspace,{coverOpen=false,includeWireTip=false,structuredLightInstalled=true,laserMountSide}={}){
  const directory=import.meta.env.BASE_URL+'models/';
  const loader=new STLLoader();
  const results=await Promise.allSettled([
   loadStepMesh(workspace.model,workspace.stepModel),
   loader.loadAsync(directory+'nanyang-head/tool_body.stl'),
-  loader.loadAsync(directory+'nanyang-head/camera_cover.stl'),
+  ...(structuredLightInstalled?[
+   loader.loadAsync(directory+'nanyang-head/structured_light_body.stl'),
+   loader.loadAsync(directory+'nanyang-head/camera_cover.stl')
+  ]:[]),
   ...(laserMountSide?[loader.loadAsync(directory+'pf400-laser/'+LASER_CAMERA_FILES[0])]:[])
  ]);
  try{
   const failed=results.find(result=>result.status==='rejected');
   if(failed)throw failed.reason;
-  const [model,body,cover,laser]=results.map(result=>result.value);
-  if(coverOpen)cover.rotateX(-NANYANG_TOOL_CALIBRATION.coverAngle);
-  cover.translate(...NANYANG_TOOL_CALIBRATION.coverHinge);
-  const tools=[includeWireTip?body.clone():excludeWireTip(body),cover.clone()];
-  if(laser)tools.push(laser.clone().applyMatrix4(laserCameraMount(laserMountSide).matrix));
+  const [model,body,...cameras]=results.map(result=>result.value);
+  const tools=[includeWireTip?body.clone():excludeWireTip(body)];
+  if(structuredLightInstalled){
+   const [camera,cover]=cameras;
+   if(coverOpen)cover.rotateX(-NANYANG_TOOL_CALIBRATION.coverAngle);
+   cover.translate(...NANYANG_TOOL_CALIBRATION.coverHinge);
+   tools.push(camera.clone(),cover.clone());
+  }
+  if(laserMountSide)tools.push(cameras.at(-1).clone().applyMatrix4(laserCameraMount(laserMountSide).matrix));
   return createWeldCollisionScene(model,tools);
  }finally{
   for(const result of results.slice(1))if(result.status==='fulfilled')result.value.dispose();

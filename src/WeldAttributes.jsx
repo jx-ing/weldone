@@ -30,10 +30,19 @@ function CameraAdjustmentRow({label,actual,value,unit,onChange}){
  </label>;
 }
 
-function MeasurementPreview({plan,index,onPoint,fieldOfView,onFieldOfView,adjustment,onAdjustment,disabled}){
+function MeasurementPreview({plan,index,onPoint,onInsert,pickingMeasurement,onPick,fieldOfView,onFieldOfView,adjustment,onAdjustment,localPoints,onEditPoints,disabled}){
+ const [station,setStation]=useState('');
  const point=plan.points[index];
  const check=point.photoCheck;
  const alongPath=plan.method==='continuous';
+ const activeCustom=localPoints.find(item=>item.id===point.sourceId);
+ const stationValue=station===''?null:Number(station);
+ const canPlace=stationValue!==null&&Number.isFinite(stationValue)&&stationValue>=0&&stationValue<=plan.length;
+ const duplicate=localPoints.some(item=>Math.abs(item.station-stationValue)<1e-6);
+ function addMeasurementPoint(){
+  if(!canPlace||duplicate)return;
+  if(onInsert(stationValue))setStation('');
+ }
  const setOffset=(group,axis,value)=>onAdjustment({...adjustment,[group]:{...adjustment?.[group],[axis]:value}});
  return <section className="wa-measurement" aria-label="测量轨迹预览">
   <h3 className="wa-section-heading">测量轨迹预览</h3>
@@ -41,21 +50,32 @@ function MeasurementPreview({plan,index,onPoint,fieldOfView,onFieldOfView,adjust
    <output>{point.label} · {formatLength(point.distance)} mm</output>
    <input type="range" aria-label="测量点位" aria-valuetext={point.label} min={0} max={plan.points.length-1} value={index}
     onChange={event=>onPoint(Number(event.target.value))}/>
-  </div>:<Options label="测量点位" value={String(index)} values={plan.points.map((item,i)=>[String(i),item.label])}
+  </div>:<Options label="测量点位" value={String(index)} values={plan.points.map((item,i)=>[String(i),item.sourceId?item.label+' · '+formatDecimal(item.distance)+' mm':item.label])}
    onChange={value=>onPoint(Number(value))}/>}</Row>
+  <div className="wa-measurement-editor">
+   <label>焊缝里程 <NumericInput aria-label="新增测量点里程" min={0} max={plan.length} step="any"
+    value={station} placeholder="请输入" disabled={disabled} onChange={event=>setStation(event.target.value)}/><small>mm</small></label>
+   <button type="button" className="btn" disabled={disabled||!canPlace||duplicate} onClick={addMeasurementPoint}><Plus size={14}/>添加测量点</button>
+   <button type="button" className="btn" aria-pressed={pickingMeasurement} disabled={disabled} onClick={onPick}>
+    {pickingMeasurement?'取消选点':'从模型选点'}</button>
+   {activeCustom&&<button type="button" className="btn wa-point-remove" disabled={disabled}
+    onClick={()=>onEditPoints(localPoints.filter(item=>item.id!==activeCustom.id),activeCustom.id)}>删除此测量点</button>}
+  </div>
+  {pickingMeasurement&&<p className="wa-muted" role="status">点击当前焊缝上的位置</p>}
   {check&&<Row label="拍照检查"><output className={'wa-photo-check '+check.state}>
    {check.state==='ready'?'通过 · 与焊丝轴夹角 '+formatDecimal(check.angle)+'°':
     (check.state==='blocked'?'待调整 · ':'')+check.reasons.join('；')}
   </output></Row>}
   <Row label="相机视野"><label className="wa-measurement-fov"><input type="checkbox" checked={fieldOfView}
    onChange={event=>onFieldOfView(event.target.checked)}/>显示相机视野</label></Row>
-  {plan.method==='fixedPhoto'&&<>
-   <Row label="镜头高度 (mm)"><output className="wa-camera-height">{formatDecimal(point.opticalPosition[2])}</output></Row>
+  <Row label="镜头高度 (mm)"><output className="wa-camera-height">{formatDecimal(point.opticalPosition[2])}</output></Row>
+  {plan.method==='fixedPhoto'?<>
    <Row label="拍照距离 (mm)"><output className="wa-photo-distance">{formatDecimal(point.photoDistance)}</output></Row>
    <Row label="TCP 高于被测点 (mm)"><output className="wa-tcp-clearance">{formatDecimal(point.position[2]-point.target[2])}</output></Row>
-  </>}
+  </>:<Row label="工作距离 (mm)"><output className="wa-laser-distance">{formatDecimal(point.workingDistance)}</output></Row>}
   <fieldset className="wa-camera-adjustment" disabled={disabled}>
    <legend>相机位置与姿态（整条焊缝）</legend>
+   <p className="wa-muted">TCP 偏移沿工件坐标轴生效。</p>
    <div className="wa-offset-row wa-actual-pose wa-actual-pose-header" aria-hidden="true"><span>轴</span><span>当前值</span><span>偏移量</span></div>
    {OFFSET_AXES.map((axis,i)=><CameraAdjustmentRow key={axis} label={'TCP '+axis.toUpperCase()} unit="mm" actual={point.position[i]}
     value={adjustment?.position?.[axis]} onChange={value=>setOffset('position',axis,value)}/>)}
@@ -110,7 +130,7 @@ export default function WeldAttributes(props){
   segment=>weldPositionCode(segment.position)==='PB'&&segment.pathPoints?.length>=2
  );
  const trackingDirection=props.trackingWeld?.laserTrackingDirection;
- const trackingIssue=props.trackingWeld?.laserTrackingIssue??(trackingDirection?w.strategyPlan?.laserTrackingIssue:undefined);
+ const trackingIssue=props.trackingIssue??props.trackingWeld?.laserTrackingIssue;
  const updateScan=values=>onPatch('scanSettings',{...scan,...values});
  const pending=w.enabled&&decision?.route==='blocked'?decision:null;
  const needsProcess=pending?.creation==='template-or-process';
@@ -122,6 +142,7 @@ export default function WeldAttributes(props){
  function tabKey(event){const at=tabs.findIndex(([key])=>key===tab),next=event.key==='ArrowRight'?(at+1)%tabs.length:event.key==='ArrowLeft'?(at+tabs.length-1)%tabs.length:event.key==='Home'?0:event.key==='End'?tabs.length-1:-1;if(next<0)return;event.preventDefault();setTab(tabs[next][0]);event.currentTarget.parentElement.querySelectorAll('[role=tab]')[next].focus();}
  return <section ref={panel} className="weld-attributes-panel" aria-label="焊缝属性">
   <header className="wa-header">焊缝属性</header>
+  {props.robotAssignment&&<Row label="执行机械臂"><output>{props.robotAssignment}</output></Row>}
   <div className="wa-summary">
    <div className="wa-group">
     <TextInput aria-label="焊缝名称" required maxLength={80} value={w.name} title={w.name} onChange={event=>onPatch('name',event.target.value)}/>
@@ -143,7 +164,7 @@ export default function WeldAttributes(props){
     {canReverse&&<Row label="焊接方向"><Options label="焊接方向" value={trackingDirection??(w.direction==='反向'?'反向':'正向')}
      disabled={!!trackingDirection||!!trackingIssue||!w.enabled||!!w.mergedInto||!!w.splitInto}
      onChange={value=>onPatch('direction',value)} values={['正向','反向']}/></Row>}
-    {trackingDirection&&<Row label="激光跟踪方向"><span>已锁定 · 激光在前，焊枪在后</span></Row>}
+    {trackingDirection&&!trackingIssue&&<Row label="激光跟踪方向"><span>已锁定 · 激光在前，焊枪在后</span></Row>}
     <Row label="焊脚高度"><NumberField label="焊脚尺寸" min={.5} value={w.leg} unit="mm" onChange={value=>onPatch('leg',value)}/></Row>
     </details><details className="wa-section" open><summary>包角</summary>
     {[['start','起点包角'],['end','终点包角']].map(([side,label])=>{
@@ -174,7 +195,13 @@ export default function WeldAttributes(props){
      <Row label="终点精测量方式"><Options label="终点精测量方式" required value={endpointMethod(scan.endPrecisionMethod)} values={endpointPrecisionMethods} onChange={endPrecisionMethod=>updateScan({endPrecisionMethod})}/></Row>
     </>:precisionMethod&&!['laserSweep','continuous'].includes(precisionMethod)&&<Row label="精测量范围"><Options label="精测量范围" value={scan.measurementScope??'both'} values={[[ 'start','仅精测量起点'],['both','首尾精测量']]} onChange={measurementScope=>updateScan({measurementScope})}/></Row>}
     <Row label="扫描方向"><Options label="扫描方向" disabled={!precisionMethod} value={scan.direction||'forward'} values={[[ 'forward','沿焊接方向'],['reverse','逆焊接方向']]} onChange={direction=>updateScan({direction})}/></Row>
-    {props.measurementPreview?<MeasurementPreview {...props.measurementPreview} disabled={blocked}
+    {props.measurementPreview?<MeasurementPreview key={w.id+':'+precisionMethod} {...props.measurementPreview} disabled={blocked}
+     localPoints={scan.customPoints?.[precisionMethod]??[]}
+     onEditPoints={(points,removed)=>{
+      const edits=scan.pointAdjustments?.[precisionMethod]??{};
+      const remaining=removed?Object.fromEntries(Object.entries(edits).filter(([id])=>id!==removed&&!id.startsWith(removed+':'))):edits;
+      updateScan({customPoints:{...scan.customPoints,[precisionMethod]:points},pointAdjustments:{...scan.pointAdjustments,[precisionMethod]:remaining}});
+     }}
      adjustment={scan.cameraAdjustments?.[props.measurementPreview.plan.camera]}
      onAdjustment={adjustment=>updateScan({cameraAdjustments:{...scan.cameraAdjustments,[props.measurementPreview.plan.camera]:adjustment}})}/>:<p className="wa-muted">{!precisionMethod?'请选择精测量方式':
      ['laserSweep','fixedPhoto','continuous'].includes(precisionMethod)?'当前焊缝暂无可预览的测量点位':'当前方式暂无测量轨迹预览'}</p>}

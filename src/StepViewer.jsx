@@ -2,13 +2,17 @@ import {weldTravelReversed} from './weldDirectionGeometry.mjs';
 import React,{useEffect,useRef,useState} from 'react';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
+import {TransformControls} from 'three/addons/controls/TransformControls.js';
 import {sampleManualWeldPath} from './manualWeldModel.mjs';
 import {surfaceTriangles} from './manualWeldIntersection.mjs';
 import {loadStepMesh} from './stepModelStore.mjs';
 import {captureWeldRegion} from './captureWeldRegion.mjs';
 import {orientWeldSections,weldPassMeshGeometry,weldSectionSigns,weldSegmentPass,weldSolidTest} from './weldPassMesh.mjs';
 import {weldPointDistance} from './manualSplitModel.mjs';
-import {loadNanyangToolHead,positionNanyangToolHead} from './nanyangToolHead.mjs';
+import {loadNanyangToolHead,positionNanyangToolHead,setWorkstationStructuredLight} from './nanyangToolHead.mjs';
+import {moveWorkstationJoint,workstationJoint,workstationLaserTarget,workstationTarget} from './workstationSimulation.mjs';
+import {createWorkstationToolPreview} from './workstationToolVisuals.mjs';
+import {resolveWeldToolPose} from './weldToolPose.mjs';
 const vec=p=>new THREE.Vector3(p[0],p[2],-p[1]);
 const line=(points,color)=>new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),new THREE.LineBasicMaterial({color}));
 const passColors=[0x176cba,0xa54bd4,0x00846c,0xbf4e2c,0x6964d5,0x007e9a];
@@ -17,38 +21,90 @@ export default function StepViewer(props){
   const host=useRef(),labels=useRef(),pointLabels=useRef(),api=useRef(),latest=useRef(props);latest.current=props;
   const [status,setStatus]=useState(props.model?'正在加载 '+props.model+'…':''),[ready,setReady]=useState(false);
   useEffect(()=>{
-    if(!props.model)return;
     const el=host.current;let renderer,closed=false;
     try{renderer=new THREE.WebGLRenderer({antialias:true});}catch{setStatus('WebGL 不可用，请启用硬件加速。');return;}
-    renderer.setPixelRatio(Math.min(devicePixelRatio,1.8));renderer.setClearColor('#f4f6f8');el.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label',props.model+' 三维模型，可旋转、缩放和选择焊缝');
+    renderer.setPixelRatio(Math.min(devicePixelRatio,1.8));renderer.setClearColor('#f4f6f8');el.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label',props.model?props.model+' 三维模型，可旋转、缩放和选择焊缝':'三维坐标视图，可旋转和缩放');
     const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-8000,8000,5000,-5000,.1,200000);camera.position.set(10000,9000,10000);
     const controls=new OrbitControls(camera,renderer.domElement);controls.update();scene.add(new THREE.HemisphereLight(0xffffff,0x8996a1,2.8));const light=new THREE.DirectionalLight(0xffffff,2.8);light.position.set(8000,14000,10000);scene.add(light);
     const body=new THREE.Group(),edges=new THREE.Group(),welds=new THREE.Group(),passMeshes=new THREE.Group(),planningMarkers=new THREE.Group(),measurementPaths=new THREE.Group(),createPreview=new THREE.Group();
     const cadScene=new THREE.Group();
     cadScene.add(body,edges,welds,passMeshes,planningMarkers,measurementPaths,createPreview);
     scene.add(cadScene);
+    const transform=props.onWorkpiecePoseChange?new TransformControls(camera,renderer.domElement):null;
+    if(transform){
+      transform.setSize(.8);
+      scene.add(transform.getHelper());
+      transform.addEventListener('change',()=>{updateToolHead(latest.current);render();});
+      transform.addEventListener('dragging-changed',event=>{controls.enabled=!event.value;});
+      transform.addEventListener('mouseUp',()=>{
+        latest.current.onWorkpiecePoseChange({position:cadScene.position.toArray(),quaternion:cadScene.quaternion.toArray()});
+      });
+    }
+    const workstationLayer=new THREE.Group();
+    workstationLayer.name='imported-workstation';
+    scene.add(workstationLayer);
+    let workstationSource, workstationObject, drivenJoints=[], precisionOverlays=[];
     let grid,model,span=10000,down,previousWelds,previousSelected,previousMergeIds,previousPasses;
+    if(props.showEmptyGrid&&!props.model){
+      grid=new THREE.GridHelper(span*4,8,0xb9bec4,0xc6cbd1);
+      const axes=new THREE.AxesHelper(span*.58);
+      axes.setColors(0xda4b4b,0x407fdc,0x339e58);
+      axes.rotation.y=-Math.PI/2;
+      axes.scale.z=-1;
+      grid.add(axes);
+      scene.add(grid);
+    }
     let containsSolid,orientedPasses=[],previousMeasurement;
-    let toolHead,loadingHead=false,headLoadFailed=false;
+    let toolHead,loadingHead=false,headLoadFailed=false,nativeHead,previewWorkstation,previewRobotId;
     const sectionCache=new WeakMap(),reverseSectionCache=new WeakMap();
     const sourceFaces=new Map();
     let previousCreate;
     const origin=()=>model?.origin||[0,0,0],world=p=>vec(p.map((v,i)=>v-origin()[i]));
-    const displayVector=point=>{point.y*=cadScene.scale.y;return point;};
-    const display=p=>displayVector(world(p));
-    const cad=p=>[p.x+origin()[0],-p.z+origin()[1],p.y*cadScene.scale.y+origin()[2]];
+    const display=p=>cadScene.localToWorld(world(p));
+    const cad=point=>{
+      const p=cadScene.worldToLocal(point.clone()),[x,y,z]=origin();
+      return [p.x+x,-p.z+y,p.y+z];
+    };
     function updateToolHead(p){
       const point=p.headPoint;
       const visible=!!(p.view.head&&!p.editMode&&point?.position&&(point.toolPose||point.tangent&&point.normal));
+      if(previewWorkstation!==p.workstation||previewRobotId!==p.toolPreviewRobotId){
+        nativeHead?.object.removeFromParent();
+        nativeHead=null;
+        previewWorkstation=p.workstation;
+        previewRobotId=p.toolPreviewRobotId;
+      }
+      const camera=p.measurementPlan?.camera;
+      const nativeEligible=visible&&p.workstation&&camera!=='structuredLight';
+      if(nativeEligible&&!nativeHead){
+        nativeHead=createWorkstationToolPreview(p.workstation,p.toolPreviewRobotId);
+        if(nativeHead)scene.add(nativeHead.object);
+      }
+      const laserTarget=camera==='laser'&&nativeHead?.robot.laser&&point?.target&&Number.isFinite(point.workingDistance);
+      const toolPose=visible?(point.toolPose??resolveWeldToolPose(point)):null;
+      const useNative=!!(nativeEligible&&nativeHead&&(camera==='laser'?laserTarget:toolPose?.tcp));
+      if(nativeHead)nativeHead.object.visible=useNative;
+      if(useNative){
+        const placement={position:cadScene.position.toArray(),quaternion:cadScene.quaternion.toArray()};
+        const convert=tcp=>workstationTarget(tcp,origin(),placement,p.invertModelZ);
+        const target=laserTarget
+          ?workstationLaserTarget(point,nativeHead.robot,convert,p.toolPreviewScan)
+          :convert(toolPose.tcp);
+        nativeHead.object.position.copy(target.position).multiplyScalar(1000).sub(vec(origin()));
+        nativeHead.object.quaternion.copy(target.quaternion);
+        nativeHead.object.scale.setScalar(1000);
+        nativeHead.setFieldOfView(p.headFieldOfView,p.headFieldOfView&&camera==='laser',camera,p.headCoverOpen);
+      }
+      const useFallback=visible&&!useNative;
       if(toolHead){
-        toolHead.object.visible=visible;
-        if(visible){
+        toolHead.object.visible=useFallback;
+        if(useFallback){
           toolHead.setCover(p.headCoverOpen);
-          toolHead.setLaserMount(p.laserMountSide);
-          toolHead.setFieldOfView(p.headFieldOfView,p.measurementPlan?.camera);
-          positionNanyangToolHead(toolHead.object,point,world,vec);
+          toolHead.setCameraMounts(p.structuredLightInstalled,p.laserMountSide);
+          toolHead.setFieldOfView(p.headFieldOfView,p.measurementPlan?.camera,p.headFieldOfView,point.workingDistance);
+          positionNanyangToolHead(toolHead.object,point,world,vec,p.invertModelZ);
         }
-      }else if(visible&&!loadingHead&&!headLoadFailed){
+      }else if(useFallback&&!loadingHead&&!headLoadFailed){
         loadingHead=true;
         loadNanyangToolHead().then(head=>{
           if(closed){head.dispose();return;}
@@ -61,8 +117,11 @@ export default function StepViewer(props){
           if(!closed)el.dataset.headModel='error';
         });
       }
-      if(!headLoadFailed)el.dataset.headModel=toolHead?.object.visible?(p.headCoverOpen?'open':'closed'):'hidden';
-      el.dataset.headFieldOfView=toolHead?.object.visible&&p.headFieldOfView?'visible':'hidden';
+      if(useNative)el.dataset.headModel='closed';
+      else if(!headLoadFailed)el.dataset.headModel=toolHead?.object.visible?(p.structuredLightInstalled&&p.headCoverOpen?'open':'closed'):'hidden';
+      el.dataset.headSource=useNative?'workstation':toolHead?.object.visible?'standalone':'hidden';
+      const hasPreviewCamera=p.measurementPlan?.camera==='laser'?!!p.laserMountSide:p.structuredLightInstalled;
+      el.dataset.headFieldOfView=(useNative||toolHead?.object.visible&&hasPreviewCamera)&&p.headFieldOfView?'visible':'hidden';
     }
     function updateMeasurement(p){
       const plan=p.measurementPlan;
@@ -99,13 +158,15 @@ export default function StepViewer(props){
         marker.renderOrder=9;
         planningMarkers.add(marker);
       }
-      const marks=plan.method==='continuous'?[...new Set([0,plan.points.length-1,p.measurementIndex])]:plan.points.map((_,i)=>i);
+      const marks=plan.method==='continuous'?[...new Set([0,plan.points.length-1,p.measurementIndex,
+        ...plan.points.flatMap((point,index)=>point.sourceId?[index]:[])])]:plan.points.map((_,i)=>i);
       for(const index of marks){
         const active=index===p.measurementIndex;
         const color=plan.method==='fixedPhoto'?(active?0x2857ac:0x7c9bcd):active?0xfa8c16:0x008eaa;
         const dot=new THREE.Mesh(new THREE.SphereGeometry(1,12,12),new THREE.MeshBasicMaterial({color,depthTest:false}));
         dot.position.copy(world(plan.points[index].position));
         dot.userData.pixelRadius=active?5:3;
+        dot.userData.measurementIndex=index;
         dot.renderOrder=active?8:7;
         planningMarkers.add(dot);
       }
@@ -168,7 +229,7 @@ export default function StepViewer(props){
       if(pass.sections){
         const tangent=world(pass.positions[1]).sub(world(pass.positions[0])).normalize();
         const [a,b]=pass.sections[0].map(vec);
-        direction.copy(displayVector(a.add(b).normalize().addScaledVector(tangent,-1.25).normalize()));
+        direction.copy(a.add(b).normalize().addScaledVector(tangent,-1.25).transformDirection(cadScene.matrixWorld));
       }
       const distance=Math.max(camera.position.distanceTo(controls.target),span);
       camera.position.copy(center).addScaledVector(direction,distance);
@@ -204,8 +265,17 @@ export default function StepViewer(props){
       cadScene.scale.y=invertModelZ?-1:1;
       cadScene.updateMatrixWorld(true);
       const views={iso:[1,.85,1],top:[0,1,.0001],front:[0,.02,1],right:[1,.02,0]};
-      camera.position.set(...(views[view]||views.iso).map(n=>n*span*1.5));
-      camera.zoom=1;controls.target.set(0,0,0);controls.update();
+      const bounds=getViewBounds();
+      const center=bounds.getCenter(new THREE.Vector3());
+      const distance=(bounds.isEmpty()?span:Math.max(bounds.getSize(new THREE.Vector3()).length(),100))*1.5;
+      camera.position.set(...(views[view]||views.iso)).multiplyScalar(distance).add(center);
+      camera.zoom=1;controls.target.copy(center);controls.update();
+    }
+    function getViewBounds(){
+      const box=new THREE.Box3();
+      if(model)box.setFromObject(body);
+      if(workstationLayer.visible&&workstationObject)box.expandByObject(workstationLayer);
+      return box;
     }
     function render(){if(!el.clientWidth||!el.clientHeight)return;const scale=(camera.top-camera.bottom)/(el.clientHeight*camera.zoom);for(const marker of [...planningMarkers.children,...createPreview.children])if(marker.userData.pixelRadius)marker.scale.setScalar(scale*marker.userData.pixelRadius);
       renderer.render(scene,camera);
@@ -227,8 +297,99 @@ export default function StepViewer(props){
       });
       pointLabels.current?.querySelectorAll('[data-planning-point]').forEach(label=>{const point=(latest.current.planningPoints||[]).find(point=>point.id===label.dataset.planningPoint);if(!point?.position){label.style.visibility='hidden';return;}const p=display(point.position).project(camera),x=(p.x+1)*el.clientWidth/2;let y=(1-p.y)*el.clientHeight/2-8;for(let i=0;i<10&&occupied.some(q=>Math.abs(q.x-x)<65&&Math.abs(q.y-y)<22);i++)y-=23;occupied.push({x,y});label.style.left=`${x}px`;label.style.top=`${y}px`;label.style.visibility=Math.abs(p.x)>1||Math.abs(p.y)>1||Math.abs(p.z)>1?'hidden':'visible';});
     }
-    function resize(){const w=el.clientWidth,h=el.clientHeight;if(!w||!h)return;let extent=span*.62;if(model){camera.updateMatrixWorld();const box=new THREE.Box3().setFromObject(body),projected=new THREE.Box3();for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z])projected.expandByPoint(new THREE.Vector3(x,y,z).applyMatrix4(camera.matrixWorldInverse));extent=Math.max(span*.01,projected.max.y-projected.min.y,(projected.max.x-projected.min.x)/(w/h))*.58;}camera.left=-extent*w/h;camera.right=extent*w/h;camera.top=extent;camera.bottom=-extent;camera.far=span*25;camera.updateProjectionMatrix();renderer.setSize(w,h);render();}
-    function rebuild(){if(!model)return;const p=latest.current;body.visible=!!p.model&&p.view.model;edges.visible=body.visible;welds.visible=p.view.welds&&!!p.model;if(grid)grid.visible=p.view.grid;body.children.forEach(m=>{m.material.transparent=p.view.transparent;m.material.opacity=p.view.transparent?.28:1;m.material.depthWrite=!p.view.transparent;});
+    function resize(){const w=el.clientWidth,h=el.clientHeight;if(!w||!h)return;let extent=span*.62;
+      const box=getViewBounds();
+      const sceneSize=box.getSize(new THREE.Vector3()).length();
+      if(!box.isEmpty()){
+        camera.updateMatrixWorld();
+        const corners=[];
+        for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z])corners.push(new THREE.Vector3(x,y,z));
+        const size=projectedBounds(corners).getSize(new THREE.Vector3());
+        extent=Math.max(1,size.y,size.x/(w/h))*.58;
+      }
+      camera.left=-extent*w/h;camera.right=extent*w/h;camera.top=extent;camera.bottom=-extent;
+      camera.far=Math.max(span,sceneSize,camera.position.distanceTo(controls.target))*25;
+      camera.updateProjectionMatrix();renderer.setSize(w,h);render();
+    }
+    function updateWorkstation(){
+      const {workstation,view,showWorkstation}=latest.current;
+      if(workstation!==workstationSource){
+        workstationLayer.clear();
+        workstationSource=workstation;
+        workstationObject=(workstation?.visualObject??workstation?.object)?.clone(true);
+        if(workstationObject)workstationLayer.add(workstationObject);
+        drivenJoints=[];
+        precisionOverlays=[];
+        workstationObject?.traverse(node=>{
+          const joint=workstationJoint(node);
+          if(joint)drivenJoints.push({node,joint});
+        });
+        for(const device of workstation?.devices??[]){
+          if(device.kind!=='precision')continue;
+          for(const {role,link,visual} of device.bindings){
+            if(!['field_of_view','laser_plane','nominal_scan_line'].includes(role)||!visual)continue;
+            const node=workstationObject?.getObjectByName(link)?.getObjectByName(visual);
+            if(node)precisionOverlays.push({node,id:device.id});
+          }
+        }
+      }
+      workstationLayer.visible=!!workstationObject&&(showWorkstation??view.workstation);
+      workstationLayer.scale.setScalar(1000);
+      workstationLayer.position.copy(vec(origin())).negate();
+      if(workstationLayer.visible){
+        el.dataset.workstation=workstationSource.name;
+        if(workstationSource.visualObject)el.dataset.workstationToolVisual='flange';
+        else delete el.dataset.workstationToolVisual;
+      }else{
+        delete el.dataset.workstation;
+        delete el.dataset.workstationToolVisual;
+      }
+      updateWorkstationJoints();orient();resize();
+    }
+    function updateWorkstationJoints(){
+      const {workstationMotion,showSimulationCamera}=latest.current;
+      for(const {node,joint} of drivenJoints)moveWorkstationJoint(node,joint,workstationMotion?.values[joint.name]??0);
+      workstationObject?.traverse(node=>{
+        if(node.userData.coarseCameraId){
+          node.visible=workstationSource.devices.some(device=>device.id===node.userData.coarseCameraId)&&
+            (showSimulationCamera===undefined||showSimulationCamera&&latest.current.showCoarseCamera===true);
+          return;
+        }
+        if(!node.userData.precisionCameraId)return;
+        const open=node.userData.precisionCameraId===workstationMotion?.cameraId&&!!workstationMotion?.cameraCoverOpen;
+        setWorkstationStructuredLight(node,open,open&&!!showSimulationCamera);
+      });
+      if(showSimulationCamera!==undefined){
+        for(const {node,id} of precisionOverlays)node.visible=showSimulationCamera&&workstationMotion?.cameraId===id;
+      }
+      if(workstationMotion&&workstationObject)el.dataset.workstationRobot=workstationMotion.robotId;
+      else delete el.dataset.workstationRobot;
+      render();
+    }
+    function updateWorkpiecePose(){
+      const {workpiecePose}=latest.current;
+      if(transform?.dragging)return;
+      if(workpiecePose){
+        cadScene.position.fromArray(workpiecePose.position);
+        cadScene.quaternion.fromArray(workpiecePose.quaternion).normalize();
+      }else{
+        cadScene.position.set(0,0,0);
+        cadScene.quaternion.identity();
+      }
+      cadScene.updateMatrixWorld(true);
+      updateToolHead(latest.current);
+      render();
+    }
+    function updateTransformMode(){
+      if(!transform)return;
+      const {workpieceEditMode,view}=latest.current;
+      if(model&&view.model&&workpieceEditMode){
+        transform.setMode(workpieceEditMode);
+        transform.attach(cadScene);
+      }else transform.detach();
+      render();
+    }
+    function rebuild(){const p=latest.current;if(grid)grid.visible=p.view.grid;if(!model){render();return;}body.visible=!!p.model&&p.view.model;edges.visible=body.visible;welds.visible=p.view.welds&&!!p.model;body.children.forEach(m=>{m.material.transparent=p.view.transparent;m.material.opacity=p.view.transparent?.28:1;m.material.depthWrite=!p.view.transparent;});
       updateCreatePreview(p.manualCreate);
       updateToolHead(p);
       if(previousWelds!==p.welds||previousSelected!==p.selected||previousMergeIds!==p.mergeIds){
@@ -307,6 +468,7 @@ export default function StepViewer(props){
       if(!model||!down||Math.hypot(e.clientX-down[0],e.clientY-down[1])>4)return;
       down=null;
       const p=latest.current;
+      if(p.workpieceEditMode)return;
       setRay(e);
       if(p.onManualCreatePick){
         const hit=body.visible?ray.intersectObjects(body.children,false)[0]:null;
@@ -338,10 +500,15 @@ export default function StepViewer(props){
       if(p.onSelectFace){
         const hit=ray.intersectObjects(body.children,false)[0];
         if(hit?.face){
-          const n=hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
-          p.onSelectFace(cad(hit.point),[n.x,-n.z,n.y*cadScene.scale.y]);
+          const n=hit.face.normal;
+          p.onSelectFace(cad(hit.point),[n.x,-n.z,n.y]);
         }
         return;
+      }
+      if(p.onMeasurementPointSelect){
+        const marks=planningMarkers.children.filter(marker=>marker.userData.measurementIndex!==undefined);
+        const pick=ray.intersectObjects(marks,false)[0];
+        if(pick){p.onMeasurementPointSelect(pick.object.userData.measurementIndex);return;}
       }
       const surfaces=[
         ...(passMeshes.visible?passMeshes.children:[]),
@@ -360,8 +527,9 @@ export default function StepViewer(props){
         p.onSelect(id,sampleManualWeldPath(target.segments,weldPointDistance(target,position)).position);
       }else p.onSelect(id,position);
     };
-    renderer.domElement.addEventListener('pointerdown',pd);renderer.domElement.addEventListener('pointerup',pu);controls.addEventListener('change',render);const observer=new ResizeObserver(resize);observer.observe(el);api.current={rebuild,resize,orient,focusPasses,focusMeasurement};
-    loadStepMesh(props.model,props.stepModel).then(data=>{
+    renderer.domElement.addEventListener('pointerdown',pd);renderer.domElement.addEventListener('pointerup',pu);controls.addEventListener('change',render);const observer=new ResizeObserver(resize);observer.observe(el);api.current={rebuild,resize,orient,focusPasses,focusMeasurement,updateWorkstation,updateWorkstationJoints,updateWorkpiecePose,updateTransformMode};
+    const loadModel=props.pointCloudData?Promise.resolve(props.pointCloudData):props.model?loadStepMesh(props.model,props.stepModel):null;
+    loadModel?.then(data=>{
       if(closed)return;
       model=data;span=Math.max(...data.size,1);
       if(data.kind==='pointCloud'){
@@ -400,20 +568,27 @@ export default function StepViewer(props){
       }
       grid=new THREE.GridHelper(span*2,40,0xc2c9cf,0xe0e5e9);
       grid.position.y=-data.size[2]/2-span*.004;
-      scene.add(grid);orient();resize();rebuild();
+      scene.add(grid);updateWorkpiecePose();updateWorkstation();rebuild();updateTransformMode();
       setStatus('');setReady(true);
-      latest.current.onModelInfo?.({name:data.name,parts:data.meshes.map(m=>m.name),size:data.size,edgeCount:data.edges.length,pointCount:data.count});
+      latest.current.onModelInfo?.({name:data.name,origin:data.origin,parts:data.meshes?.map(m=>m.name)??[],size:data.size,edgeCount:data.edges?.length??0,pointCount:data.count});
     }).catch(e=>{if(!closed)setStatus('模型加载失败：'+e.message);});
-    resize();return()=>{closed=true;observer.disconnect();controls.dispose();renderer.domElement.removeEventListener('pointerdown',pd);renderer.domElement.removeEventListener('pointerup',pu);scene.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});renderer.dispose();renderer.domElement.remove();api.current=null;latest.current.onCoverCaptureReady?.(null);};
+    return()=>{closed=true;observer.disconnect();controls.dispose();if(transform){scene.remove(transform.getHelper());transform.dispose();}renderer.domElement.removeEventListener('pointerdown',pd);renderer.domElement.removeEventListener('pointerup',pu);workstationLayer.clear();nativeHead?.object.removeFromParent();delete el.dataset.workstation;scene.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});renderer.dispose();renderer.domElement.remove();api.current=null;latest.current.onCoverCaptureReady?.(null);};
   },[]);
-  useEffect(()=>{api.current?.rebuild();},[props.model,props.welds,props.hiddenWelds,props.selected,props.view,props.planningPoints,props.sampleMarker,props.collisionMarker,props.selectedPlanningPointId,props.headPoint,props.headCoverOpen,props.headFieldOfView,props.laserMountSide,props.measurementPlan,props.measurementIndex,props.mergeIds,props.editMode,props.splitPoint,props.passPaths,props.wrapPreview,props.manualCreate,ready]);
+  useEffect(()=>{api.current?.updateWorkpiecePose();},[props.workpiecePose]);
+  useEffect(()=>{api.current?.updateTransformMode();},[props.workpieceEditMode,props.view.model]);
+  useEffect(()=>{api.current?.updateWorkstation();},[props.workstation,props.showWorkstation,props.view.workstation]);
+  useEffect(()=>{api.current?.updateWorkstationJoints();},[props.workstationMotion,props.showSimulationCamera,props.showCoarseCamera]);
+  useEffect(()=>{api.current?.rebuild();},[props.model,props.welds,props.hiddenWelds,props.selected,props.view,props.planningPoints,props.sampleMarker,props.collisionMarker,props.selectedPlanningPointId,props.headPoint,props.headCoverOpen,props.headFieldOfView,props.structuredLightInstalled,props.laserMountSide,props.measurementPlan,props.measurementIndex,props.mergeIds,props.editMode,props.splitPoint,props.passPaths,props.wrapPreview,props.manualCreate,props.invertModelZ,props.workstation,props.toolPreviewRobotId,props.toolPreviewScan,ready]);
   useEffect(()=>{api.current?.orient();api.current?.resize();},[props.camera,props.reset,props.invertModelZ]);
   useEffect(()=>{if(props.passFocus)api.current?.focusPasses();},[props.passFocus]);
   useEffect(()=>{if(props.measurementFocus)api.current?.focusMeasurement();},[props.measurementFocus]);
   const {labels:showNames,order:showOrder,welds:showWelds}=props.view;
+  const showWorkstation=props.showWorkstation??props.view.workstation;
+  const workstationStatus=props.workstationStatus;
   return <>
-    <div ref={host} className="three-host" data-pass-paths={props.passPaths?.length||undefined}/>
+    <div ref={host} className="three-host" data-pass-paths={props.passPaths?.length||undefined} aria-label={showWorkstation&&props.workstation?.name||undefined}/>
     {status&&<div className="model-loading" role="status">{status}</div>}
+    {showWorkstation&&workstationStatus&&<div className="workstation-loading" role="status">{workstationStatus}</div>}
     <div className="weld-labels" ref={labels} hidden={!props.model||!showWelds||!(showNames||showOrder)}>
       {props.welds.filter(weld=>props.welds.length<=25||weld.id===props.selected).map(weld=>{
         const name=showNames?(weld.name||weld.id):'';

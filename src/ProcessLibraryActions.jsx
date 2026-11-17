@@ -4,7 +4,7 @@ import {createPortal} from 'react-dom';
 import {Modal} from './TemplateLibrary';
 import {exportDeviceLibrary,importDeviceLibraries} from './processLibraryTransfer.mjs';
 
-export default function ProcessLibraryActions({entries,deviceProfiles=[],onImport,notify,file}){
+export default function ProcessLibraryActions({entries,deviceProfiles=[],importProfiles=deviceProfiles,onImport,notify,file}){
  const [target,setTarget]=useState(null),[selected,setSelected]=useState(null);
  useEffect(()=>{setTarget(document.querySelector('.process-library-view .bar-actions'));},[]);
  function download(){
@@ -25,7 +25,7 @@ export default function ProcessLibraryActions({entries,deviceProfiles=[],onImpor
   if(!files.length)return;
   try{
    const documents=await Promise.all(files.map(async file=>JSON.parse(await file.text())));
-   const error=await onImport(importDeviceLibraries(entries,deviceProfiles,documents));
+   const error=await onImport(importDeviceLibraries(entries,importProfiles,documents));
    if(error)throw Error(error);
    notify('设备信息与工艺参数库已导入');
   }catch(error){notify(error.message,'error');}

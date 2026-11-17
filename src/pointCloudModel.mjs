@@ -16,7 +16,7 @@ function parseTextPoints(text){
  return positions;
 }
 
-function centeredPointCloud(positions,colors,normalAttribute){
+export function centeredPointCloud(positions,colors,normalAttribute){
  const low=[Infinity,Infinity,Infinity],high=[-Infinity,-Infinity,-Infinity];
  let count=0;
  for(let i=0;i<positions.length;i+=3){

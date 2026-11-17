@@ -3,10 +3,10 @@ import {Box3,DirectionalLight,HemisphereLight,OrthographicCamera,Scene,Vector3,W
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {loadNanyangToolHead} from './nanyangToolHead.mjs';
 
-export default function ToolHeadPreview({coverOpen=false,fieldOfView,camera:cameraType,laserMountSide,laserLine}){
+export default function ToolHeadPreview({coverOpen=false,fieldOfView,camera:cameraType,structuredLightInstalled,laserMountSide,laserLine}){
  const host=useRef(null),api=useRef(null),latest=useRef(null);
  const [status,setStatus]=useState('正在加载机头模型…');
- latest.current={coverOpen,fieldOfView,cameraType,laserMountSide,laserLine};
+ latest.current={coverOpen,fieldOfView,cameraType,structuredLightInstalled,laserMountSide,laserLine};
  useEffect(()=>{
   const el=host.current;
   let renderer,head,disposed=false;
@@ -42,11 +42,11 @@ export default function ToolHeadPreview({coverOpen=false,fieldOfView,camera:came
    head=model;
    scene.add(head.object);
    let previousField;
-   api.current=({coverOpen,fieldOfView,cameraType,laserMountSide,laserLine})=>{
+   api.current=({coverOpen,fieldOfView,cameraType,structuredLightInstalled,laserMountSide,laserLine})=>{
     head.setCover(coverOpen);
-    head.setLaserMount(laserMountSide);
+    head.setCameraMounts(structuredLightInstalled,laserMountSide);
     head.setFieldOfView(fieldOfView,cameraType,laserLine);
-    const visibleParts=JSON.stringify([fieldOfView,laserMountSide,laserLine]);
+    const visibleParts=JSON.stringify([fieldOfView,structuredLightInstalled,laserMountSide,laserLine]);
     if(previousField!==visibleParts){
      const orbit=previousField===undefined?new Vector3(800,600,380):camera.position.clone().sub(controls.target).normalize().multiplyScalar(1800);
      previousField=visibleParts;
@@ -78,7 +78,7 @@ export default function ToolHeadPreview({coverOpen=false,fieldOfView,camera:came
    api.current=null;
   };
  },[]);
- useEffect(()=>{api.current?.(latest.current);},[coverOpen,fieldOfView,cameraType,laserMountSide,laserLine]);
+ useEffect(()=>{api.current?.(latest.current);},[coverOpen,fieldOfView,cameraType,structuredLightInstalled,laserMountSide,laserLine]);
  return <div className="dc-tool-preview" data-cover={coverOpen?'open':'closed'} data-field-of-view={fieldOfView?'visible':'hidden'}>
   <div className="dc-tool-canvas" ref={host}/>
   {status&&<p role="status">{status}</p>}

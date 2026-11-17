@@ -3,8 +3,10 @@ import React,{useId,useLayoutEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {ChevronDown, CircleHelp} from 'lucide-react';
 import WeldTrackingSettings from './WeldTrackingSettings';
+import MultiRobotAllocation from './MultiRobotAllocation.jsx';
+import {ALLOCATION_FIELDS,allocationIssues} from './multiRobotAllocation.mjs';
 import {DEFAULT_INTERFERENCE_ANGLE,DEFAULT_INTERFERENCE_DISTANCE,INTERFERENCE_END_FIELDS,L_WRAP_DISTANCES,configuredWrapDistance,hasCustomWrapRatio,mergeIncludedAngleRange,planningSettingsIssues,usesLegacyVerticalWrapDistance,verticalWrapPreset,wrapDistanceRatio} from './planningConfiguration.mjs';
-import {MIXED_SCAN_FIELDS,STRUCTURED_LIGHT_SCAN_FIELDS,POSE_AXES,OFFSET_AXES,settingsDefaults,serializeSettings,SETTINGS_TABS,useCaseSettingsIssues} from './planningSettingsModel.mjs';
+import {SWEEP_DISTANCE_FIELDS,STRUCTURED_LIGHT_SCAN_FIELDS,POSE_AXES,OFFSET_AXES,settingsDefaults,serializeSettings,SETTINGS_TABS,useCaseSettingsIssues} from './planningSettingsModel.mjs';
 import {roundWeldLeg} from './planningRequirements.mjs';
 import flatWrapGeometry from './flatWrapDiagramGeometry.json';
 
@@ -288,14 +290,15 @@ const pathSections=[
 ];
 
 function settingsSignature(settings){
- const wrap=settings.wrapParameters;
- const comparable={...settings,wrapParameters:{...wrap,lDistanceCustomRatio:wrap.lDistanceCustomRatio??null,
+ const {allocationParameters,...geometry}=settings;
+ const wrap=geometry.wrapParameters;
+ const comparable={...geometry,wrapParameters:{...wrap,lDistanceCustomRatio:wrap.lDistanceCustomRatio??null,
   verticalDistanceCustomRatio:wrap.verticalDistanceCustomRatio??null,verticalDistanceOffset:wrap.verticalDistanceOffset??0}};
  return JSON.stringify(comparable,(_key,value)=>value&&typeof value==='object'&&!Array.isArray(value)
   ?Object.fromEntries(Object.keys(value).sort().map(key=>[key,value[key]])):value);
 }
 
-export default function PlanningSettings({settings={},capabilities={},hasWelds=false,saving=false,onSave,onCancel}){
+export default function PlanningSettings({settings={},capabilities={},robots=[],welds=[],hasWelds=false,saving=false,onSave,onCancel}){
  const [tab,setTab]=useState(SETTINGS_TABS[0][0]),[saveError,setSaveError]=useState('');
  const [validationShown,setValidationShown]=useState(false),[focusIssue,setFocusIssue]=useState(null);
  const [pathExpanded,setPathExpanded]=useState(true);
@@ -305,9 +308,10 @@ export default function PlanningSettings({settings={},capabilities={},hasWelds=f
  const selectSection=key=>setTab(key);
  const showLaser=capabilities.laserPrecision!==false,showStructure=capabilities.structuredLightPrecision!==false;
  const showTracking=capabilities.laserTracking!==false||capabilities.arcTracking!==false;
- const visibleTabs=SETTINGS_TABS.filter(([key])=>(key!=='tracking'||showTracking)&&(key!=='measurement'||showLaser||showStructure));
+ const visibleTabs=SETTINGS_TABS.filter(([key])=>(key!=='tracking'||showTracking)&&(key!=='measurement'||showLaser||showStructure)&&(key!=='allocation'||robots.length>1));
  const [draft,setDraft]=useState(()=>{const next=settingsDefaults({...settings,topologyVersion:1,weldPreprocessing:settings.weldPreprocessing??{},mergeParameters:{...settings.mergeParameters,enabled:true,angleEnabled:true,grooveEnabled:true}}),range=mergeIncludedAngleRange(settings.mergeParameters);for(const key of ['angleMin','angleMax'])if(range[key]!=='')next.mergeParameters[key]=range[key];return next;});
  const [initialSettingsSignature]=useState(()=>settingsSignature(serializeSettings(draft)));
+ const [initialAllocation]=useState(()=>JSON.stringify(serializeSettings(draft).allocationParameters));
  const change=(group,key,value)=>{setDraft(previous=>({...previous,[group]:{...previous[group],[key]:value}}));setSaveError('');};
  const action=draft.actionParameters,wrap=draft.wrapParameters,merge=draft.mergeParameters;
  const customWrapRatio=hasCustomWrapRatio(wrap);
@@ -321,7 +325,8 @@ export default function PlanningSettings({settings={},capabilities={},hasWelds=f
  });
  const serialized=serializeSettings(draft);
  const effective=settingsDefaults(serialized,capabilities);
- const issues=[...planningSettingsIssues(effective),...useCaseSettingsIssues(effective,capabilities)];
+ const issues=[...planningSettingsIssues(effective),...useCaseSettingsIssues(effective,capabilities),
+  ...(robots.length>1?allocationIssues(effective.allocationParameters):[])];
  const fieldErrors=new Map();
  const unlocated=[];
  function sectionFor(field) {
@@ -337,7 +342,7 @@ export default function PlanningSettings({settings={},capabilities={},hasWelds=f
     if(['angleMin','angleMax','gapThreshold','maxLength'].includes(key))return 'topology';
     break;
    case 'wrapParameters':
-    if(['flatLPose','verticalLPose','uPose','lDistanceRatio','lDistanceOffset','verticalDistance','verticalDistanceRatio','verticalDistanceOffset'].includes(key))return 'path-continuous';
+    if(['flatLPoseOffset','verticalLPose','uPose','lDistanceRatio','lDistanceOffset','verticalDistance','verticalDistanceRatio','verticalDistanceOffset'].includes(key))return 'path-continuous';
     break;
    case 'splitParameters':
     if(['toolHeadCollisionEnabled','autoDeleteUnavoidable','minWeldLength'].includes(key))return 'path-collision';
@@ -345,6 +350,7 @@ export default function PlanningSettings({settings={},capabilities={},hasWelds=f
    case 'cornerPathParameters':return 'path-continuous';
    case 'interferenceEndParameters':return 'path-endpoints';
    case 'precisionParameters':return 'measurement';
+   case 'allocationParameters':return 'allocation';
    case 'trackingParameters':return 'tracking';
   }
   return null;
@@ -354,14 +360,15 @@ export default function PlanningSettings({settings={},capabilities={},hasWelds=f
  function restoreSection(){
   const sections={
    action:['actionParameters.defaultLegs'],
+   allocation:['allocationParameters'],
    topology:['weldPreprocessing.maxHolePlateThickness','weldPreprocessing.minCornerHoleSize','weldPreprocessing.outerClearance','mergeParameters.angleMin','mergeParameters.angleMax','mergeParameters.gapThreshold','mergeParameters.maxLength','mergeParameters.lengthEnabled'],
    'path-basic':['actionParameters.flatPose','actionParameters.verticalPose','actionParameters.lineStepEnabled','actionParameters.lineStep','actionParameters.arcStep'],
-   'path-continuous':['weldPreprocessing.maxWrapPlateThickness','wrapParameters.flatLPose','wrapParameters.verticalLPose','wrapParameters.uPose','wrapParameters.lDistanceRatio','wrapParameters.lDistanceOffset','wrapParameters.verticalDistance','wrapParameters.verticalDistanceRatio','wrapParameters.verticalDistanceCustomRatio','wrapParameters.verticalDistanceOffset','cornerPathParameters'],
+   'path-continuous':['weldPreprocessing.maxWrapPlateThickness','wrapParameters.flatLPoseOffset','wrapParameters.verticalLPose','wrapParameters.uPose','wrapParameters.lDistanceRatio','wrapParameters.lDistanceOffset','wrapParameters.verticalDistance','wrapParameters.verticalDistanceRatio','wrapParameters.verticalDistanceCustomRatio','wrapParameters.verticalDistanceOffset','cornerPathParameters'],
    'path-endpoints':['interferenceEndParameters'],
    'path-collision':['splitParameters.toolHeadCollisionEnabled','splitParameters.autoDeleteUnavoidable','splitParameters.minWeldLength'],
    'path-safe-points':['actionParameters.safeTransitionOffset','actionParameters.safeApproachOffset','actionParameters.endSafeTransitionOffset','actionParameters.endSafeApproachOffset'],
    tracking:[...(capabilities.laserTracking!==false?['trackingParameters.laserEnabled','trackingParameters.minLineLength','trackingParameters.minArcDiameter','trackingParameters.minEdgeWidth']:[]),...(capabilities.arcTracking!==false?['trackingParameters.arcEnabled']:[])],
-   measurement:[...(showLaser?['precisionParameters.laserPose','precisionParameters.mixedScan','precisionParameters.lineSweepSpeed','precisionParameters.arcSweepSpeed']:[]),...(showStructure?['precisionParameters.structuredLightPhotoDistance','precisionParameters.structuredLightMixedScan']:[])]
+   measurement:[...(showLaser?['precisionParameters.laserWorkingDistance','precisionParameters.mixedScan','precisionParameters.lineSweepSpeed','precisionParameters.arcSweepSpeed']:[]),...(showStructure?['precisionParameters.structuredLightPhotoDistance','precisionParameters.structuredLightMixedScan']:[])]
   };
   setDraft(previous=>{
    const next={...previous};
@@ -413,16 +420,30 @@ export default function PlanningSettings({settings={},capabilities={},hasWelds=f
    setSaveError('');
   }} {...props} {...fieldProps('cornerPathParameters.'+side+'.'+key)}/>;
  const group=(section,key,label,fields,inputLabel)=><NumberGroup label={label} inputLabel={inputLabel} value={draft[section][key]} onChange={value=>change(section,key,value)} fields={fields} fieldProps={axis=>fieldProps(section+'.'+key+'.'+axis)}/>;
- const mixedScan=(key,label,fields)=><fieldset className="planning-setting-fields planning-number-group">
-  <legend>{label}寻位设置</legend>
-  {fields.map(([fieldName,name])=><NumberField key={fieldName} label={name} inputLabel={label+name} step="any"
-   value={draft.precisionParameters[key][fieldName]} {...fieldProps('precisionParameters.'+key+'.'+fieldName)}
-   onChange={value=>change('precisionParameters',key,{...draft.precisionParameters[key],[fieldName]:value})}/>)}
+ const scanFields=(key,label,fields)=>fields.map(([fieldName,name])=><NumberField key={fieldName} label={name} inputLabel={label+name} step="any"
+  value={draft.precisionParameters[key][fieldName]} {...fieldProps('precisionParameters.'+key+'.'+fieldName)}
+  onChange={value=>change('precisionParameters',key,{...draft.precisionParameters[key],[fieldName]:value})}/>);
+ const precisionGroup=(label,key,distanceKey,distanceLabel,note)=><fieldset className="planning-setting-fields planning-subgroup">
+  <legend>{label}精定位设置</legend>
+  {field('precisionParameters',distanceKey,distanceLabel,{unit:'mm',step:'any',placeholder:'留空自动'})}
+  <p className="planning-setting-note">{note}</p>
+  <fieldset className="planning-setting-fields planning-number-group">
+   <legend>{label}寻位设置</legend>
+   {scanFields(key,label,STRUCTURED_LIGHT_SCAN_FIELDS)}
+  </fieldset>
+ </fieldset>;
+ const sweepSettings=()=> <fieldset className="planning-setting-fields planning-number-group">
+  <legend>线激光推扫设置</legend>
+  {scanFields('mixedScan','线激光',SWEEP_DISTANCE_FIELDS)}
+  <p className="planning-setting-note">扫描距离用于法向退让和横扫半宽，留空取 30 mm。</p>
+  {field('precisionParameters','lineSweepSpeed','直线推扫动作速度',{unit:'mm/min',step:'any',placeholder:'默认150'})}
+  {field('precisionParameters','arcSweepSpeed','圆弧推扫动作速度',{unit:'mm/min',step:'any',placeholder:'默认70'})}
  </fieldset>;
  async function save(event){
   event.preventDefault();
   if(saving)return;
-  if(!issues.length){setSaveError(await onSave(serialized,settingsSignature(serialized)!==initialSettingsSignature)||'');return;}
+  if(!issues.length){setSaveError(await onSave(serialized,settingsSignature(serialized)!==initialSettingsSignature,
+   robots.length>1&&JSON.stringify(serialized.allocationParameters)!==initialAllocation)||'');return;}
   setValidationShown(true);
   const orderedTabs=visibleTabs.flatMap(([key])=>key==='path'?pathSections.map(([section])=>section):key);
   const firstTab=orderedTabs.find(key=>issues.some(issue=>sectionFor(issue.field)===key));
@@ -487,6 +508,7 @@ export default function PlanningSettings({settings={},capabilities={},hasWelds=f
   {field('weldPreprocessing','maxHolePlateThickness','过焊孔允许连续焊接最大板厚',{step:'any',placeholder:'留空不限制',helpGif:'/assets/parameter-help/max-hole-plate-thickness.gif'})}
   {field('weldPreprocessing','minCornerHoleSize','转角合并最小过焊孔尺寸',{step:'any',helpGif:'/assets/parameter-help/min-corner-hole-size.gif'})}
   {field('weldPreprocessing','outerClearance','外角最小空间',{step:'any',helpGif:'/assets/parameter-help/outer-clearance.gif'})}
+  <p className="planning-setting-note">仅用于间隙判断。边缘打断仍按该焊缝的焊脚尺寸判断。</p>
   <fieldset className="planning-setting-fields planning-subgroup"><legend>合并角度范围</legend>
    <div className="planning-angle-range">
     {field('mergeParameters','angleMin','最小合并夹角',{unit:'°',max:360})}
@@ -514,8 +536,9 @@ export default function PlanningSettings({settings={},capabilities={},hasWelds=f
    {field('weldPreprocessing','maxWrapPlateThickness','包角最大板厚',{step:'any',placeholder:'留空不限制'})}
    <fieldset className="planning-setting-fields planning-subgroup">
     <legend>平角焊包角</legend>
+    <p className="planning-setting-note">L 形包角按焊接方向自动镜像。起点的前进角和旋转角偏移取反，工作角偏移首尾一致。</p>
     <FlatWrapFigure kind="L" settings={savedWrap} onRatioChange={ratio=>change('wrapParameters','lDistanceCustomRatio',ratio)}
-     pose={group('wrapParameters','flatLPose','L形包角参考姿态',angleFields)}>
+     pose={group('wrapParameters','flatLPoseOffset','L形包角姿态偏移',angleFields)}>
      <label className="planning-wrap-distance-label" htmlFor={pathMenuId+'-wrap-ratio'}>L形包角距离</label>
      <div className="planning-wrap-distance-inputs">
       <select id={pathMenuId+'-wrap-ratio'} data-setting-field="wrapParameters.lDistanceRatio" aria-invalid={!!wrapRatioError||undefined}
@@ -653,22 +676,30 @@ export default function PlanningSettings({settings={},capabilities={},hasWelds=f
  {tab==='measurement'&&<>
  <section aria-label="精定位设置">
   <h3>精定位设置</h3>
-  {showLaser&&<fieldset className="planning-setting-fields planning-subgroup">
-   <legend>线激光精定位设置</legend>
-   {group('precisionParameters','laserPose','线激光标准姿态',angleFields)}
-   {field('precisionParameters','lineSweepSpeed','直线推扫动作速度',{unit:'mm/min',step:'any',placeholder:'默认150'})}
-   {field('precisionParameters','arcSweepSpeed','圆弧推扫动作速度',{unit:'mm/min',step:'any',placeholder:'默认70'})}
-   {mixedScan('mixedScan','线激光',MIXED_SCAN_FIELDS)}
-  </fieldset>}
-  {showStructure&&<fieldset className="planning-setting-fields planning-subgroup">
-   <legend>结构光精定位设置</legend>
-   <p>定点拍照的机头沿焊缝开口角平分线，旋转角跟随被测点的焊接姿态。</p>
-   {field('precisionParameters','structuredLightPhotoDistance','拍照距离',{unit:'mm',step:'any',placeholder:'留空自动'})}
-   <p className="planning-setting-note">沿镜头光轴从镜头量到焊缝被测点。留空时自动计算，距离过近时取几何允许的最近距离。</p>
-   {mixedScan('structuredLightMixedScan','结构光',STRUCTURED_LIGHT_SCAN_FIELDS)}
-  </fieldset>}
+  <p>默认机头沿焊缝开口角平分线，旋转角跟随被测点的焊接姿态。</p>
+  {showLaser&&precisionGroup('线激光','mixedScan','laserWorkingDistance','工作距离',
+   '沿出光方向量到焊缝被测点。留空使用相机模型的标称距离，超出模型工作范围时取最近的可用距离。')}
+  {showStructure&&precisionGroup('结构光','structuredLightMixedScan','structuredLightPhotoDistance','拍照距离',
+   '沿镜头光轴从镜头量到焊缝被测点。留空时自动计算，距离过近时取几何允许的最近距离。')}
+  {showLaser&&sweepSettings()}
  </section>
  </>}
+ {tab==='allocation'&&<section aria-label="多机焊道分配">
+  <h3>多机焊道分配</h3>
+  <p className="planning-setting-note">矩形分区按 S 型排序，共享区按估算任务量均衡分配。</p>
+  <fieldset className="planning-setting-fields planning-number-group">
+   <legend>分区和时间参数</legend>
+   {ALLOCATION_FIELDS.map(([key,label,unit,,min,max])=><React.Fragment key={key}>
+    {field('allocationParameters',key,label,{unit,min,max,step:'any'})}
+   </React.Fragment>)}
+  </fieldset>
+  <MultiRobotAllocation welds={welds} robots={robots} settings={effective.allocationParameters} onOverride={(key,robot)=>{
+   const overrides={...draft.allocationParameters.overrides};
+   if(robot)overrides[key]=robot;
+   else delete overrides[key];
+   change('allocationParameters','overrides',overrides);
+  }}/>
+ </section>}
  {tab==='tracking'&&<section aria-label="跟踪设置"><h3>跟踪设置</h3><WeldTrackingSettings showHeading={false} capabilities={capabilities} value={draft.trackingParameters} fieldProps={key=>fieldProps('trackingParameters.'+key)} onChange={value=>setDraft(previous=>({...previous,trackingParameters:value}))}/></section>}
  </div></div>
   {validationShown&&fieldErrors.size>0&&<div className="planning-error-summary" aria-label="待修正的设置"><strong>还有 {fieldErrors.size} 项设置需要修正</strong><ul>{[...fieldErrors].map(([field,message])=><li key={field}><button type="button" onClick={()=>jumpToIssue(field)}>{message}</button></li>)}</ul></div>}

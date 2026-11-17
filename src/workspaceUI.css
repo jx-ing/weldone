@@ -238,3 +238,4 @@
 .planning-leg-options input {margin:4px 0 0;accent-color:var(--brand);flex:none}
 .planning-leg-options strong,.planning-leg-options small {display:block}
 .planning-leg-options small {font-size:12px;color:var(--secondary);line-height:1.4;margin-top:3px}
+.workstation-loading {position:absolute;left:12px;bottom:12px;padding:6px 9px;background:#fff;border:1px solid var(--line);color:var(--secondary);font-size:12px;pointer-events:none}

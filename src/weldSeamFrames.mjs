@@ -1,5 +1,5 @@
 import {Quaternion,Vector3} from 'three';
-import {horizontalWeldNormal,prepareManualWeldPath} from './manualWeldModel.mjs';
+import {horizontalWeldNormal,prepareManualWeldPath,wrapPathStation} from './manualWeldModel.mjs';
 import {validReferenceNormal} from './weldDirectionGeometry.mjs';
 import {weldPositionCode} from './planningRequirements.mjs';
 
@@ -102,7 +102,7 @@ export function prepareWeldSeamFrames(segments,fallback=[0,0,1],closed=false,ref
  if(!frames.length)return ()=>undefined;
  return (distance,segmentIndex)=>{
   let station=distance;
-  if(closed&&(station<0||station>length))station=((station%length)+length)%length;
+  if(closed&&(station<0||station>length))station=wrapPathStation(station,length);
   let lo=0,hi=frames.length-1;
   while(lo<hi){const mid=(lo+hi)>>1;if(station<frames[mid].to-EPS)hi=mid;else lo=mid+1;}
   const frame=(segmentIndex===undefined?null:frames.find(item=>item.index===segmentIndex))??frames[lo];

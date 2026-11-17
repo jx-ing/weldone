@@ -25,7 +25,7 @@ test('旧草稿保留间隙阈值，边缘比较采用当前焊脚',()=>{
 
 test('规划和设置保存共用外角最小空间，旧独立间隙阈值只用于补齐缺失的设置',()=>{
  const legacy={splitParameters:{gapThreshold:35,autoDeleteUnavoidable:false}};
- for(const [preprocessing,expected] of [[{},35],[{outerClearance:12.5},12.5],[{outerClearance:0},0]]){
+ for(const [preprocessing,expected] of [[{},35],[{outerClearance:12.5},12.5],[{outerClearance:80},80],[{outerClearance:0},0]]){
   const context=planningContext({planningSettings:{...legacy,weldPreprocessing:preprocessing}});
   const settings=settingsDefaults(context);
   assert.equal(settings.weldPreprocessing.outerClearance,expected);
@@ -35,6 +35,7 @@ test('规划和设置保存共用外角最小空间，旧独立间隙阈值只�
   for(const configuration of [context,saved]){
    const options=geometryOptionsForPlanning(DEFAULT_GEOMETRY_OPTIONS,configuration);
    assert.equal(options.offsetThreshold,expected||null);
+   assert.equal(options.extendThreshold,DEFAULT_GEOMETRY_OPTIONS.extendThreshold);
    assert.equal(Object.hasOwn(options.splitParameters,'gapThreshold'),false);
    assert.equal(options.splitParameters.edgeThreshold,null);
   }

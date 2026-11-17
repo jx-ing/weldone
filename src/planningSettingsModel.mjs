@@ -1,8 +1,7 @@
+import {ALLOCATION_FIELDS,DEFAULT_ALLOCATION} from './multiRobotAllocation.mjs';
 import {DEFAULT_INTERFERENCE_ANGLE,DEFAULT_INTERFERENCE_DISTANCE,DEFAULT_MERGE_ANGLE_RANGE,DEFAULT_MERGE_GAP,cornerPathDefaults,planningOuterClearance} from './planningConfiguration.mjs';
 
-export const SETTINGS_TABS=[['action','全局焊脚设置'],['topology','拓扑调整'],['path','路径设置'],['tracking','跟踪设置'],['measurement','寻位设置']];
-export const DEFAULT_FLAT_L_WRAP_POSE=Object.freeze({advance:-42.01,work:42.97,rotation:114.18});
-export const FLAT_L_WRAP_LIMIT=35;
+export const SETTINGS_TABS=[['action','全局焊脚设置'],['topology','拓扑调整'],['path','路径设置'],['tracking','跟踪设置'],['measurement','寻位设置'],['allocation','多机焊道分配']];
 export const OFFSET_AXES=['x','y','z'];
 export const POSE_AXES=[['advance','前进角'],['work','工作角'],['rotation','旋转角']];
 export const MIXED_SCAN_FIELDS=[
@@ -12,7 +11,8 @@ export const MIXED_SCAN_FIELDS=[
  ['minWeldLength','生成扫描点的最短焊缝长度'],
  ['scanDistance','扫描距离']
 ];
-export const STRUCTURED_LIGHT_SCAN_FIELDS=MIXED_SCAN_FIELDS.filter(([key])=>key!=='endClearance'&&key!=='scanDistance');
+export const SWEEP_DISTANCE_FIELDS=MIXED_SCAN_FIELDS.filter(([key])=>key==='endClearance'||key==='scanDistance');
+export const STRUCTURED_LIGHT_SCAN_FIELDS=MIXED_SCAN_FIELDS.filter(field=>!SWEEP_DISTANCE_FIELDS.includes(field));
 const empty=value=>value===undefined||value===null||value==='';
 export const asNumber=value=>empty(value)?null:Number(value);
 export const defaultNumber=(value,fallback)=>empty(value)?fallback:Number(value);
@@ -33,17 +33,17 @@ export function settingsDefaults(raw={},capabilities={}){
  const {endClearance,scanDistance,...structuredLightMixedScan}=precision.structuredLightMixedScan??{};
  const {startPose,endPose,...ends}=settings.interferenceEndParameters||{};
  const transitionDefault=[0,50,motion.liftHeight??100],approachDefault=[0,20,40];
- const next={...settings,actionParameters:{...motion,legMode:motion.legMode??'thickness',legHeight:motion.legHeight??null,lineStepEnabled:motion.lineStepEnabled??true,lineStep:motion.lineStep??5,arcStep:motion.arcStep??2,edgeSearchDistance:motion.edgeSearchDistance??15,
+ const next={...settings,allocationParameters:{...DEFAULT_ALLOCATION,...settings.allocationParameters},actionParameters:{...motion,legMode:motion.legMode??'thickness',legHeight:motion.legHeight??null,lineStepEnabled:motion.lineStepEnabled??true,lineStep:motion.lineStep??5,arcStep:motion.arcStep??2,edgeSearchDistance:motion.edgeSearchDistance??15,
     safeTransitionOffset:offset(motion.safeTransitionOffset,transitionDefault),
     safeApproachOffset:offset(motion.safeApproachOffset,approachDefault),
     endSafeTransitionOffset:offset(motion.endSafeTransitionOffset??motion.safeTransitionOffset,transitionDefault),
     endSafeApproachOffset:offset(motion.endSafeApproachOffset??motion.safeApproachOffset,approachDefault),
     overlapDistance:motion.overlapDistance??5,staggerDistance:motion.staggerDistance??20,flatPose:pose(motion.flatPose),verticalPose:pose(motion.verticalPose),liftHeight:motion.liftHeight??100,externalAxisLength:motion.externalAxisLength??1500},
-  wrapParameters:{...wrap,flatEnabled:wrap.flatEnabled??wrap.enabled??true,verticalEnabled:wrap.verticalEnabled??wrap.enabled??true,lDistanceRatio:wrap.lDistanceRatio||'2/3',lDistanceOffset:wrap.lDistanceOffset??0,uPose:pose(wrap.uPose),flatLPose:Object.fromEntries(POSE_AXES.map(([axis])=>[axis,wrap.flatLPose?.[axis]??DEFAULT_FLAT_L_WRAP_POSE[axis]])),verticalLPose:pose(wrap.verticalLPose),independentLength:defaultNumber(wrap.independentLength,30),passHoleThreshold:defaultNumber(wrap.passHoleThreshold,35),gapThreshold:defaultNumber(wrap.gapThreshold,350)},
+  wrapParameters:{...wrap,flatEnabled:wrap.flatEnabled??wrap.enabled??true,verticalEnabled:wrap.verticalEnabled??wrap.enabled??true,lDistanceRatio:wrap.lDistanceRatio||'2/3',lDistanceOffset:wrap.lDistanceOffset??0,uPose:pose(wrap.uPose),flatLPoseOffset:Object.fromEntries(POSE_AXES.map(([axis])=>[axis,wrap.flatLPoseOffset?.[axis]??0])),verticalLPose:pose(wrap.verticalLPose),independentLength:defaultNumber(wrap.independentLength,30),passHoleThreshold:defaultNumber(wrap.passHoleThreshold,35),gapThreshold:defaultNumber(wrap.gapThreshold,350)},
   mergeParameters:{...merge,gapThreshold:defaultNumber(merge.gapThreshold,DEFAULT_MERGE_GAP),enabled:merge.enabled??true,countEnabled:merge.countEnabled??Number.isInteger(merge.count),count:merge.count??2,lengthEnabled:merge.lengthEnabled??!empty(merge.maxLength),maxLength:defaultNumber(merge.maxLength,1500),passHoleSize:defaultNumber(merge.passHoleSize,15),angleMin:merge.angleMin??DEFAULT_MERGE_ANGLE_RANGE.angleMin,angleMax:merge.angleMax??DEFAULT_MERGE_ANGLE_RANGE.angleMax},
   splitParameters:{...split,...(!settings.weldPreprocessing?{gapThreshold:gapThreshold??null}:{}),toolHeadCollisionEnabled:split.toolHeadCollisionEnabled??false,autoDeleteUnavoidable:split.autoDeleteUnavoidable??true,minWeldLength:split.minWeldLength??0},
   interferenceEndParameters:{...ends,verticalStartPose:pose(ends.verticalStartPose),verticalStartDistance:ends.verticalStartDistance??20,startDistance:defaultNumber(ends.startDistance,DEFAULT_INTERFERENCE_DISTANCE),endDistance:defaultNumber(ends.endDistance,DEFAULT_INTERFERENCE_DISTANCE),startAngle:defaultNumber(startPose?.advance??ends.startAngle,DEFAULT_INTERFERENCE_ANGLE),endAngle:defaultNumber(endPose?.advance??ends.endAngle,DEFAULT_INTERFERENCE_ANGLE),startLineOffset:ends.startLineOffset??0,endLineOffset:ends.endLineOffset??0},
-  precisionParameters:{...precision,laserPose:{...offset(precision.laserPose,[0,0,0]),...pose(precision.laserPose)},structuredLightPose:{...offset(precision.structuredLightPose,[0,0,0]),...pose(precision.structuredLightPose)},lineSweepSpeed:precision.lineSweepSpeed??150,arcSweepSpeed:precision.arcSweepSpeed??70,structuredLightPhotoDistance:precision.structuredLightPhotoDistance??null,mixedScan:{...precision.mixedScan},structuredLightMixedScan},
+  precisionParameters:{...precision,laserPose:{...offset(precision.laserPose,[0,0,0]),...pose(precision.laserPose)},structuredLightPose:{...offset(precision.structuredLightPose,[0,0,0]),...pose(precision.structuredLightPose)},lineSweepSpeed:precision.lineSweepSpeed??150,arcSweepSpeed:precision.arcSweepSpeed??70,structuredLightPhotoDistance:precision.structuredLightPhotoDistance??null,laserWorkingDistance:precision.laserWorkingDistance??null,mixedScan:{...precision.mixedScan},structuredLightMixedScan},
   trackingParameters:{...tracking,laserEnabled:capabilities.laserTracking===false?false:tracking.laserEnabled??true,arcEnabled:capabilities.arcTracking===false?false:tracking.arcEnabled??true,minLineLength:tracking.minLineLength??160,minArcDiameter:tracking.minArcDiameter??160,minEdgeWidth:tracking.minEdgeWidth??10}};
  if(settings.topologyVersion===1){
   const legacyLeg={enabled:motion.legMode==='global',height:motion.legHeight??null};
@@ -76,7 +76,7 @@ export function serializeSettings(draft,capabilities={}){
  action.overlapDistance=defaultNumber(action.overlapDistance,5);
  action.staggerDistance=defaultNumber(action.staggerDistance,20);
  for(const key of ['flatPose','verticalPose'])next.actionParameters[key]=Object.fromEntries(POSE_AXES.map(([axis])=>[axis,n(next.actionParameters[key][axis])]));
- const w=next.wrapParameters;w.enabled=w.flatEnabled||w.verticalEnabled;w.independentLength=defaultNumber(w.independentLength,30);w.gapThreshold=defaultNumber(w.gapThreshold,350);for(const key of ['flatLPose','verticalLPose'])w[key]=Object.fromEntries(POSE_AXES.map(([axis])=>[axis,n(w[key][axis])]));w.passHoleThreshold=defaultNumber(w.passHoleThreshold,35);w.uPose=Object.fromEntries(POSE_AXES.map(([axis])=>[axis,n(w.uPose[axis])]));
+ const w=next.wrapParameters;w.enabled=w.flatEnabled||w.verticalEnabled;w.independentLength=defaultNumber(w.independentLength,30);w.gapThreshold=defaultNumber(w.gapThreshold,350);for(const key of ['flatLPoseOffset','verticalLPose'])w[key]=Object.fromEntries(POSE_AXES.map(([axis])=>[axis,n(w[key][axis])]));w.passHoleThreshold=defaultNumber(w.passHoleThreshold,35);w.uPose=Object.fromEntries(POSE_AXES.map(([axis])=>[axis,n(w.uPose[axis])]));
  w.lDistanceOffset=defaultNumber(w.lDistanceOffset,0);
  if(w.verticalDistanceOffset!==undefined)w.verticalDistanceOffset=defaultNumber(w.verticalDistanceOffset,0);
  const m=next.mergeParameters;m.rulesVersion=3;m.angleMin=n(m.angleMin);m.angleMax=n(m.angleMax);m.count=n(m.count);m.maxLength=defaultNumber(m.maxLength,1500);m.passHoleSize=defaultNumber(m.passHoleSize,15);m.angleDefinition='included';m.position='flat-flat';delete m.continuousOnly;m.passHoleInclusive=false;delete m.angle;
@@ -92,8 +92,9 @@ export function serializeSettings(draft,capabilities={}){
  if(Object.values(verticalStartPose).every(value=>value===null))delete next.interferenceEndParameters.verticalStartPose;
  else next.interferenceEndParameters.verticalStartPose=verticalStartPose;
  for(const key of ['startDistance','endDistance'])next.interferenceEndParameters[key]=defaultNumber(next.interferenceEndParameters[key],DEFAULT_INTERFERENCE_DISTANCE);
+ for(const [key,,,fallback] of ALLOCATION_FIELDS)next.allocationParameters[key]=defaultNumber(next.allocationParameters[key],fallback);
  const precision=next.precisionParameters;
- precision.structuredLightPhotoDistance=n(precision.structuredLightPhotoDistance);
+ for(const key of ['structuredLightPhotoDistance','laserWorkingDistance'])precision[key]=n(precision[key]);
  for(const [key,fallback] of [['lineSweepSpeed',150],['arcSweepSpeed',70]])precision[key]=defaultNumber(precision[key],fallback);
  for(const key of ['laserPose','structuredLightPose']){
   for(const axis of OFFSET_AXES)precision[key][axis]=defaultNumber(precision[key][axis],0);
@@ -202,7 +203,7 @@ export function useCaseSettingsIssues(settings,capabilities={}){
  if(w?.rulesVersion>=2){
   numeric('wrapParameters.gapThreshold',w.gapThreshold,'包角间隙阈值',{integer:true,positive:true,optional:true});
   if(!topology||w.flatEnabled){
-   poseCheck('wrapParameters.flatLPose',w.flatLPose,'平角焊L形包角姿态');
+   poseCheck('wrapParameters.flatLPoseOffset',w.flatLPoseOffset,'平角焊L形包角姿态偏移');
    numeric('wrapParameters.independentLength',w.independentLength,'独立焊缝长度',{positive:true});
   }
   numeric('wrapParameters.passHoleThreshold',w.passHoleThreshold,'过焊孔阈值',{integer:true,positive:true});
@@ -226,10 +227,14 @@ export function useCaseSettingsIssues(settings,capabilities={}){
  }
  const precision=settings.precisionParameters;
  if(precision){
-  const photoDistance=precision.structuredLightPhotoDistance;
-  if(capabilities.structuredLightPrecision!==false&&!empty(photoDistance)&&(!Number.isFinite(photoDistance)||photoDistance<=0))
-   add('precisionParameters.structuredLightPhotoDistance','拍照距离须大于 0 mm');
-  if(capabilities.laserPrecision!==false)poseCheck('precisionParameters.laserPose',precision.laserPose,'线激光标准姿态');
+  for(const [key,capability,label] of [
+   ['structuredLightPhotoDistance','structuredLightPrecision','拍照距离'],
+   ['laserWorkingDistance','laserPrecision','线激光工作距离']
+  ]){
+   const value=precision[key];
+   if(capabilities[capability]!==false&&!empty(value)&&(!Number.isFinite(value)||value<=0))
+    add('precisionParameters.'+key,label+'须大于 0 mm');
+  }
   if(capabilities.laserPrecision!==false)for(const [key,label] of [['lineSweepSpeed','直线推扫速度'],['arcSweepSpeed','圆弧推扫速度']]){
    if(!empty(precision[key])&&(!Number.isFinite(precision[key])||precision[key]<=0))add('precisionParameters.'+key,label+'须大于0');
   }

@@ -8,8 +8,13 @@ export function weldPrecisionOptions(capabilities={},endpoint=false){
 }
 export function weldPrecisionMethod(scan={},capabilities={}){
  if(weldPrecisionOptions(capabilities).some(([method])=>method===scan.precisionMethod))return scan.precisionMethod;
- if(capabilities.laserPrecision===true)return 'laserSweep';
- return capabilities.structuredLightPrecision===true?'fixedPhoto':'';
+ if(capabilities.structuredLightPrecision===true)return 'fixedPhoto';
+ return capabilities.laserPrecision===true?'laserSweep':'';
+}
+export function weldMeasurementCapabilities(weld,settings={}){
+ const robot=weld?.assignedRobot??settings.planningRobots?.[0]?.id;
+ const installed=settings.precisionByRobot?.[robot];
+ return installed?{...settings.deviceCapabilities,...installed}:settings.deviceCapabilities;
 }
 export function workFacesForType(type){return type==='小组立'?['上','下']:['中组立','护板'].includes(type)?['上']:[];}
 export function patchWeldGroup(weld,key,value){return weld.segments.map(segment=>({...segment,[key]:value}));}

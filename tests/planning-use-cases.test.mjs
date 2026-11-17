@@ -5,7 +5,7 @@ import {planningSettingsErrors,planningSettingsIssues,geometryOptionsForPlanning
 import {DEFAULT_GEOMETRY_OPTIONS,convertGeometryPlan,mergeFeatureWithinSize} from '../src/geometryProcessingModel.mjs';
 
 test('工艺规划设置可保存并兼容旧项目配置',()=>{
- assert.deepEqual(SETTINGS_TABS.map(v=>v[1]),["全局焊脚设置","拓扑调整","路径设置","跟踪设置","寻位设置"]);
+ assert.deepEqual(SETTINGS_TABS.map(v=>v[1]),["全局焊脚设置","拓扑调整","路径设置","跟踪设置","寻位设置","多机焊道分配"]);
  const baseline={intermittentParameters:{enabled:true},splitParameters:{enabled:true,length:100,gapThreshold:25},visionParameters:{twoFaceSpeed:123},samplingAvoidance:{enabled:false,step:7},custom:'保留'};
  const draft=settingsDefaults(baseline);draft.wrapParameters.flatEnabled=false;
  const saved=serializeSettings(draft);
@@ -68,22 +68,25 @@ test('按设备分别保存寻位配置，移除结构光的两项旧距离',()=
  scan.scanDistance='-1';
  assert.match(useCaseSettingsErrors(serializeSettings(draft)).join(''),/扫描距离/);
 });
-test('结构光拍照距离可选填，按项目保存并校验正值',()=>{
+test('两种相机的距离可独立选填，按项目保存并校验正值',()=>{
  const draft=settingsDefaults();
- const field='precisionParameters.structuredLightPhotoDistance';
- assert.equal(draft.precisionParameters.structuredLightPhotoDistance,null);
- draft.precisionParameters.structuredLightPhotoDistance='850.5';
- const saved=serializeSettings(draft);
- const workspace=updateProjectPlanning({project:'项目A',planningSettings:{},welds:[]},{planningSettings:saved});
- assert.equal(workspace.projectPlanning['项目A'].planningSettings.precisionParameters.structuredLightPhotoDistance,850.5);
- for(const value of [0,-5,Infinity]){
-  draft.precisionParameters.structuredLightPhotoDistance=value;
-  const invalid=serializeSettings(draft);
-  assert.ok(useCaseSettingsIssues(invalid).some(issue=>issue.field===field));
-  assert.ok(useCaseSettingsIssues(invalid,{structuredLightPrecision:false}).every(issue=>issue.field!==field));
+ for(const [key,capability,input] of [['structuredLightPhotoDistance','structuredLightPrecision',850.5],['laserWorkingDistance','laserPrecision',510.25]]){
+  const field='precisionParameters.'+key;
+  assert.equal(draft.precisionParameters[key],null);
+  draft.precisionParameters[key]=String(input);
+  const saved=serializeSettings(draft);
+  assert.ok(useCaseSettingsIssues(saved).every(issue=>issue.field!==field));
+  const workspace=updateProjectPlanning({project:'项目A',planningSettings:{},welds:[]},{planningSettings:saved});
+  assert.equal(workspace.projectPlanning['项目A'].planningSettings.precisionParameters[key],input);
+  for(const value of [0,-5,Infinity]){
+   draft.precisionParameters[key]=value;
+   const invalid=serializeSettings(draft);
+   assert.ok(useCaseSettingsIssues(invalid).some(issue=>issue.field===field));
+   assert.ok(useCaseSettingsIssues(invalid,{[capability]:false}).every(issue=>issue.field!==field));
+  }
+  draft.precisionParameters[key]='';
+  assert.equal(serializeSettings(draft).precisionParameters[key],null);
  }
- draft.precisionParameters.structuredLightPhotoDistance='';
- assert.equal(serializeSettings(draft).precisionParameters.structuredLightPhotoDistance,null);
 });
 test('用例默认值和空值回退，设备默认已配置，明确无配置时关闭跟踪',()=>{
  const d=serializeSettings(settingsDefaults());
@@ -163,13 +166,13 @@ test('设置校验定位跨页字段，逐项修正或停用规则后清除对�
  };
  draft.mergeParameters.angleMin=130;
  draft.actionParameters.lineStep=0;
- draft.wrapParameters.flatLPose.advance=361;
- assert.deepEqual(validate(),['mergeParameters.angleMin','actionParameters.lineStep','wrapParameters.flatLPose.advance']);
+ draft.wrapParameters.flatLPoseOffset.advance=361;
+ assert.deepEqual(validate(),['mergeParameters.angleMin','actionParameters.lineStep','wrapParameters.flatLPoseOffset.advance']);
  draft.mergeParameters.enabled=false;
  draft.wrapParameters.flatEnabled=false;
  assert.deepEqual(validate(),['actionParameters.lineStep']);
  assert.equal(serializeSettings(draft).mergeParameters.angleMin,130);
- assert.equal(serializeSettings(draft).wrapParameters.flatLPose.advance,361);
+ assert.equal(serializeSettings(draft).wrapParameters.flatLPoseOffset.advance,361);
  draft.actionParameters.lineStep=6;
  assert.deepEqual(validate(),[]);
  draft.mergeParameters.enabled=true;

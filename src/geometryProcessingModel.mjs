@@ -9,7 +9,8 @@ import {POSITIONS} from './templateModel.mjs';
 import {DEFAULT_MERGE_ANGLE_RANGE,DEFAULT_MERGE_GAP} from './planningConfiguration.mjs';
 import {sliceWeldSegments} from './planningPathSettings.mjs';
 import {normalizeWrapMarkers} from './weldWrapJunctions.mjs';
-export const DEMO_SOURCE_SHA256='c85056ed9022210cd93e48bc4d09b97615c57a70235f4f55d986e6a2bdec4fc8';
+import {DEMO_SOURCE_SHA256} from './bundledModels.mjs';
+export {DEMO_SOURCE_SHA256};
 export const DEFAULT_GEOMETRY_OPTIONS={mergeGapCheck:false,offset:50,extendThreshold:50,offsetThreshold:50,thicknessWeldThresholdMm:50,mergeParams:{最小通过高度:25,最长通过距离:45,夹角阈值下限:DEFAULT_MERGE_ANGLE_RANGE.angleMin,夹角阈值上限:DEFAULT_MERGE_ANGLE_RANGE.angleMax,长度阈值下限:0,长度阈值上限:99999,最大合并距离:DEFAULT_MERGE_GAP}};
 const metric=v=>Math.round(v*10000)/10000;
 const measuredLength=points=>{const length=pathLength(points);return metric(length)||length;};
@@ -222,14 +223,59 @@ export function excludeDeletedGeometry(welds,rejected,{exactOnly=false}={}){
   });
 }
 
-export function installGeometryResult(d,result){
-  if(result.sourceSha256!==(d.stepModel?.sourceSha256??DEMO_SOURCE_SHA256))throw Error('提取结果与当前 STEP 文件指纹不一致');
-  const manual=d.welds.filter(w=>!w.collisionFragment&&(w.source!=='extracted'||w.mergedInto||w.splitInto)),old=[...d.welds.filter(w=>w.source==='extracted'&&!w.mergedInto&&!w.splitInto&&!w.collisionFragment),...(d.collisionOriginals??[]).filter(w=>w.source==='extracted')],reserved=new Set(manual.filter(w=>w.source==='extracted').map(w=>w.processingKey)),used=new Set(d.welds.map(w=>w.id)),oldByKey=new Map(old.map(w=>[w.processingKey,w]));let next=10001;
-  if(!d.stepModel)for(const id of CONFIRMED_NON_WELD_IDS)used.add(id);
-  for(const rejected of d.rejectedGeometryWelds||[]){used.add(rejected.id);if(!oldByKey.has(rejected.processingKey))oldByKey.set(rejected.processingKey,rejected);}
-  const generated=result.welds.filter(w=>!reserved.has(w.processingKey)).map(w=>{const previous=oldByKey.get(w.processingKey);if(previous)return {...w,id:previous.id,enabled:previous.disabledByMinWeldLength||previous.enabled,...structuredClone(previous.attributeOverrides||{}),segments:w.segments.map((segment,index)=>({...segment,...Object.fromEntries(Object.entries(previous.attributeOverrides?.segments?.[index]??{}).filter(([,value])=>value!==undefined))})),...(previous.attributeOverrides?{attributeOverrides:structuredClone(previous.attributeOverrides)}:{})};while(used.has('W'+next))next++;const id='W'+next++;used.add(id);return {...w,id};});
-  if(manual.length+generated.length>MAX_PLANNING_WELDS)throw Error('处理结果与已有人工焊道数量超过工作区上限，请先另存工作区');
-  return excludeConfirmedNonWelds({...d,collisionOriginals:(d.collisionOriginals??[]).filter(w=>w.source!=='extracted'),welds:[...manual,...generated].map(normalizeVerticalWeld),selected:[...manual,...generated].some(w=>w.id===d.selected)?d.selected:generated[0]?.id||manual[0]?.id||'',previousGeometryProcessing:{welds:old,selected:d.selected,geometryProcessing:d.geometryProcessing||null},geometryProcessing:{sourceSha256:result.sourceSha256,summary:result.summary,config:result.config,extraction:result.extraction,sourcePlatform:d.stepModel?'本机 STEP 几何提取':'工艺规划平台 · 5216',splitAlgorithmRevision:9,geometryPlanRevision:5}});
+export function retainedGeometryWelds(workspace,{restoreDeleted=false}={}){
+  const retained=workspace.welds.filter(weld=>!weld.collisionFragment&&
+    (weld.source!=='extracted'||weld.mergedInto||weld.splitInto));
+  if(!restoreDeleted)return retained;
+  const present=new Set([...workspace.welds,...(workspace.collisionOriginals??[])].map(weld=>weld.id));
+  return retained.filter(weld=>weld.source!=='extracted'||
+    (weld.mergedInto&&present.has(weld.mergedInto))||weld.splitInto?.some(id=>present.has(id)));
 }
-export function restoreGeometryResult(d){const backup=d.previousGeometryProcessing;if(!backup)return d;const welds=[...d.welds.filter(w=>w.source!=='extracted'||w.mergedInto||w.splitInto),...backup.welds];return excludeConfirmedNonWelds({...d,welds,selected:welds.some(w=>w.id===backup.selected)?backup.selected:welds[0]?.id||'',geometryProcessing:backup.geometryProcessing,collisionOriginals:(d.collisionOriginals??[]).filter(weld=>weld.source!=='extracted'),previousGeometryProcessing:null});}
+
+export function installGeometryResult(d,result,{restoreDeleted=false}={}){
+  if(result.sourceSha256!==(d.stepModel?.sourceSha256??DEMO_SOURCE_SHA256))throw Error('提取结果与当前 STEP 文件指纹不一致');
+  const manual=retainedGeometryWelds(d,{restoreDeleted});
+  const retainedIds=new Set(manual.map(weld=>weld.id));
+  const old=[...d.welds.filter(weld=>weld.source==='extracted'&&!weld.collisionFragment&&!retainedIds.has(weld.id)),
+    ...(d.collisionOriginals??[]).filter(weld=>weld.source==='extracted')];
+  const reserved=new Set(manual.filter(weld=>weld.source==='extracted').map(weld=>weld.processingKey));
+  const used=new Set(d.welds.map(weld=>weld.id)),oldByKey=new Map(old.map(weld=>[weld.processingKey,weld]));
+  let next=10001;
+  if(!d.stepModel)for(const id of CONFIRMED_NON_WELD_IDS)used.add(id);
+  const restoredDeletes=restoreDeleted?deletedGeometryForModel(d,result.sourceSha256):[];
+  const restoredSet=new Set(restoredDeletes),currentIds=new Set(used),assignedIds=new Set(manual.map(weld=>weld.id));
+  for(const rejected of d.rejectedGeometryWelds||[]){
+    used.add(rejected.id);
+    if(rejected.sourceSha256===result.sourceSha256&&!oldByKey.has(rejected.processingKey)&&
+      !(restoredSet.has(rejected)&&currentIds.has(rejected.id)))oldByKey.set(rejected.processingKey,rejected);
+  }
+  const generated=result.welds.filter(w=>!reserved.has(w.processingKey)).map(w=>{
+    const previous=oldByKey.get(w.processingKey);
+    if(previous&&!assignedIds.has(previous.id)){
+      assignedIds.add(previous.id);
+      const enabled=!!(previous.splitInto||previous.mergedInto||previous.disabledByMinWeldLength||previous.enabled);
+      return {...w,id:previous.id,enabled,...structuredClone(previous.attributeOverrides||{}),segments:w.segments.map((segment,index)=>({...segment,...Object.fromEntries(Object.entries(previous.attributeOverrides?.segments?.[index]??{}).filter(([,value])=>value!==undefined))})),...(previous.attributeOverrides?{attributeOverrides:structuredClone(previous.attributeOverrides)}:{})};
+    }
+    while(used.has('W'+next))next++;
+    const id='W'+next++;used.add(id);assignedIds.add(id);
+    return {...w,id};
+  });
+  if(manual.length+generated.length>MAX_PLANNING_WELDS)throw Error('处理结果与已有人工焊道数量超过工作区上限，请先另存工作区');
+  return excludeConfirmedNonWelds({...d,
+    ...(restoredSet.size?{rejectedGeometryWelds:d.rejectedGeometryWelds.filter(weld=>!restoredSet.has(weld))}:{}),
+    collisionOriginals:(d.collisionOriginals??[]).filter(w=>w.source!=='extracted'),welds:[...manual,...generated].map(normalizeVerticalWeld),selected:[...manual,...generated].some(w=>w.id===d.selected)?d.selected:generated[0]?.id||manual[0]?.id||'',
+    previousGeometryProcessing:{welds:old,selected:d.selected,geometryProcessing:d.geometryProcessing||null,...(restoredSet.size?{restoredDeletes}:{})},
+    geometryProcessing:{sourceSha256:result.sourceSha256,summary:result.summary,config:result.config,extraction:result.extraction,sourcePlatform:d.stepModel?'本机 STEP 几何提取':'工艺规划平台 · 5216',splitAlgorithmRevision:9,geometryPlanRevision:5}});
+}
+export function restoreGeometryResult(d){
+  const backup=d.previousGeometryProcessing;
+  if(!backup)return d;
+  const welds=[...d.welds.filter(w=>w.source!=='extracted'||w.mergedInto||w.splitInto),...backup.welds];
+  const rejected=backup.restoredDeletes&&new Map([...backup.restoredDeletes,...(d.rejectedGeometryWelds??[])].map(weld=>[
+    JSON.stringify([weld.sourceSha256,weld.processingKey,weld.id,weld.rejectionReason]),weld]));
+  return excludeConfirmedNonWelds({...d,welds,
+    ...(rejected?{rejectedGeometryWelds:[...rejected.values()]}:{}),
+    selected:welds.some(w=>w.id===backup.selected)?backup.selected:welds[0]?.id||'',geometryProcessing:backup.geometryProcessing,
+    collisionOriginals:(d.collisionOriginals??[]).filter(weld=>weld.source!=='extracted'),previousGeometryProcessing:null});
+}
 export function validExtractedWeld(w,workspace){return w.source!=='extracted'||w.model===(workspace?.model??EXAMPLE_MODEL)&&w.sourceSha256===(workspace?.stepModel?.sourceSha256??DEMO_SOURCE_SHA256)&&typeof w.processingKey==='string'&&Array.isArray(w.segments)&&w.segments.length>0&&w.segments.length<=30&&w.segments.every(s=>Array.isArray(s.pathPoints)&&s.pathPoints.length>=2&&s.pathPoints.length<=20000&&s.pathPoints.every(p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite))&&Number.isFinite(s.length)&&s.length>0&&pathLength(s.pathPoints)>0&&Math.abs(pathLength(s.pathPoints)-s.length)<.01);}

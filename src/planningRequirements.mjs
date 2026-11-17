@@ -1,9 +1,10 @@
-import {deviceControlCapabilities} from './deviceControlModel.mjs';
+import {deviceControlCapabilities,enabledPlanningRobots} from './deviceControlModel.mjs';
 import {DEFAULT_LASER_MOUNT_SIDE} from './laserCameraMount.mjs';
 import {DEFAULT_INTERFERENCE_DISTANCE,planningOuterClearance} from './planningConfiguration.mjs';
 
 export const MAX_PLANNING_WELDS = 2500;
 export const VERTICAL_WELD_POSITION = 'PF · 立向上焊';
+export const POSITIONS=['PA · 平焊','PB · 横角焊','PC · 横焊','PD · 仰角焊','PE · 仰焊',VERTICAL_WELD_POSITION];
 
 export function roundWeldLeg(value) {
   return Number.isFinite(value) && value > 0 ? Math.max(0.5, Math.round(value * 2) / 2) : null;
@@ -72,11 +73,13 @@ export function planningContext(workspace) {
     deviceCapabilities.laserPrecision=hardware.precisionCameras.laser?.enabled===true;
     deviceCapabilities.structuredLightPrecision=hardware.precisionCameras.structuredLight?.enabled===true;
   }
+  const robots=workspace.deviceControl?enabledPlanningRobots(workspace.deviceControl):[];
+  const robot=robots[0]?.configuration;
   if(workspace.deviceControl)Object.assign(deviceCapabilities,deviceControlCapabilities(workspace.deviceControl));
   else if(deviceCapabilities.structuredLightPrecision===true&&deviceCapabilities.laserPrecision!==true)deviceCapabilities.laserTracking=false;
   const settings=workspace.planningSettings??{},merge=settings.mergeParameters??{};
-  return {...settings,topologyVersion:1,weldPreprocessing:{...settings.weldPreprocessing,outerClearance:planningOuterClearance(settings)},mergeParameters:{...merge,enabled:true,angleEnabled:true,grooveEnabled:true},planningRevision:3,deviceCapabilities,activeDevice,requireLibraryTemplate:true,
-    ...(deviceCapabilities.laserPrecision===true?{laserMountSide:workspace.deviceControl?.robot.laserMountSide??DEFAULT_LASER_MOUNT_SIDE}:{})};
+  return {...settings,topologyVersion:1,weldPreprocessing:{...settings.weldPreprocessing,outerClearance:planningOuterClearance(settings)},mergeParameters:{...merge,enabled:true,angleEnabled:true,grooveEnabled:true},planningRevision:3,deviceCapabilities,activeDevice,requireLibraryTemplate:true,robotMounting:robot?.mounting,planningRobots:robots.map(({id,label,configuration})=>({id,label,model:configuration.model})),
+    ...(deviceCapabilities.laserPrecision===true?{laserMountSide:robot?.laserMountSide??DEFAULT_LASER_MOUNT_SIDE}:{})};
 }
 
 const deviceFields = ['welderModel','robotModel','material','wireType','wireDiameter','gas'];

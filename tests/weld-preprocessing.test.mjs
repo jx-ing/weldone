@@ -157,6 +157,30 @@ test('两个外角的外侧焊缝方向不构成 U 时分别为 L 形包角',()=
  assert.deepEqual(result.map(weld=>weld.length),[24,24]);
 });
 
+test('首尾相接的完整短边先判定 U 或两个 L，两端 L 可复用相同区段',()=>{
+ const a=[0,0,0],b=[12,0,0],c=[12,100,0],d=[0,100,0];
+ const stock={subplateThickness:12};
+ const connector=segment(a,b,{...stock,sourceWeldId:'connector'});
+ const segments=[connector,segment(b,c,stock),segment(c,d,stock),segment(d,a,stock)];
+ const measure={measureCorner:({before})=>before.pathPoints.at(-1)[1]===0?'outer':'inner'};
+ for(const direction of ['正向','反向']){
+  const full=weld('w',segments,{direction});
+  const process=w=>preprocessExtractedWelds([w],{...rules,maxWrapPlateThickness:20},merge,measure,{lDistanceRatio:'2/3'});
+  const [u]=process(full);
+  assert.equal(u.closure,'closed');
+  assert.deepEqual(u.segments.filter(s=>s.sourceWeldId==='connector').map(s=>[s.strategyWrapKind,s.length]),[['U',12]]);
+  // Treat the other side of the plate as a separate CAD joint so this
+  // connector has two exterior corners but cannot form a single U.
+  const [l]=process({...full,segments:[...segments.slice(0,3),{...segments[3],subPartId:'other'}]});
+  assert.equal(l.closure,'open');
+  assert.equal(l.segments[0].strategyWrapKind,'L');
+  assert.equal(l.segments.at(-1).strategyWrapKind,'L');
+  assert.deepEqual(l.segments.filter(s=>s.sourceWeldId==='connector').map(s=>s.pathPoints),[
+   [[4,0,0],b],[a,[8,0,0]]
+  ]);
+ }
+});
+
 test('混合焊缝立焊起点不包角，两个立焊不能合并成需要向下焊的路径',()=>{
  const lower=[0,0,0],upper=[0,0,20],side=[5,0,0],top=[5,0,20];
  const vertical=segment(lower,upper,{position:'PF'});
@@ -214,7 +238,7 @@ test('立焊起点孔记录在立焊上时，删除同接头的下端短段并�
  assert(wrap);
  assert.equal(plan.passes[0].points.at(-1).distance,25);
  assert(Math.abs(wrap.pose.advance-8)<1e-8&&Math.abs(wrap.pose.work-25)<1e-8&&Math.abs(wrap.pose.rotation-40)<1e-8);
- assert.deepEqual(settingsDefaults({wrapParameters:{flatLPose:{advance:null}}}).wrapParameters.flatLPose,{advance:-42.01,work:42.97,rotation:114.18});
+ assert.deepEqual(settingsDefaults({wrapParameters:{flatLPose:{advance:-42.01}}}).wrapParameters.flatLPoseOffset,{advance:0,work:0,rotation:0});
 });
 
 test('内部 L 形短段按设置取长，余下路径保留为另一条焊道',()=>{

@@ -1,15 +1,14 @@
 // The user explicitly rejected these four records in the current 111.step.
 // Older drafts can lack extraction metadata or contain a manually merged
 // record, so the explicit record IDs must not depend on those optional fields.
-const MODEL_SHA='c85056ed9022210cd93e48bc4d09b97615c57a70235f4f55d986e6a2bdec4fc8';
+import {bundledModelIdentity,DEMO_SOURCE_SHA256 as MODEL_SHA} from './bundledModels.mjs';
 export const CONFIRMED_NON_WELD_IDS=['W10001','W10011','W10012','W10034'];
 const rejectedIds=new Set(CONFIRMED_NON_WELD_IDS);
 const rejectedKeys=new Set(['merge:W0034|0;W0035|0','unit:W0034|0','unit:W0035|0','unit:W0002|1','unit:W0002|2','unit:W0079|0']);
 export function isConfirmedNonWeldKey(sourceSha256,key){return sourceSha256===MODEL_SHA&&rejectedKeys.has(key);}
 export function isConfirmedNonWeld(weld){return rejectedIds.has(weld.id)||weld.source==='extracted'&&!weld.mergedInto&&isConfirmedNonWeldKey(weld.sourceSha256,weld.processingKey);}
 export function excludeConfirmedNonWelds(draft){
-  const modelName=typeof draft.model==='string'?draft.model.replace(/\\/g,'/').split('/').at(-1).toLowerCase():'';
-  const modelSha=draft.stepModel?.sourceSha256??(modelName==='111.step'?MODEL_SHA:draft.geometryProcessing?.sourceSha256);
+  const modelSha=draft.stepModel?.sourceSha256??draft.geometryProcessing?.sourceSha256??bundledModelIdentity(draft)?.sha;
   const isDemo=!draft.stepModel&&modelSha===MODEL_SHA;
   const deletedKeys=new Set((draft.rejectedGeometryWelds??[]).filter(weld=>weld.rejectionReason==='用户删除'&&weld.sourceSha256===modelSha).map(weld=>weld.processingKey));
   if(!isDemo&&!deletedKeys.size)return draft;

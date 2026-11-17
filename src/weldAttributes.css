@@ -107,8 +107,6 @@
 .weld-point-pass,.weld-pass-points{margin-left:12px}.weld-point-layer{margin-top:3px}
 .wa-point-details{padding:12px 16px}.wa-point-details h3{font-size:14px;margin:0 0 10px}.wa-point-details h4{margin:16px 0 7px;font-size:12px}
 .wa-point-context{color:#666;font-size:12px;margin:0 0 9px;overflow-wrap:anywhere}
-.wa-point-values{margin:0;background:#f8f8f8;padding:5px 9px;border-radius:4px}
-.wa-point-values>div{display:flex;justify-content:space-between;gap:8px;padding:4px 0;font-size:12px}.wa-point-values dt{color:#666}.wa-point-values dd{margin:0;font-variant-numeric:tabular-nums}
 .wa-pass-preview{margin-bottom:16px}
 .wa-pass-preview label{display:grid;grid-template-columns:1fr auto;gap:6px;font-size:12px;color:#555}
 .wa-pass-preview output{font-variant-numeric:tabular-nums}
@@ -147,3 +145,21 @@
 .wa-playback p,.wa-playback label{flex-basis:100%;margin:0}
 .wa-playback label{grid-template-columns:auto minmax(0,1fr);align-items:center}
 .wa-playback .btn{min-height:25px;padding:0 7px}
+
+.wa-measurement-editor {
+ display:flex;
+ flex-wrap:wrap;
+ align-items:center;
+ gap:6px;
+ margin:8px 0;
+}
+.wa-measurement-editor label {
+ display:flex;
+ align-items:center;
+ gap:4px;
+ min-width:0;
+}
+.wa-measurement-editor input {width:76px}
+.wa-measurement-editor button {height:28px;padding:0 7px;font-size:12px}
+.wa-measurement-editor small {color:var(--secondary)}
+.wa-measurement-editor .wa-point-remove:not(:disabled) {color:#b93838}

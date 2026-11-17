@@ -4,7 +4,7 @@ import {BoxGeometry,Vector3} from 'three';
 import {applyTemplateToWeld,migrateDraft,newWholeTemplateFromWeld,point} from '../src/templateModel.mjs';
 import {geometryRulesFromWeld,geometryRuleMismatches} from '../src/templateGeometryRules.mjs';
 import {planningContext} from '../src/planningRequirements.mjs';
-import {deviceControlError,migrateDeviceControl} from '../src/deviceControlModel.mjs';
+import {activateDeviceProfile,addDeviceProfile,deviceControlError,migrateDeviceControl} from '../src/deviceControlModel.mjs';
 import {copyWeldLayersToTemplate,newWeldLayer,nextWeldLayer,nextWeldPass,removeWeldLayoutItem,updateWeldLayoutPoint,validWeldLayerLayout,weldLayerLayout,weldLayerPassPaths,weldLayerTreeGroups,weldPointPosition} from '../src/weldLayerLayout.mjs';
 import {orientWeldSections,weldPassMeshGeometry,weldSectionSigns,weldSegmentPass,weldSolidTest} from '../src/weldPassMesh.mjs';
 
@@ -213,4 +213,22 @@ test('过焊孔尺寸和端点间隙按一位小数记录并匹配，无过焊�
  assert.deepEqual(geometryRuleMismatches(rules,weld),[]);
  assert.deepEqual(geometryRuleMismatches(rules,{...weld,endpointFacts:{...weld.endpointFacts,end:{...weld.endpointFacts.end,gap:2.44}}}),['终点间隙距离（模板 2.5 mm / 焊道 2.4 mm）']);
  assert.deepEqual(geometryRuleMismatches(rules,{...weld,endpointFacts:{...weld.endpointFacts,start:{hasHole:true,holeSize:7,gap:0}}}),['起点过焊孔尺寸（模板 0.0 mm / 焊道 7.0 mm）']);
+});
+
+test('可独立新建机器人和粗定位设备，设为当前时原配置仍可切回',()=>{
+ const original=migrateDeviceControl();
+ original.robot.model='原机器人';
+ let control=addDeviceProfile(original,'robot','r2');
+ control=addDeviceProfile(control,'coarseCamera','c2');
+ assert.equal(control.robot.model,'原机器人');
+ control.additionalDevices[0].configuration.model='新机器人';
+ control.additionalDevices[0].configuration.mounting='inverted';
+ control.additionalDevices[1].configuration.model='新粗定位';
+ control=activateDeviceProfile(activateDeviceProfile(control,'r2'),'c2');
+ assert.equal(control.robot.model,'新机器人');
+ assert.equal(control.robot.mounting,'inverted');
+ assert.equal(control.coarseCamera.model,'新粗定位');
+ assert.equal(control.additionalDevices[0].configuration.model,'原机器人');
+ assert.equal(deviceControlError(control),'');
+ assert.equal(activateDeviceProfile(control,'r2').robot.model,'原机器人');
 });

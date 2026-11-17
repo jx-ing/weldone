@@ -1,21 +1,19 @@
 import {execFile} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {createReadStream,createWriteStream,existsSync} from 'node:fs';
-import {mkdir,mkdtemp,rm} from 'node:fs/promises';
-import {homedir} from 'node:os';
-import {basename,dirname,join,resolve} from 'node:path';
+import {homedir,tmpdir} from 'node:os';
+import {dirname,join,resolve} from 'node:path';
 import {pipeline} from 'node:stream/promises';
 import {fileURLToPath} from 'node:url';
 import {promisify} from 'node:util';
+import {cadJobSignal,createCadJobDirectory,localCadRequest,removeCadJobDirectory} from './local-cad-job.mjs';
 
 const run=promisify(execFile);
 const root=fileURLToPath(new URL('../',import.meta.url));
 const extractor=resolve(root,'scripts/vendor-extraction/analyze_step_model.py');
-const cache=resolve(root,'node_modules/.cache');
 const prefix='weldone-step-extraction-';
 const files=new Set(['parts.json','mesh.bin','edges.json','contacts.json','analysis.json','welds.json']);
 const endpoint='/api/step-extraction';
-const loopback=new Set(['127.0.0.1','::1','::ffff:127.0.0.1']);
 
 async function analyze(source,out,signal){
  const venv=resolve(root,'../step2pc/.venv');
@@ -46,13 +44,9 @@ function send(response,status,value){
  response.end(JSON.stringify(value));
 }
 
-export default function localStepExtraction(){
+export default function localStepExtraction({jobRoot=join(tmpdir(),'weldone-cad'),extract=analyze}={}){
  const jobs=new Map();
- const discard=async directory=>{
-  if(dirname(directory)===cache&&basename(directory).startsWith(prefix)){
-   await rm(directory,{recursive:true,force:true});
-  }
- };
+ const discard=directory=>removeCadJobDirectory(directory,jobRoot,prefix);
  const release=async id=>{
   const job=jobs.get(id);
   if(!job)return;
@@ -62,8 +56,7 @@ export default function localStepExtraction(){
  };
  const install=server=>{
   server.middlewares.use(endpoint,async(request,response)=>{
-   const origin=request.headers.origin;
-   if(!loopback.has(request.socket.remoteAddress)||origin&&origin!==`http://${request.headers.host}`){
+   if(!localCadRequest(request)){
     send(response,403,{error:'STEP 几何提取仅供本机使用'});return;
    }
    const segments=request.url.split('?')[0].split('/').filter(Boolean);
@@ -83,16 +76,14 @@ export default function localStepExtraction(){
    if(request.method!=='POST'||segments.length||request.headers['content-type']!=='application/octet-stream'){
     send(response,404,{error:'无效的 STEP 提取请求'});return;
    }
-   const abort=new AbortController();
-   response.once('close',()=>abort.abort());
+   const signal=cadJobSignal(response);
    let directory;
    try{
-    await mkdir(cache,{recursive:true});
-    directory=await mkdtemp(join(cache,prefix));
+    directory=await createCadJobDirectory(jobRoot,prefix);
     const source=join(directory,'model.step'),output=join(directory,'result');
-    await pipeline(request,createWriteStream(source,{flags:'wx'}),{signal:abort.signal});
-    await analyze(source,output,abort.signal);
-    if(abort.signal.aborted)return;
+    await pipeline(request,createWriteStream(source,{flags:'wx'}),{signal});
+    await extract(source,output,signal);
+    if(signal.aborted)return;
     const key=randomUUID();
     const expiry=setTimeout(()=>release(key).catch(()=>{}),5*60*1000).unref();
     jobs.set(key,{directory,expiry});

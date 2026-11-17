@@ -1,5 +1,4 @@
-import {distance,pathGeometry,pathLength} from './manualWeldModel.mjs';
-import {splitWeldPreview} from './manualSplitModel.mjs';
+import {distance,pathGeometry,pathLength,wrapPathStation} from './manualWeldModel.mjs';
 import {sliceWeldSegments} from './planningPathSettings.mjs';
 import {INTERSECTION_TOLERANCE,mergeCornerAngles} from './mergeIntersectionGeometry.mjs';
 import {normalizeVerticalWeld,weldTravelReversed} from './weldDirectionGeometry.mjs';
@@ -179,6 +178,24 @@ export function overlappingEndpointWrap(weld,welds){
  ));
 }
 
+export function uWrapStartStation(segments,stations,preferred,closed){
+ const total=stations.at(-1);
+ const at=closed?wrapPathStation(preferred,total):preferred;
+ const tolerance=1e-5;
+ const blocked=segments.findIndex((segment,index)=>segment.strategyWrapKind==='U'&&
+  (at>=stations[index]-tolerance&&at<=stations[index+1]+tolerance||
+   closed&&(at<=tolerance&&index===segments.length-1||total-at<=tolerance&&index===0)));
+ if(blocked<0)return preferred;
+ for(let step=1;step<segments.length;step++){
+  const index=closed?(blocked+step)%segments.length:blocked-step;
+  if(index<0)break;
+  const segment=segments[index];
+  if(segment.strategyWrapKind==='U'||segment.connectionGap||stations[index+1]-stations[index]<=2*tolerance)continue;
+  return (stations[index]+stations[index+1])/2;
+ }
+ return null;
+}
+
 export function wrapGroups(weld){
  const {segments,closure}=weld;
  return segments.flatMap((segment,index)=>{
@@ -297,19 +314,16 @@ export function splitWeldWrap(weld,id,type,settings,segment){
   runs=weld.closure==='closed'?[[...segments.slice(next),...segments.slice(0,next)]]:
    [segments.slice(0,next),segments.slice(next)];
  }else{
-  // Keep one corner on each side of the cut through the connector.
   const pivot=group.segment;
-  const from=weld.closure==='closed'?(pivot+Math.ceil(segments.length/2))%segments.length:0;
-  const ordered=[...segments.slice(from),...segments.slice(0,from)];
-  const index=ordered.indexOf(segments[pivot]);
-  ordered[0].startWrapKind=null;
-  ordered.at(-1).endWrapKind=null;
-  const connector=ordered[index];
+  const connector=segments[pivot];
   const distance=settings?wrapSegmentDistance(connector,settings,'L'):null;
   if(distance===0)return [];
-  // The two children own physical sections of the connector. Retire the
-  // original U edit at both joints so later planning cannot regenerate it.
-  for(const [segment,sides] of [[ordered[index-1],['end']],[connector,['start','end']],[ordered[index+1],['start']]]){
+  const before=segments.slice(0,pivot),after=segments.slice(pivot+1);
+  const closed=weld.closure==='closed';
+  // Retire the original U edit at both joints so later planning cannot
+  // regenerate the connector over its two new L sections.
+  for(const [segment,sides] of [[before.at(-1)??(closed?after.at(-1):undefined),['end']],
+   [connector,['start','end']],[after[0]??(closed?before[0]:undefined),['start']]]){
    if(!segment)continue;
    delete segment.generatedEndpointWrap;
    delete segment.generatedForSide;
@@ -319,20 +333,13 @@ export function splitWeldWrap(weld,id,type,settings,segment){
     delete segment[side==='start'?'autoStartWrapKind':'autoEndWrapKind'];
    }
   }
-  if(distance){
-   runs=[
-    [...ordered.slice(0,index),sliceWrapSegment(connector,'start',distance)],
-    [sliceWrapSegment(connector,'end',distance),...ordered.slice(index+1)]
-   ];
-   for(const [runIndex,run] of runs.entries()){
-    const edge=runIndex===0?run.at(-1):run[0];
-    edge[runIndex===0?'endWrapKind':'startWrapKind']=null;
-   }
-  }else{
-   const lengths=ordered.map(segment=>pathLength(segment.pathPoints));
-   const station=lengths.slice(0,index).reduce((sum,length)=>sum+length,0)+lengths[index]/2;
-   runs=splitWeldPreview({...weld,segments:ordered,closure:'open'},station,{minimumLength:1e-7}).pieces;
-  }
+  const length=distance??pathLength(connector.pathPoints)/2;
+  const head=sliceWrapSegment(connector,'start',length);
+  const tail=sliceWrapSegment(connector,'end',length);
+  head.endWrapKind=null;
+  tail.startWrapKind=null;
+  // Opening a closed path at the selected connector leaves the rest connected.
+  runs=closed?[[tail,...after,...before,head]]:[[...before,head],[tail,...after]];
  }
  return runs.filter(run=>run.length).map((run,index,all)=>{
   normalizeWrapMarkers(run);

@@ -323,12 +323,14 @@ test('激光跟踪在边缘距离不足的区间内关闭并在区间后恢复',
  assert.equal(points.find(point=>point.distance>60).tracking,'激光跟踪');
 });
 
-test('自由板端按焊缝长度与可用空间过滤，立焊上包角使用独立距离',()=>{
+test('自由板端按所在焊缝段长度与间隙过滤，外角最小空间不比较边缘距离',()=>{
  const a={...source('W001'),length:20,segments:[segment(0,20)],endpointFacts:{end:{boundaryKind:'free-edge',junctionType:'两面交',gap:12,mainEdgeDistance:9,plateThickness:6,offsetDirection:[0,1,0]}}};
  const p=recipe(), settings={topologyVersion:1,wrapParameters:{independentLength:20,outerClearance:9}};
  assert.equal(generateStrategyPlan(a,p,settings).endpointActions[1],'L');
- assert.equal(generateStrategyPlan({...a,length:20.1},p,settings).endpointActions[1],'none');
- assert.equal(generateStrategyPlan(a,p,{...settings,wrapParameters:{...settings.wrapParameters,outerClearance:10}}).endpointActions[1],'none');
+ assert.equal(generateStrategyPlan({...a,length:120,segments:[segment(0,100),segment(100,120)]},p,settings).endpointActions[1],'L');
+ assert.equal(generateStrategyPlan({...a,length:120.1,segments:[segment(0,100),segment(100,120.1)]},p,settings).endpointActions[1],'none');
+ assert.equal(generateStrategyPlan(a,p,{...settings,wrapParameters:{...settings.wrapParameters,outerClearance:12}}).endpointActions[1],'L');
+ assert.equal(generateStrategyPlan(a,p,{...settings,wrapParameters:{...settings.wrapParameters,outerClearance:12.01}}).endpointActions[1],'none');
  assert.equal(generateStrategyPlan(a,p,{...settings,wrapParameters:{...settings.wrapParameters,flatEnabled:false}}).endpointActions[1],'none');
  const upright='PF · 立向上焊';
  const vertical={...a,position:upright,segments:[{...a.segments[0],position:upright,pathPoints:[[0,0,0],[0,0,20]],referenceNormal:[1,0,0]}]};

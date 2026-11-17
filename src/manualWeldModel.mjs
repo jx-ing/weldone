@@ -1,12 +1,14 @@
 import {validGroove} from './grooveModel.mjs';
 import {weldForm} from './planningRequirements.mjs';
 import {autoWeldReferenceNormal,normalizeVerticalWeld} from './weldDirectionGeometry.mjs';
-export const EXAMPLE_MODEL='111.step';
+import {EXAMPLE_MODEL} from './bundledModels.mjs';
+export {EXAMPLE_MODEL};
 export function useStepExample(draft){
   if(draft.model!==''&&draft.model!=='肋板组件 A')return draft;
   return {...draft,...(draft.model?{previousExample:{model:draft.model,welds:draft.welds,selected:draft.selected}}:{}),model:EXAMPLE_MODEL,welds:[],selected:''};
 }
 export const distance=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
+export const wrapPathStation=(station,length)=>length>0?((station%length)+length)%length:station;
 const unit=v=>{const l=Math.hypot(...v);return v.map(n=>n/(l||1));};
 const sub=(a,b)=>a.map((v,i)=>v-b[i]),dot=(a,b)=>a.reduce((n,v,i)=>n+v*b[i],0),cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
 export const pathLength=points=>points.reduce((n,p,i)=>n+(i?distance(points[i-1],p):0),0);

@@ -1,13 +1,19 @@
-import {EXAMPLE_MODEL} from './manualWeldModel.mjs';
+import {bundledModelIdentity,EXAMPLE_MODEL,STARTUP_STEP_MODEL,STARTUP_STEP_REFERENCE} from './bundledModels.mjs';
 
-export const STARTUP_STEP_MODEL='a1a.step';
-export const STARTUP_STEP_REFERENCE=Object.freeze({
- sourceSha256:'e3fa12d40ff8dbe3226efb4a51397be3ba0d9726810d2ab98240cfd0be693c07'
-});
+export {STARTUP_STEP_MODEL,STARTUP_STEP_REFERENCE};
 export const isBundledStartupStep=(name,reference)=>name===STARTUP_STEP_MODEL&&!reference?.kind&&
  reference?.sourceSha256===STARTUP_STEP_REFERENCE.sourceSha256;
 
-const modelFields=['model','stepModel','welds','selected','geometryProcessing','previousGeometryProcessing','rejectedGeometryWelds','manualEditHistory','manualSplitHistory','collisionOriginals','planningSettingsDirty'];
+const modelFields=['model','stepModel','workpiecePose','welds','selected','geometryProcessing','previousGeometryProcessing','rejectedGeometryWelds','manualEditHistory','manualSplitHistory','collisionOriginals','planningSettingsDirty'];
+export function validWorkpiecePose(pose){
+ const vector=(values,length)=>Array.isArray(values)&&values.length===length&&values.every(Number.isFinite);
+ return vector(pose?.position,3)&&vector(pose?.quaternion,4)&&Math.abs(Math.hypot(...pose.quaternion)-1)<1e-5;
+}
+const invertedWorkpiecePose=Object.freeze({position:[0,0,0],quaternion:[1,0,0,0]});
+export function workpiecePoseFor(workspace){
+ if(validWorkpiecePose(workspace.workpiecePose))return workspace.workpiecePose;
+ return bundledModelIdentity(workspace)?invertedWorkpiecePose:undefined;
+}
 export const isPointCloudWorkspace=workspace=>workspace.stepModel?.kind==='pointCloud';
 export const validStepModel=reference=>typeof reference?.sourceSha256==='string'&&/^[a-f0-9]{64}$/.test(reference.sourceSha256)&&
  (reference.kind===undefined||reference.kind==='pointCloud');

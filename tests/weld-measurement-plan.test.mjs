@@ -4,6 +4,7 @@ import {Quaternion,Vector3} from 'three';
 import {NANYANG_CAMERA_PREVIEW,NANYANG_TOOL_CALIBRATION} from '../src/weldToolPose.mjs';
 import {weldMeasurementPlan} from '../src/weldMeasurementPlan.mjs';
 import {planFixedPhotoPose} from '../src/fixedPhotoPlanning.mjs';
+import {LASER_WORKING_DISTANCE,laserCameraMount} from '../src/laserCameraMount.mjs';
 
 const flatPose={advance:10,work:35,rotation:5};
 const settings={deviceCapabilities:{laserPrecision:true},actionParameters:{flatPose},
@@ -28,18 +29,22 @@ function assertPhotoAimsAtTarget(point){
  assert.deepEqual(tcp.position,point.position);
 }
 
-test('推扫仅对起点和段连接点生成切向双点，反向扫描交换双点顺序',()=>{
+test('局部推扫从起点和段连接点沿法向退让后横扫，反向时倒序',()=>{
  const scanSettings={precisionMethod:'laserSweep',measurementScope:'start'};
  const plan=weldMeasurementPlan({...weld,scanSettings},settings);
  assert.deepEqual(plan.paths.map(path=>path.length),[2,2]);
  const targets=plan.points.map(point=>new Vector3(...point.target));
  for(const [index,target] of [[0,[0,0,0]],[2,[100,0,0]]]){
   assert.ok(Math.abs(targets[index].distanceTo(targets[index+1])-16)<1e-8);
-  assert.ok(targets[index].clone().lerp(targets[index+1],.5).distanceTo(new Vector3(...target))<1e-8);
+  const center=targets[index].clone().lerp(targets[index+1],.5).sub(new Vector3(...target));
+  assert.equal(center.z,27);
+  assert.ok(Math.abs(Math.hypot(center.x,center.y)-8)<1e-8);
+  assert.ok(Math.abs(center.dot(targets[index+1].clone().sub(targets[index])))<1e-8);
  }
- assert.deepEqual(plan.points[0].target,[-8,0,0]);
+ assert.deepEqual(plan.points[0].target,[-8,8,27]);
+ assert.deepEqual(plan.points.slice(0,2).map(point=>point.sweepYaw),[-25,25]);
  const reversed=weldMeasurementPlan({...weld,scanSettings:{...scanSettings,direction:'reverse'}},settings);
- assert.deepEqual(reversed.points.map(point=>point.target),[plan.points[1],plan.points[0],plan.points[3],plan.points[2]].map(point=>point.target));
+ assert.deepEqual(reversed.points.map(point=>point.target),[...plan.points].reverse().map(point=>point.target));
 });
 
 test('定点拍照沿开口角平分线摆放机头，镜头照准且 TCP 位于焊缝上方',()=>{
@@ -76,29 +81,29 @@ test('寻位设置的拍照距离沿光轴生效，过近时保留几何允许�
   weldMeasurementPlan(weld,settings));
 });
 
-test('定点拍照的位置偏移沿光轴应用，首尾仍照准各自焊道被测点',()=>{
- const photoSettings={...settings,deviceCapabilities:{structuredLightPrecision:true}};
- const adjustment={position:{x:12.34,y:6,z:25},angles:{advance:15}};
- const scanSettings={cameraAdjustments:{structuredLight:adjustment}};
- const original=weldMeasurementPlan(weld,photoSettings);
- const edited=weldMeasurementPlan({...weld,scanSettings},photoSettings);
- assert.equal(edited.points.length,2);
- for(const [i,point] of edited.points.entries()){
-  const base=original.points[i];
-  assert.deepEqual(point.target,base.target);
-  const originalLens=new Vector3(...base.opticalPosition);
-  const expected=originalLens.clone().add(new Vector3(...Object.values(adjustment.position)));
-  assert.ok(new Vector3(...point.opticalPosition).distanceTo(expected)<originalLens.distanceTo(expected));
-  assert.deepEqual(point.toolPose.head.quaternion,base.toolPose.head.quaternion);
-  assertPhotoAimsAtTarget(point);
-  const {head}=point.toolPose;
-  const mapped=new Vector3(...NANYANG_CAMERA_PREVIEW.tcp).applyQuaternion(new Quaternion(...head.quaternion)).add(new Vector3(...head.position));
-  assert.ok(mapped.distanceTo(new Vector3(...point.position))<1e-8);
+test('三种扫描方式的 TCP X/Y/Z 按工件坐标轴独立平移',()=>{
+ const options={...settings,deviceCapabilities:{structuredLightPrecision:true,laserPrecision:true}};
+ for(const method of ['fixedPhoto','laserSweep','continuous']){
+  const camera=method==='fixedPhoto'?'structuredLight':'laser';
+  const source={...weld,scanSettings:{precisionMethod:method,measurementScope:'start'}};
+  const [base]=weldMeasurementPlan(source,options).points;
+  for(const [axis,index] of ['x','y','z'].map((axis,index)=>[axis,index])){
+   const edited={...source,scanSettings:{...source.scanSettings,cameraAdjustments:{[camera]:{position:{[axis]:12.25}}}}};
+   const [point]=weldMeasurementPlan(edited,options).points;
+   const delta=new Vector3().setComponent(index,12.25);
+   for(const [now,before] of [[point.position,base.position],[point.opticalPosition,base.opticalPosition],[point.toolPose.head.position,base.toolPose.head.position]])
+    assert.ok(new Vector3(...now).sub(new Vector3(...before)).distanceTo(delta)<1e-8);
+   assert.deepEqual(point.target,base.target);
+   assert.deepEqual(point.toolPose.head.quaternion,base.toolPose.head.quaternion);
+   if(camera==='structuredLight'){
+    const tcpRay=new Vector3(0,0,1).applyQuaternion(new Quaternion(...point.toolPose.tcp.quaternion));
+    assert.ok(tcpRay.distanceTo(new Vector3(...point.target).sub(new Vector3(...point.position)).normalize())<1e-8);
+   }
+  }
  }
- assert.deepEqual(weldMeasurementPlan({...weld,scanSettings},settings),weldMeasurementPlan(weld,settings));
 });
 
-test('结构光取焊接旋转角，线激光仍取寻位标准姿态及空白轴默认值',()=>{
+test('结构光和线激光沿同一开口角平分线并取被测点的焊接旋转角',()=>{
  const precisionParameters={...settings.precisionParameters,structuredLightPose:{advance:13,work:-10,rotation:21},laserPose:{advance:0,rotation:15}};
  const photoSettings={...settings,precisionParameters,deviceCapabilities:{structuredLightPrecision:true}};
  const effective=weldMeasurementPlan(weld,photoSettings,undefined,{weldingPoseAt:distance=>({
@@ -107,8 +112,12 @@ test('结构光取焊接旋转角，线激光仍取寻位标准姿态及空白�
  assert.deepEqual(effective.points.map(point=>point.toolPose.angles.rotation),[180,-45]);
  effective.points.forEach(assertPhotoAimsAtTarget);
  assert.equal(weldMeasurementPlan(weld,photoSettings).points[0].toolPose.angles.rotation,flatPose.rotation);
- const laser=weldMeasurementPlan(weld,{...settings,precisionParameters}).points[0];
- assert.deepEqual(laser.toolPose.angles,{advance:0,work:35,rotation:15});
+ const laserSettings={...settings,precisionParameters};
+ const laser=weldMeasurementPlan(weld,laserSettings,undefined,{
+  weldingPoseAt:()=>({angles:{rotation:180}})
+ }).points[0];
+ assert.deepEqual(laser.toolPose.angles,effective.points[0].toolPose.angles);
+ assert.equal(weldMeasurementPlan(weld,laserSettings).points[0].toolPose.angles.rotation,flatPose.rotation);
 });
 
 test('定点拍照保持焊接旋转角，分别报告光路遮挡和机头干涉',()=>{
@@ -172,4 +181,53 @@ test('连续扫描跨越所有段并保留曲线控制采样，反向可从终�
  assert.equal(plan.paths.length,1);
  assert.equal(plan.paths[0].length,plan.points.length);
  assert.equal(weldMeasurementPlan({...weld,scanSettings:{precisionMethod:'lineIntersection'}},settings),null);
+});
+
+test('线激光工作距离按相机范围调整，激光线中心始终落在被测点',()=>{
+ const settingsFor=distance=>({...settings,precisionParameters:{...settings.precisionParameters,laserWorkingDistance:distance}});
+ const {min,nominal,max}=LASER_WORKING_DISTANCE;
+ for(const method of ['laserSweep','continuous']){
+  const source={...weld,scanSettings:{precisionMethod:method}};
+  for(const [input,expected] of [[null,nominal],[510,510],[1,min],[900,max]]){
+   const point=weldMeasurementPlan(source,settingsFor(input)).points[0];
+   assert.equal(point.workingDistance,expected);
+   const {head}=point.toolPose;
+   const {emitter,beam}=laserCameraMount();
+   const stripe=new Vector3(...emitter).addScaledVector(new Vector3(...beam),expected);
+   stripe.applyQuaternion(new Quaternion(...head.quaternion)).add(new Vector3(...head.position));
+   assert.ok(stripe.distanceTo(new Vector3(...point.target))<1e-8);
+  }
+ }
+});
+
+test('任意里程的测量点可在三种规划中添加并独立修改目标与姿态',()=>{
+ const station=37.25;
+ for(const method of ['laserSweep','fixedPhoto','continuous']){
+  const options={...settings,deviceCapabilities:{laserPrecision:true,structuredLightPrecision:true}};
+  const source={...weld,scanSettings:{precisionMethod:method,customPoints:{[method]:[{id:'custom',station}]}}};
+  const initial=weldMeasurementPlan(source,options);
+  const custom=initial.points.filter(point=>point.sourceId==='custom');
+  assert.equal(custom.length,method==='laserSweep'?2:1);
+  assert.ok(custom.every(point=>point.distance===station));
+  const point=custom[0],edit={position:{z:5},angles:{rotation:12}};
+  source.scanSettings.pointAdjustments={[method]:{[point.id]:edit}};
+  const adjusted=weldMeasurementPlan(source,options);
+  const modified=adjusted.points.find(item=>item.id===point.id);
+  assert.ok(Math.abs(modified.target[2]-point.target[2]-5)<1e-8);
+  assert.ok(Math.abs(modified.toolPose.angles.rotation-point.toolPose.angles.rotation-12)<1e-8);
+  assert.deepEqual(adjusted.points.filter(item=>item.id!==point.id),initial.points.filter(item=>item.id!==point.id));
+ }
+});
+
+test('高立焊使用上下两个横扫高度，安装方式决定高度补偿符号',()=>{
+ const source={enabled:true,position:'PF',segments:[
+  {position:'PF',geometry:'直线',pathPoints:[[0,0,0],[0,0,180]],referenceNormal:[1,0,0],subFaceNormal:[0,1,0]}
+ ]};
+ const gap=Math.abs(NANYANG_CAMERA_PREVIEW.tcp[2]-NANYANG_TOOL_CALIBRATION.wireTip[2]);
+ for(const [robotMounting,sign] of [['upright',1],['inverted',-1]]){
+  const plan=weldMeasurementPlan(source,{...settings,robotMounting});
+  assert.deepEqual(plan.paths.map(path=>path.length),[2,2]);
+  assert.ok(plan.points.slice(0,2).every(point=>Math.abs(point.position[2]-(gap+20)*sign)<1e-8));
+  assert.ok(plan.points.slice(2).every(point=>Math.abs(point.position[2]-180-(gap-50)*sign)<1e-8));
+ }
 });

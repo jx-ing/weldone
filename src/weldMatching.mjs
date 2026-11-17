@@ -1,119 +1,17 @@
-import {formatDecimal} from './numericPrecision.mjs';
-import {withinLocalSearch,preferLocalWindows,localMatchDistance} from './localTemplateSearch.mjs';
-import {belongsToDevice,strategyScopeIssue,roundWeldLeg} from './planningRequirements.mjs';
+import {preferLocalWindows,localMatchDistance} from './localTemplateSearch.mjs';
+import {roundWeldLeg} from './planningRequirements.mjs';
 import {prepareStrategyGeometry,assignWeldingOrder} from './strategyGeometry.mjs';
-import {generateBaseStrategyPlan,generateStrategyPlan,plannedTracking} from './strategyPlanning.mjs';
+import {defaultWeldPosePreview,generateBaseStrategyPlan,generateStrategyPlan,plannedTracking,WELD_POSE_REVISION} from './strategyPlanning.mjs';
 import {automaticWeldPoses} from './automaticWeldPoses.mjs';
-import {directedClosingCorner,normalizeVerticalWeld,verticalTraversal,verticalTraversalIssue} from './weldDirectionGeometry.mjs';
-import {matchTemplate,targetFromWeld,applyTemplateToWeld,independentWeldTemplate} from './templateModel.mjs';
-import {matchProcessEntry,applyProcessEntry,effectiveProcessEntry} from './processParameterModel.mjs';
+import {normalizeVerticalWeld,verticalTraversal} from './weldDirectionGeometry.mjs';
+import {applyTemplateToWeld,independentWeldTemplate} from './templateModel.mjs';
+import {applyProcessEntry,effectiveProcessEntry} from './processParameterModel.mjs';
 import {materializeEndpointWraps} from './weldWrapJunctions.mjs';
 import {weldLayerLayout,weldLayoutTrackingIssue} from './weldLayerLayout.mjs';
-export const MATCH_ROUTES={whole:'模板规划',local:'工艺参数 + 局部模板',automatic:'策略规划',blocked:'缺少匹配工艺',disabled:'已屏蔽'};
-function unique(items){return [...new Set(items.filter(v=>v?.id))];}
-function templateAvailable(template,library,options){
-  const entry=library.find(candidate=>candidate.id===template.id);
-  return template.enabled!==false&&(entry?entry.enabled!==false:!options.requireLibraryTemplate);
-}
+import {laserTrackingSignature} from './laserTrackingDirection.mjs';
+import {analyzeWeldMatch,clearMissingWeldTemplates,localTemplateDiagnostics,localTemplateWindows,resolveTemplateBase,templateAvailable,weldTemplateIds} from './weldMatchAnalysis.mjs';
+export {MATCH_ROUTES,analyzeWeldMatch,clearMissingWeldTemplates,localTemplateDiagnostics,localTemplateWindows,resolveTemplateBase,weldTemplateIds} from './weldMatchAnalysis.mjs';
 
-export function weldTemplateIds(weld){
-  return [
-    weld.templateId,weld.templateSnapshot?.id,weld.localTemplateId,weld.matchPlan?.wholeId,
-    ...(weld.matchPlan?.localIds??[]),
-    ...(weld.localApplications??[]).flatMap(application=>[application.templateId,application.templateSnapshot?.id])
-  ].filter(Boolean);
-}
-
-export function clearMissingWeldTemplates(weld,templates){
-  const libraryIds=new Set(templates.map(template=>template.id));
-  if(!weldTemplateIds(weld).some(id=>!libraryIds.has(id)))return weld;
-  const next={...weld,planned:false};
-  delete next.matchPlan;
-  delete next.automaticPoses;
-  const wholeIds=[weld.templateId,weld.matchPlan?.wholeId,weld.templateSnapshot?.type==='whole'?weld.templateSnapshot.id:null];
-  if(wholeIds.some(id=>id&&!libraryIds.has(id))){
-    delete next.templateId;
-    delete next.templateSnapshot;
-    if(next.strategyPlan?.settingsOnly){
-      const {templateAngles,...basePlan}=next.strategyPlan;
-      next.strategyPlan=basePlan;
-    }else delete next.strategyPlan;
-    Object.assign(next,{template:'',controlPoints:[],layers:[]});
-    if(!next.processParameters)Object.assign(next,{current:null,voltage:null,speed:null});
-  }
-  if(next.templateSnapshot&&!libraryIds.has(next.templateSnapshot.id))delete next.templateSnapshot;
-  if(next.localTemplateId&&!libraryIds.has(next.localTemplateId))delete next.localTemplateId;
-  if(next.localApplications){
-    next.localApplications=next.localApplications.filter(application=>{
-      const ids=[application.templateId,application.templateSnapshot?.id].filter(Boolean);
-      return ids.length&&ids.every(id=>libraryIds.has(id));
-    });
-  }
-  return next;
-}
-function preferred(items,id){return [...items].sort((a,b)=>Number(b.id===id)-Number(a.id===id));}
-function templateMatches(t,w,options){try{return matchTemplate(t,targetFromWeld(w,options),options).ok;}catch{return false;}}
-function localCandidates(t,w,options){
-  if(t?.type!=='local'||!w?.segments?.length)return [];
-  w=targetFromWeld(w,options);
-  const n=t.segments?.length,count=w.segments.length;if(!n||n>3||n>count)return [];
-  const closed=w.closure==='closed';
-  if(t.closure==='closed')return [{template:t,target:{...w},segmentIndices:w.sourceSegmentIndices||w.segments.map((_,i)=>i),startSegment:1,endSegment:count}];
-  return Array.from({length:closed?count:count-n+1},(_,start)=>{
-    const indices=Array.from({length:n},(_,i)=>(start+i)%count),directions=indices.slice(0,-1).map(i=>i===count-1?directedClosingCorner(w):w.cornerDirections?.[i]),angles=directions.map(c=>c?.angle);
-    return {template:t,target:{...w,closure:'open',closingCorner:null,segments:indices.map(i=>w.segments[i]),sourceSegmentIndices:indices.map(i=>w.sourceSegmentIndices[i]),cornerDirections:directions,cornerAngles:angles,length:indices.reduce((sum,i)=>sum+w.segments[i].length,0)},segmentIndices:indices.map(i=>w.sourceSegmentIndices[i]),startSegment:w.sourceSegmentIndices[indices[0]]+1,endSegment:w.sourceSegmentIndices[indices.at(-1)]+1};
-  });
-}
-export function localTemplateWindows(t,w,options={}){return localCandidates(t,w,options)
-  .map(c=>({...c,match:matchTemplate(t,c.target,options)})).filter(c=>c.match.ok&&withinLocalSearch(c,options));}
-export function localTemplateDiagnostics(t,w,options={}){
-  if(!w?.segments?.length)return {ok:false,reasons:['请先选择具有焊缝段数据的焊道']};
-  if(t.segments?.length>w.segments.length)return {ok:false,reasons:[`焊缝段数量不足（局部模板 ${t.segments.length} 段 / 焊道 ${w.segments.length} 段）`]};
-  const candidates=localCandidates(t,w,options).map(c=>({...c,match:matchTemplate(t,targetFromWeld(c.target,options),options)}));
-  const good=candidates.filter(c=>c.match.ok&&withinLocalSearch(c,options));if(good.length)return {ok:true,reasons:[],matches:good};
-  for(const c of candidates)if(c.match.ok&&!withinLocalSearch(c,options))c.match={ok:false,reasons:['连接点或控制点超出前后 '+formatDecimal(localMatchDistance(options))+' mm 匹配距离']};
-  const closest=candidates.sort((a,b)=>a.match.reasons.length-b.match.reasons.length)[0];
-  if(!closest)return {ok:false,reasons:['局部模板的段数或结构无效，请编辑模板补充']};
-  const range=closest.segmentIndices.map(i=>i+1).join(' → ');
-  return {ok:false,reasons:[`最接近的焊缝段组合：第 ${range} 段（共检查 ${candidates.length} 处）`,...closest.match.reasons.map(reason=>reason.replace(/第 (\d+) 段/g,(_,n)=>`第 ${closest.segmentIndices[Number(n)-1]+1} 段`))],segmentIndices:closest.segmentIndices};
-}
-function failedTemplate(t,w,options={}){const match=t.type==='local'?localTemplateDiagnostics(t,w,options):matchTemplate(t,targetFromWeld(w,options),options);return {...match,id:t.id,name:t.name,type:t.type};}
-export function resolveTemplateBase(t,w,processLibrary=[]){
-  if(t.type==='whole'||!t.baseProcessId)return {ok:true,process:null,reasons:[]};
-  const candidates=unique([t.baseProcessSnapshot?.id===t.baseProcessId?t.baseProcessSnapshot:null,...processLibrary.filter(p=>p.id===t.baseProcessId)]);
-  const process=candidates.find(p=>{try{return matchProcessEntry(p,w).ok;}catch{return false;}});
-  return process?{ok:true,process,reasons:[]}:{ok:false,process:null,reasons:candidates.length?['基础工艺与焊道的匹配条件不一致',...candidates.map(p=>matchProcessEntry(p,w)).sort((a,b)=>a.reasons.length-b.reasons.length)[0].reasons]:['挂载的基础工艺不存在，请重新选择']};
-}
-export function analyzeWeldMatch(w,templates=[],processLibrary=[],options={}){
-  if(verticalTraversal(w.segments,w.position)==='conflict')return {ready:false,route:'blocked',reason:verticalTraversalIssue,steps:['请先拆分焊缝','不检查','不检查']};
-  if(w.gapJoinError)return {ready:false,route:'blocked',reason:w.gapJoinError,steps:['路径连接无效','不检查','不检查']};
-  if(!w.enabled)return {ready:false,route:'disabled',steps:['已屏蔽','不检查','不检查']};
-  const strategy=options.planningRevision===3;
-  const includeDiagnostics=options.includeMatchDiagnostics!==false;
-  if(strategy){
-    w=plannedTracking({...w,leg:roundWeldLeg(w.leg)},options);
-    if(w.laserTrackingIssue)return {ready:false,route:'blocked',reason:w.laserTrackingIssue,steps:['激光跟踪方向冲突','不检查','不检查']};
-  }
-  const wholeCandidates=unique([w.templateSnapshot?.type==='whole'?w.templateSnapshot:null,...preferred(templates.filter(t=>t.type==='whole'),w.templateId)]).filter(t=>templateAvailable(t,templates,options));
-  if(strategy)wholeCandidates.sort((a,b)=>Number(!!b.defaultForGeometry)-Number(!!a.defaultForGeometry));
-  const whole=wholeCandidates.find(t=>templateMatches(t,w,options));
-  if(whole)return {ready:true,route:'whole',whole,steps:[`已匹配：${whole.name}`,'无需匹配','无需匹配']};
-  const wholeFailures=includeDiagnostics?wholeCandidates.map(t=>failedTemplate(t,w,options)):[];
-  if(strategy){
-    const reason=strategyScopeIssue(w,options);
-    if(reason)return {ready:false,route:'blocked',creation:'template',reason,templateFailures:wholeFailures,steps:['未匹配','需模板覆盖','保留基础轨迹']};
-  }
-  const processCandidates=unique([w.processParameters,...preferred(processLibrary,w.processId)]).filter(p=>!strategy||belongsToDevice(p,options.activeDevice));
-  if(strategy)processCandidates.sort((a,b)=>Number((a.processLayers?.flatMap(l=>l.passes).length??1)>1)-Number((b.processLayers?.flatMap(l=>l.passes).length??1)>1));
-  const process=processCandidates.find(p=>{try{return matchProcessEntry(p,w).ok;}catch{return false;}});
-  if(!process)return {ready:false,route:'blocked',creation:'template-or-process',...(strategy?{plannedSegments:w.segments}:{}),reason:strategy?'无匹配的工艺参数，保留基础轨迹':'无匹配的工艺参数，无法进行焊接',templateFailures:wholeFailures,processFailures:includeDiagnostics?processLibrary.map(p=>({id:p.id,name:p.name,reasons:matchProcessEntry(p,w).reasons})):[],steps:['未匹配','未匹配','不检查']};
-  if(strategy)return {ready:true,route:'automatic',process,locals:[],plannedSegments:w.segments,templateFailures:wholeFailures,steps:['未匹配',`已匹配：${process.name}`,'策略规划']};
-  const localCandidates=unique([...(w.localApplications||[]).map(a=>a.templateSnapshot),...(w.templateSnapshot?.type==='local'?[w.templateSnapshot]:[]),...preferred(templates.filter(t=>t.type==='local'),w.localTemplateId)]).filter(t=>templateAvailable(t,templates,options));
-  const candidates=[];
-  for(const t of localCandidates){for(const window of localTemplateWindows(t,w,options)){const base=resolveTemplateBase(t,window.target,processLibrary);if(base.ok)candidates.push({...window,baseProcess:base.process});}}
-  const locals=preferLocalWindows(candidates);
-  return {ready:true,route:locals.length?'local':'automatic',process,locals,localMatchDistance:localMatchDistance(options),templateFailures:[...wholeFailures,...localCandidates.filter(t=>!locals.some(a=>a.template.id===t.id)).map(t=>{const fail=failedTemplate(t,w,options);if(fail.ok){const window=localTemplateWindows(t,w,options)[0];if(!window)return {...fail,ok:false,reasons:localTemplateDiagnostics(t,w,options).reasons};const base=resolveTemplateBase(t,window.target,processLibrary);return {...fail,ok:false,reasons:base.ok?['匹配条件已满足，相同焊缝段组合已采用更优先的局部模板']:base.reasons};}return fail;})],steps:['未匹配',`已匹配：${process.name}`,locals.length?`已匹配 ${locals.length} 处焊缝段组合`:'未匹配，使用自动规划']};
-}
 function clearApplications(w){const next={...w,template:'',controlPoints:[],layers:[],localApplications:[],automaticPoses:[]};for(const key of ['templateId','templateSnapshot','processId','processName','processParameters','localTemplateId','matchPlan','strategyPlan'])delete next[key];return next;}
 function applyLocal(window,fallbackProcess,options){
   const applied=applyTemplateToWeld(window.target,window.template,options);
@@ -134,7 +32,7 @@ function prepareBaseWeld(w,options){
   w={...w,leg:roundWeldLeg(w.leg),strategyPlan:undefined};
   if(options.deviceCapabilities?.laserPrecision===true||w.laserTrackingDirection||w.laserTrackingIssue)w=plannedTracking(w,options);
   if(w.enabled&&!w.mergedInto&&!w.splitInto&&!w.gapJoinError){
-    w.strategyPlan=generateBaseStrategyPlan(w,{...options,wrapPoseOverrides:w.wrapPoseOverrides})??undefined;
+    w.strategyPlan=generateBaseStrategyPlan(w,options)??undefined;
   }
   return w;
 }
@@ -155,10 +53,10 @@ function applyTrajectoryOverlays(w,decision,options){
     if(basePlan)next.strategyPlan={...basePlan,templateAngles:true};
   }else{
     next=applyProcessEntry(clearApplications(decision.plannedSegments?{...w,segments:decision.plannedSegments}:w),decision.process);
-    if(basePlan)next.strategyPlan=generateStrategyPlan(next,next.processParameters,{...options,wrapPoseOverrides:next.wrapPoseOverrides})??basePlan;
+    if(basePlan)next.strategyPlan=generateStrategyPlan(next,next.processParameters,options)??basePlan;
     if(decision.locals.length){next.localApplications=decision.locals.map(window=>applyLocal(window,decision.process,options));next.localTemplateId=decision.locals[0].template.id;}
   }
-  const layerPoses=next.laserTrackingDirection&&(decision.route==='whole'||next.pointLayout?.length);
+  const layerPoses=next.laserTrackingDirection&&(options.laserTrackingByRobot||decision.route==='whole'||next.pointLayout?.length);
   const laserTrackingIssue=layerPoses?weldLayoutTrackingIssue(next,weldLayerLayout(next,decision,[],[],options),options):next.strategyPlan?.laserTrackingIssue;
   if(layerPoses&&next.strategyPlan)next.strategyPlan={...next.strategyPlan,laserTrackingIssue};
   if(laserTrackingIssue)return {...next,planned:false,matchPlan:{ready:false,route:'blocked',reason:laserTrackingIssue}};
@@ -178,7 +76,8 @@ export function planWorkspace(welds,templates,processLibrary,options={}){
   const materialized=welds.map(weld=>materializeEndpointWraps(weld,options.wrapParameters));
   if(options.planningRevision!==3)return materialized.map(weld=>planWeld(weld,templates,processLibrary,options));
   const topology=prepareStrategyGeometry(materialized,options);
-  return assignWeldingOrder(topology.map(weld=>planWeld(weld,templates,processLibrary,options)),options);
+  const allocated=options.laserTrackingByRobot?assignWeldingOrder(topology,options):topology;
+  return assignWeldingOrder(allocated.map(weld=>planWeld(weld,templates,processLibrary,options)),options);
 }
 export function canPreviewWeld(w,templates=[],processLibrary=[],options={}){
   if(!w?.enabled||w.mergedInto||w.splitInto||w.gapJoinError||verticalTraversal(w.segments,w.position)==='conflict')return false;
@@ -189,6 +88,21 @@ export function canPreviewWeld(w,templates=[],processLibrary=[],options={}){
   if(w.matchPlan.planningRevision===3)return true;
   if(w.matchPlan.route!=='whole'&&w.matchPlan.localMatchDistance!==undefined&&w.matchPlan.localMatchDistance!==localMatchDistance(options))return false;
   return analyzeWeldMatch(w,templates,processLibrary,options).ready;
+}
+export function weldPreviewStrategy(weld,whole,process,options){
+  if(!weld?.enabled||weld.mergedInto||weld.splitInto||weld.gapJoinError)return null;
+  const strategy=weld.strategyPlan;
+  const saved=strategy?.poseRevision===WELD_POSE_REVISION&&
+    strategy.laserTrackingSignature===laserTrackingSignature(weld,options)?strategy:undefined;
+  if(whole){
+    if(saved?.templateAngles&&weld.matchPlan?.wholeId===whole.id&&weld.templateId===whole.id)return saved;
+    const base=generateBaseStrategyPlan(weld,options);
+    return base?{...base,templateAngles:true}:null;
+  }
+  if(!process)return saved?.settingsOnly&&!saved.templateAngles?saved:defaultWeldPosePreview(weld,options);
+  if(saved&&!saved.settingsOnly&&weld.matchPlan?.processId===process.id&&weld.processParameters?.id===process.id&&
+     (weld.planned||weld.collisionState))return saved;
+  return generateStrategyPlan(plannedTracking(weld,options),process,options);
 }
 export function restorePlanningState(workspace){
   return {...workspace,welds:workspace.welds.map(weld=>{
