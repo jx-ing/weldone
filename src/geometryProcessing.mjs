@@ -5,15 +5,16 @@ import {settingsDefaults} from './planningSettingsModel.mjs';
 import {withPlanningEdgeThresholds} from './planningEdgeThreshold.mjs';
 import {EXAMPLE_MODEL} from './manualWeldModel.mjs';
 import {isBundledStartupStep,loadStepMesh} from './stepModelStore.mjs';
+import {bundledModelUrl} from './bundledModels.mjs';
 
 export async function processDemoGeometry(options,onProgress=()=>{}){
-  const base='/models/111-rules';
+  const base=bundledModelUrl('111-rules');
   return processGeometry(options,onProgress,{base,model:EXAMPLE_MODEL,sourceSha256:DEMO_SOURCE_SHA256,canonical:true});
 }
 
 export async function processImportedStep(model,reference,options,onProgress){
   if(isBundledStartupStep(model,reference)){
-    return processGeometry(options,onProgress,{base:'/models/a1a-rules',model,sourceSha256:reference.sourceSha256});
+    return processGeometry(options,onProgress,{base:bundledModelUrl('a1a-rules'),model,sourceSha256:reference.sourceSha256});
   }
   const mesh=await loadStepMesh(model,reference);
   if(!mesh.sourceFile){

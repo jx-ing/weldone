@@ -1,4 +1,4 @@
-import {bundledModelIdentity,EXAMPLE_MODEL,STARTUP_STEP_MODEL,STARTUP_STEP_REFERENCE} from './bundledModels.mjs';
+import {bundledModelIdentity,bundledModelUrl,EXAMPLE_MODEL,STARTUP_STEP_MODEL,STARTUP_STEP_REFERENCE} from './bundledModels.mjs';
 
 export {STARTUP_STEP_MODEL,STARTUP_STEP_REFERENCE};
 export const isBundledStartupStep=(name,reference)=>name===STARTUP_STEP_MODEL&&!reference?.kind&&
@@ -59,7 +59,7 @@ export async function loadStepMesh(name,reference){
   return reference.kind==='pointCloud'?{...model,sourceSha256:reference.sourceSha256}:model;
  }
  if(name!==EXAMPLE_MODEL&&!bundledStartup)throw Error('请导入此工作区的 STEP 文件');
- const response=await fetch(bundledStartup?'/models/a1a.mesh.json':'/models/111.mesh.json');
+ const response=await fetch(bundledModelUrl(bundledStartup?'a1a.mesh.json':'111.mesh.json'));
  if(!response.ok)throw Error('示例模型加载失败');
  const model=await response.json();
  if(bundledStartup&&model.sourceSha256!==reference.sourceSha256)throw Error('示例模型指纹校验失败');

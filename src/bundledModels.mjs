@@ -5,6 +5,8 @@ export const STARTUP_STEP_REFERENCE=Object.freeze({
  sourceSha256:'e3fa12d40ff8dbe3226efb4a51397be3ba0d9726810d2ab98240cfd0be693c07'
 });
 
+export const bundledModelUrl=file=>(import.meta.env?.BASE_URL??'/')+'models/'+file;
+
 const models=[
  {name:STARTUP_STEP_MODEL,sha:STARTUP_STEP_REFERENCE.sourceSha256},
  {name:EXAMPLE_MODEL,sha:DEMO_SOURCE_SHA256}

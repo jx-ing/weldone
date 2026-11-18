@@ -8,6 +8,7 @@ import {validReferenceNormal} from './weldDirectionGeometry.mjs';
 import {baseplateDirection,baseplateFace,measureBaseplateEdges,measureBaseplateEndpoint} from './templateBaseplateEdges.mjs';
 import {closestDistance,distanceProfile,distanceRangesBelow} from './templateDistanceProfile.mjs';
 import {measurePlanningAxial,measurePlanningBoundaries,planningPartGeometryIndex} from './vendor/geometry-engine.mjs';
+import {bundledModelUrl} from './bundledModels.mjs';
 
 const vector=p=>new Vector3(...p);
 const unit=p=>{const length=Math.hypot(...p);return length>EPS?p.map(v=>v/length):null;};
@@ -370,9 +371,8 @@ export function createTemplateNeighborhoodMeasurer({parts,mesh,edges,sourceWelds
 }
 
 export async function loadDemoTemplateNeighborhood(signal){
- const base='/models/111-rules';
  const get=async name=>{
-  const response=await fetch(base+'/'+name,{signal});
+  const response=await fetch(bundledModelUrl('111-rules/'+name),{signal});
   if(!response.ok)throw Error('焊缝邻域几何数据加载失败');
   return response;
  };
