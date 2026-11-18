@@ -23,7 +23,8 @@ export default function WeldPointTree({weldId,groups,selection,onSelect,onAddPoi
  );
  const remove=(label,target)=><button type="button" className="weld-point-action weld-remove-action"
   title={'删除'+label} aria-label={'删除'+label} onClick={()=>onRemove({weldId,label,...target})}><Trash2 size={12}/></button>;
- const points=group=>group.points.map(point=><div className="weld-point-row" key={point.id}>
+ const points=group=>group.points.toSorted((a,b)=>a.distance-b.distance||
+  Number(a.kind==='end')-Number(b.kind==='end')).map(point=><div className="weld-point-row" key={point.id}>
   {node('point',point.id,point.name,MapPin)}
   {editable&&point.raw.kind==='control'&&remove(point.name,{type:'point',layerId:group.layerId,passId:group.id,pointId:point.raw.id})}
  </div>);

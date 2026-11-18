@@ -32,11 +32,6 @@ import {directedWeld,measureDirectedConnection} from './weldDirectionGeometry.mj
 import {assignWeldingOrder,disableShortPlanningWelds} from './strategyGeometry.mjs';
 import {createPlanningCollisionPool} from './planningCollisionPool.mjs';
 import {loadProductionTask,loadWorkspaceDraft,saveProductionTask,saveWorkspaceDraft,loadWorkstationSceneFile,saveWorkstationSceneFile} from './workspaceDraftStore.mjs';
-import {listWorkpieceTemplates,loadWorkpieceTemplate,removeWorkpieceTemplate,saveWorkpieceTemplate} from './workspaceDraftStore.mjs';
-import {canSaveWorkpieceTemplate,createWorkpieceTemplate,workpieceWorkspace} from './workpieceTemplateModel.mjs';
-import {captureWorkpieceCover} from './captureWorkpieceCover.mjs';
-import WorkpieceLibrary from './WorkpieceLibrary';
-import {createTemplateProject,templateProjectGroups} from './templateProjects.mjs';
 import ViewCube from './ViewCube';
 import TemplateLibrary, {TemplateEditor} from './TemplateLibrary';
 import {newPlanningTemplate,templateMeasurementWeld} from './templateCoverModel.mjs';
@@ -44,7 +39,7 @@ import {DEFAULT_TEMPLATE_CAPTURE_RANGE,validTemplateCaptureRange} from './templa
 import {createTemplateNeighborhoodMeasurer,loadDemoTemplateNeighborhood} from './templateNeighborhood.mjs';
 import {templateGeometryKey} from './templateGeometryRules.mjs';
 import WeldAttributes from './WeldAttributes';
-import {copyWeldLayersToTemplate,nextWeldLayer,nextWeldPass,removeWeldLayoutItem,updateWeldLayoutPoint,validWeldLayerLayout,weldLayerLayout,weldLayerPassPaths,weldLayerTreeGroups,weldLayoutTrackingIssue,weldPathTrackingIssue,weldPointPlacement,weldPointPosition} from './weldLayerLayout.mjs';
+import {copyWeldLayersToTemplate,nextWeldLayer,nextWeldPass,removeWeldLayoutItem,updateWeldLayoutPoint,validWeldLayerLayout,weldControlPointAtPreview,weldLayerLayout,weldLayerPassPaths,weldLayerTreeGroups,weldLayoutTrackingIssue,weldPathTrackingIssue,weldPointPlacement,weldPointPosition} from './weldLayerLayout.mjs';
 import WeldPointTree from './WeldPointTree';
 import WeldControlPointForm from './WeldControlPointForm';
 import {analyzeWeldMatch,planWorkspace,applySelectedTemplate,restorePlanningState,planWeld,planWeldFromMatch,clearMissingWeldTemplates,weldPreviewStrategy,weldTemplateIds} from './weldMatching.mjs';
@@ -57,12 +52,15 @@ import {deviceControlCapabilities,deviceControlError,enabledPlanningRobots,migra
 import {DEFAULT_LASER_MOUNT_SIDE} from './laserCameraMount.mjs';
 import ProductionStatisticsWorkspace from './ProductionStatisticsWorkspace';
 import ProductionExecutionWorkspace from './ProductionExecutionWorkspace';
+import WeldoneAssistant from './WeldoneAssistant';
+import {validateAssistantAction} from './assistantActions.mjs';
+import {ASSISTANT_LIMITS} from './assistantGuide.mjs';
 import {planningTaskDocument,productionTaskSnapshot,readPlanningTask} from './planningTask.mjs';
 import {deviceLibraryUpdates,normalizeActiveDevices,restoreDeviceLibrary,clearRemovedProcess} from './processDeviceLibraries.mjs';
 import {matchesWorkstationWelder,validDeviceProfileStore,workstationWelders} from './processDeviceModel.mjs';
 import {validateProcessEntry,applyProcessEntry,validWeldProcessParameters} from './processParameterModel.mjs';
 import { migrateDraft, validateTemplate, validateFixed, wholeWeldSourceIssues,matchTemplate,targetFromWeld } from './templateModel.mjs';
-const modules = ['工艺规划', '生产执行', '工件库', '焊接模板库', '工艺参数库', '设备控制', '生产统计'];
+const modules = ['工艺规划', '生产执行', '焊接模板库', '工艺参数库', '设备控制', '生产统计'];
 const previewModels=[STARTUP_STEP_MODEL,EXAMPLE_MODEL];
 const defaults = migrateDraft({ model: '', welds: [], selected: '', project: '本地项目', templates: [] });
 function valid(v) { try { const d = migrateDraft(v); return typeof d.model === 'string' && (d.workpiecePose===undefined||validWorkpiecePose(d.workpiecePose)) && (!d.stepModel||validStepModel(d.stepModel)) && typeof d.project === 'string' && (d.templateCaptureRange===undefined||validTemplateCaptureRange(d.templateCaptureRange)) && (d.templateProjects===undefined||Array.isArray(d.templateProjects)&&d.templateProjects.length<1000&&new Set(d.templateProjects).size===d.templateProjects.length&&d.templateProjects.every(p=>typeof p==='string'&&p.trim()===p&&p.length>0&&p.length<=80)) && typeof d.selected === 'string' && Array.isArray(d.welds) && d.welds.length <= MAX_PLANNING_WELDS && new Set(d.welds.map(w => w.id)).size === d.welds.length && d.welds.every(w => /^W[0-9]{3,6}$/.test(w.id) && typeof w.name === 'string' && typeof w.position === 'string' && typeof w.template === 'string' && typeof w.enabled === 'boolean' && validWeldLayerLayout(w.pointLayout) && validManualWeldPath(w,d.model) && validExtractedWeld(w,d) && (d.model!==EXAMPLE_MODEL||['manual','extracted','manual-merge'].includes(w.source)) && Number.isFinite(w.length)&&w.length>0 && ['leg','speed'].every(k=>(['extracted','manual-merge'].includes(w.source)||w.splitFrom||w.source==='manual'&&w.current===null&&w.voltage===null)&&w[k]===null||Number.isFinite(w[k])&&(k==='speed'&&w.processParameters?.recipeRevision===3?w[k]>=0:w[k]>0)) && validWeldProcessParameters(w)) && d.templates.length < 1000 && new Set(d.templates.map(t => t.id)).size === d.templates.length && d.templates.every(t => !validateTemplate(t).filter(e=>!e.includes('请选择有效基准点')).length) && Array.isArray(d.fixedTemplates) && d.fixedTemplates.length < 1000 && new Set(d.fixedTemplates.map(t => t.id)).size === d.fixedTemplates.length && d.fixedTemplates.every(t => !validateFixed(t).filter(e=>!e.includes('请选择有效基准点')).length) && (d.deviceControl===undefined||!deviceControlError(d.deviceControl)) && validDeviceProfileStore(d.processDeviceProfiles) && Array.isArray(d.processLibrary) && d.processLibrary.length < 1000 && new Set(d.processLibrary.map(p=>p.id)).size===d.processLibrary.length && d.processLibrary.every(p=>!validateProcessEntry(p,{allowLegacyLeg:true}).length); } catch { return false; } }
@@ -102,21 +100,6 @@ function Workspace({initialData,initialProductionTask}) {
     const [data, setData] = useState(initialData), [page, setPage] = useState('工艺规划'), [leftTab, setLeftTab] = useState('结构树'), [search, setSearch] = useState(''), [logSearch, setLogSearch] = useState(''), [logs, setLogs] = useState([]), [dialog, setDialog] = useState(null), [toast, setToast] = useState(null), [view, setView] = useState(DEFAULT_PLANNING_VIEW), [reset, setReset] = useState(0), [camera, setCamera] = useState('iso'), [collapsed, setCollapsed] = useState(false), [saved, updateSaved] = useState(''), [processRequest,setProcessRequest]=useState(null), [libraryEditing,setLibraryEditing]=useState(false), [modelInfo,setModelInfo]=useState(null), [deleteWeldIds,setDeleteWeldIds]=useState([]);
     const [savedAt,setSavedAt]=useState(''),[savingWorkspace,setSavingWorkspace]=useState(false);
     const [productionTask,setProductionTask]=useState(initialProductionTask),[writingProductionTask,setWritingProductionTask]=useState(false);
-    const [workpieceDialog,setWorkpieceDialog]=useState(null),[workpieceBusy,setWorkpieceBusy]=useState(false);
-    const [editingWorkpiece,setEditingWorkpiece]=useState(null);
-    const [workpieceDialogError,setWorkpieceDialogError]=useState('');
-    const [workpieces,setWorkpieces]=useState([]),[workpiecesLoading,setWorkpiecesLoading]=useState(false),[workpiecesError,setWorkpiecesError]=useState('');
-    useEffect(()=>{
-      if(page!=='工件库')return;
-      let active=true;
-      setWorkpiecesLoading(true);setWorkpiecesError('');
-      listWorkpieceTemplates().then(items=>{if(active)setWorkpieces(items);},
-        ()=>{if(active)setWorkpiecesError('无法读取本机工件库');})
-        .finally(()=>{if(active)setWorkpiecesLoading(false);});
-      return ()=>{active=false;};
-    },[page]);
-    const workpieceProjects=[...new Set([...templateProjectGroups(data.templates,data.project,data.templateProjects).map(group=>group.name),
-      ...workpieces.map(item=>item.project),data.project||'本地项目'])];
     const productionTaskLock=useRef(false),productionTaskFile=useRef(null);
     const [partsSearch,setPartsSearch]=useState(''),[collapsedWeldGroup,setCollapsedWeldGroup]=useState(null);
     const workspaceSave=useRef(false);
@@ -126,6 +109,7 @@ function Workspace({initialData,initialProductionTask}) {
     const logResizeStart=useRef(null);
     const [batchSelect,setBatchSelect]=useState(false);
     const [templateDraft,setTemplateDraft]=useState(null);
+    const [assistantTemplateSource,setAssistantTemplateSource]=useState(null);
     const [precisionCoverOpen,setPrecisionCoverOpen]=useState(false);
     const planningCollisionEnabled=data.planningSettings?.splitParameters?.toolHeadCollisionEnabled===true;
     const collisionPool=useMemo(createPlanningCollisionPool,[]);
@@ -323,7 +307,7 @@ function Workspace({initialData,initialProductionTask}) {
     const previewPoint=useMemo(()=>{
       if(!previewPatch)return activePoint;
       const placement=weldPointPlacement(selected,modelPointLayout,activePoint.groupId,activePoint.raw.id,false,pointStrategy,referenceNormalAt);
-      return placement?{...activePoint,position:placement.position,toolPose:placement.toolPose,pose:placement.angles}:activePoint;
+      return placement?{...activePoint,distance:placement.distance,position:placement.position,toolPose:placement.toolPose,pose:placement.angles}:activePoint;
     },[previewPatch,activePoint,selected,modelPointLayout,pointStrategy,referenceNormalAt]);
     const layoutPaths=useMemo(()=>weldLayerPassPaths(selected,modelPointLayout,pointStrategy,referenceNormalAt,pointProcess),
       [selected,modelPointLayout,pointStrategy,referenceNormalAt,pointProcess]);
@@ -385,26 +369,32 @@ function Workspace({initialData,initialProductionTask}) {
     },[planningPointsVisible,previewPatch,previewPoint,layoutPaths.length,planningPointGroups,pointGroup,passIsVisible]);
     const pointBasePosition=useMemo(()=>activePoint?weldPointPosition(selected,pointLayout,activePoint.groupId,activePoint.raw.id,true,pointStrategy,referenceNormalAt):undefined,
       [selected,pointLayout,activePoint,pointStrategy,referenceNormalAt]);
-    const selectedPass=activeSelection?.type==='pass'?passPaths.find(pass=>pass.id===pointGroup?.id):undefined;
+    const selectedPass=activePoint||activeSelection?.type==='pass'?passPaths.find(pass=>pass.id===pointGroup?.id):undefined;
     const [passPreview,setPassPreview]=useState(null);
-    const previewPassKey=selectedPass?selected.id+':'+selectedPass.id:null;
+    const previewPassKey=selectedPass?JSON.stringify([selected.id,selectedPass.id,activePoint?.id]):null;
+    const seekingPass=!!selectedPass&&passPreview?.key===previewPassKey;
     const firstStation=selectedPass?.startStation,lastStation=selectedPass?.endStation;
-    const station=selectedPass?(passPreview?.key===previewPassKey?
-      Math.max(firstStation,Math.min(lastStation,passPreview.station)):firstStation):undefined;
+    const station=selectedPass?Math.max(firstStation,Math.min(lastStation,
+      seekingPass?passPreview.station:previewPoint?.distance??firstStation)):undefined;
     const stationPose=selectedPass?.posesAt(station).at(-1);
-    const passCollision=selectedPass&&!pointStrategy?.previewOnly&&pointStrategy===selected.strategyPlan?
+    const passCollision=selectedPass&&!previewPatch&&!pointStrategy?.previewOnly&&pointStrategy===selected.strategyPlan?
       selected.collisionPasses?.find(pass=>pass.id===selectedPass.id):undefined;
     const collisionPoint=passCollision?.contact??passCollision?.closest;
     const collisionMarker=planningPointsVisible&&collisionPoint&&Math.abs(station-collisionPoint.station)<.05?collisionPoint.point:null;
     const updatePreviewStation=useCallback(station=>setPassPreview({key:previewPassKey,station}),[previewPassKey]);
-    const sampleStation=selectedPass?.sampleStations.find(sample=>Math.abs(sample-station)<1e-7);
-    const sampleMarker=planningPointsVisible&&stationPose&&sampleStation!==undefined?stationPose.position:null;
+    const sampleStations=selectedPass?.sampleStations??[];
+    const nextSampleIndex=sampleStations.findIndex(sample=>sample>=station);
+    let sampleIndex=nextSampleIndex<0?sampleStations.length-1:nextSampleIndex;
+    if(sampleIndex>0&&station-sampleStations[sampleIndex-1]<=sampleStations[sampleIndex]-station)sampleIndex--;
+    const sampleStation=sampleStations[sampleIndex];
+    const sampleMarker=useMemo(()=>planningPointsVisible&&sampleStation!==undefined?
+      selectedPass.posesAt(sampleStation).at(-1)?.position:null,[planningPointsVisible,selectedPass,sampleStation]);
     const pointPose=previewPoint&&passPaths.find(pass=>pass.id===pointGroup?.id)?.posesAt(previewPoint.distance)
       .find(pose=>pose.pointId===previewPoint.raw.id);
     const headPass=activeSelection?.type==='layer'?passPaths.find(pass=>pass.layerId===activeSelection.id):
       !activeSelection?passPaths[0]:undefined;
     const headPose=stationPose??headPass?.posesAt(headPass.startStation).at(-1);
-    const headPoint=previewPoint&&passIsVisible(pointGroup?.layerId,pointGroup?.id)?
+    const headPoint=previewPoint&&!seekingPass&&passIsVisible(pointGroup?.layerId,pointGroup?.id)?
       {...previewPoint,toolPose:pointPose??previewPoint.toolPose}:
       headPose?{position:headPose.position,toolPose:headPose}:null;
     const editablePointGroups=planningPointGroups.filter(group=>group.layerId===newPointTarget?.layerId);
@@ -417,7 +407,9 @@ function Workspace({initialData,initialProductionTask}) {
       if(id!==dataRef.current.selected)setData(current=>({...current,selected:id}));
     }
     function beginWeldPoint(layerId,passId){
-      setNewPointTarget({layerId,passId,weldId:selected.id});
+      const capturePreview=stationPose&&selectedPass.layerId===layerId&&(!passId||passId===selectedPass.id);
+      const previewPoint=capturePreview?weldControlPointAtPreview(selected,pointLayout,pointGroup,stationPose,pointStrategy,referenceNormalAt):undefined;
+      setNewPointTarget({layerId,passId:previewPoint?selectedPass.id:passId,weldId:selected.id,previewPoint});
       setDialog('weldPoint');
     }
     async function confirmRemoveLayoutItem(){
@@ -442,7 +434,9 @@ function Workspace({initialData,initialProductionTask}) {
       }
       if(workspaceSave.current||geometryProgress)return '请等待当前操作完成';
       const current=dataRef.current;
-      const append=item=>({...item,pointLayout,collisionState:planningCollisionEnabled?'未检测':undefined,collisionVerified:false,collisionPasses:undefined,weldingOrder:null,
+      const append=item=>({...item,pointLayout,
+        planned:item.planned||!!(item.collisionState==='检测到碰撞'&&item.matchPlan?.ready&&item.strategyPlan),
+        collisionState:planningCollisionEnabled?'未检测':undefined,collisionVerified:false,collisionPasses:undefined,weldingOrder:null,
         attributeOverrides:{...item.attributeOverrides,pointLayout}});
       const next={...current,welds:current.welds.map(item=>item.id===weld.id?append(item):item)};
       const pending=weldEditBaseline.current;
@@ -666,7 +660,7 @@ function Workspace({initialData,initialProductionTask}) {
       if(!action)toastTimer.current=setTimeout(()=>setToast(null),3500);
     }
     function setSaved(status){updateSaved(status);if(status==='已保存至本机')setSavedAt(new Date().toLocaleTimeString('zh-CN',{hour12:false}));}
-    function log(message) { setLogs(l => [...l.slice(-149), { id: crypto.randomUUID(), time: new Date().toLocaleTimeString('zh-CN', { hour12: false }), message }]); }
+    function log(message) { setLogs(l => [...l.slice(-149), { id: crypto.randomUUID(), time: new Date().toLocaleTimeString('zh-CN', { hour12: false }), sequence: performance.now(), message }]); }
     function change(fn) {
       if(workspaceSave.current){notify('正在保存本机工作区，请稍后重试','warning');return false;}
       applyWorkspace(typeof fn==='function'?fn(dataRef.current):fn);
@@ -691,14 +685,13 @@ function Workspace({initialData,initialProductionTask}) {
       },0);
       return ()=>clearTimeout(timer);
     },[initialData,workstationLoading,page]);
-    async function commitWorkspace(persisted,apply,projectChange){
+    async function commitWorkspace(persisted,apply){
       if(workspaceSave.current)throw Error('正在保存本机工作区，请稍后重试');
       workspaceSave.current=true;
       setSavingWorkspace(true);
       try{
-        try{await saveWorkspaceDraft(persisted,projectChange);}
+        try{await saveWorkspaceDraft(persisted);}
         catch(error){
-          if(error?.name==='WorkpieceProjectInUseError')throw error;
           if(error?.name==='QuotaExceededError')throw Error('本机存储空间不足，请导出任务备份后重试');
           throw Error('无法写入本机工作区，请重试');
         }
@@ -849,7 +842,6 @@ function Workspace({initialData,initialProductionTask}) {
         weldEditBaseline.current.clear();
         applyWorkspace(next);
       });
-      setEditingWorkpiece(null);
       setModelInfo(null);
       setModelLoadRevision(value=>value+1);
       setModelEditMode('');
@@ -898,75 +890,6 @@ function Workspace({initialData,initialProductionTask}) {
       const error=await updateTemplates({workstationSettings});
       if(!error)notify('设备配置已保存');
       return error;
-    }
-    function openWorkpieceDialog(type,record){
-      setWorkpieceDialogError('');
-      setWorkpieceDialog(type==='save'?{type,name:data.model.replace(/\.(step|stp)$/i,''),project:record??data.project??'本地项目'}:
-        type==='update'?{type,record,name:record.name,project:record.project}:type==='project'?{type,name:''}:{type,record});
-    }
-    function closeWorkpieceDialog(){
-      if(!workpieceBusy)setWorkpieceDialog(null);
-    }
-    async function loadWorkpieceIntoPlanning(record,edit=false){
-      checkModelSwitch(true);
-      if(stepImportWorker.current)throw Error('请等待模型导入完成');
-      if(weldEditBaseline.current.size)throw Error('请先应用或取消焊缝属性修改');
-      const snapshot=await loadWorkpieceTemplate(record.id);
-      const next=workpieceWorkspace(dataRef.current,record,snapshot);
-      if(!valid(next))throw Error('工件模板未通过工作区校验');
-      if(next.stepModel)await cacheStepMesh(snapshot.mesh);
-      if(next.stepModel&&snapshot.neighborhood)await cacheStepNeighborhood(record.fingerprint,snapshot.neighborhood);
-      if(geometryWorker.current||workspaceSave.current||manualCreateLock.current)throw Error('当前工艺规划正在处理，请稍后重试');
-      await installStepWorkspace(next);
-      if(edit)setEditingWorkpiece(record);
-      setSearch('');setLeftTab('结构树');setHiddenGeometry(new Set());
-      go('工艺规划');
-      log((edit?'已打开工件模板 ':'已复用工件模板 ')+record.name+'，'+next.welds.length+' 条焊缝。');
-      notify((edit?'正在编辑工件模板 ':'已复用工件模板 ')+record.name,'success');
-    }
-    async function editWorkpiece(record){
-      if(workpieceBusy)return;
-      setWorkpieceBusy(true);
-      try{await loadWorkpieceIntoPlanning(record,true);}
-      catch(error){notify(error.message,'error');}
-      finally{setWorkpieceBusy(false);}
-    }
-    async function confirmWorkpieceDialog(event){
-      event.preventDefault();
-      if(workpieceBusy)return;
-      setWorkpieceBusy(true);
-      setWorkpieceDialogError('');
-      try{
-        const current=dataRef.current,{type,record,name,project}=workpieceDialog;
-        if(type==='save'||type==='update'){
-          checkModelSwitch();
-          if(stepImportWorker.current)throw Error('请等待模型导入完成');
-          if(weldEditBaseline.current.size)throw Error('请先应用或取消焊缝属性修改');
-        }
-        if(type==='save'||type==='update'){
-          const template=await createWorkpieceTemplate(current,{name,project,id:type==='update'?record.id:undefined});
-          template.summary.cover=captureWorkpieceCover(template.snapshot.mesh,workpiecePoseFor(current));
-          await saveWorkpieceTemplate(template);
-          setWorkpieces(items=>[template.summary,...items.filter(item=>item.id!==template.summary.id)]);
-          if(type==='update')setEditingWorkpiece(template.summary);
-          notify((type==='update'?'已更新工件模板 ':'已保存工件模板 ')+template.summary.name,'success');
-        }else if(type==='reuse'){
-          await loadWorkpieceIntoPlanning(record);
-        }else if(type==='project'){
-          const values=createTemplateProject(current.templates,current.project,workpieceProjects,name);
-          const error=await updateTemplates(values);
-          if(error)throw Error(error);
-        }else{
-          await removeWorkpieceTemplate(record.id);
-          setWorkpieces(items=>items.filter(item=>item.id!==record.id));
-          notify('工件模板已删除','success');
-        }
-        setWorkpieceDialog(null);
-      }catch(error){
-        setWorkpieceDialogError(error?.name==='QuotaExceededError'?'本机存储空间不足，工件模板未保存':error.message);
-      }finally{
-        setWorkpieceBusy(false);
-      }
     }
     async function openModelWorkspace(model,reference,{autoPlan=false}={}){
       const discarded=weldEditBaseline.current.size>0;
@@ -1458,7 +1381,160 @@ function Workspace({initialData,initialProductionTask}) {
       setMergeIds([]);setPlanningSelection(null);
       if(await persistGeometry(next))notify('已删除 '+(current.welds.length-next.welds.length)+' 条焊缝');
     }
-    async function updateTemplates(input,projectChange) {
+    const assistantLabels=useMemo(()=>Object.fromEntries(data.welds.map(weld=>[weld.id,weld.name])),[data.welds]);
+    const assistantInventory=useMemo(()=>{
+      const limit=ASSISTANT_LIMITS.inventory;
+      const head=`当前页：${page}；模型：${data.model||'未导入'}；焊缝 ${data.welds.length} 条\n焊缝：编号|名称|状态|位置|焊脚`;
+      const weldLines=[];
+      let used=head.length;
+      for(const weld of data.welds.slice(0,120)){
+        const name=weld.name.length>36?weld.name.slice(0,36)+'…':weld.name;
+        const line=`${weld.id}|${name}|${weld.enabled?'启用':'屏蔽'}|${weld.position||'待确认'}|${Number.isFinite(weld.leg)?'焊脚'+Number(weld.leg.toFixed(2)):'焊脚未定'}`;
+        if(used+line.length+1>limit-900)break;
+        weldLines.push(line);used+=line.length+1;
+      }
+      const lines=[head,...weldLines];
+      const templates=data.templates.slice(0,30).map(template=>template.name);
+      if(templates.length)lines.push('模板：'+templates.join('、'));
+      const processes=data.processLibrary.slice(0,30).map(process=>process.name);
+      if(processes.length)lines.push('工艺：'+processes.join('、'));
+      return lines.join('\n').slice(0,limit);
+    },[data.welds,data.templates,data.processLibrary,data.model,page]);
+    useEffect(()=>{
+      if(!assistantTemplateSource)return;
+      if(selected?.id!==assistantTemplateSource)return;
+      setAssistantTemplateSource(null);
+      void createWholeTemplate();
+    },[assistantTemplateSource,selected?.id]);
+    async function applyAssistantWeldEdit(weldId,fields){
+      const current=dataRef.current;
+      const weld=current.welds.find(item=>item.id===weldId);
+      if(!weld)return {ok:false,message:'未找到焊缝 '+weldId};
+      if(weld.mergedInto||weld.splitInto)return {ok:false,message:weldId+' 已并入或拆分，不能直接修改'};
+      if(weldEditBaseline.current.has(weldId))return {ok:false,message:'该焊缝有未应用的编辑，请先在右侧应用或取消'};
+      if(fields.groove&&!validGroove({...weld.groove,...fields.groove}))return {ok:false,message:'坡口参数不完整，未修改'};
+      const edited={...weld};
+      if(fields.name!==undefined)edited.name=fields.name;
+      if(fields.leg!==undefined)edited.leg=roundWeldLeg(fields.leg);
+      if(fields.position!==undefined){
+        edited.position=fields.position;
+        edited.segments=weld.segments.map(segment=>({...segment,position:fields.position}));
+      }
+      if(fields.groove)edited.groove={...weld.groove,...fields.groove};
+      if(roundWeldLeg(edited.leg)===null)return {ok:false,message:'焊脚数值无效，未修改'};
+      if(!validGroove(edited.groove))return {ok:false,message:'坡口参数无效，未修改'};
+      const overrides={...(weld.attributeOverrides||{})};
+      for(const key of ['name','leg','position','groove'])
+        if(JSON.stringify(weld[key])!==JSON.stringify(edited[key]))overrides[key]=structuredClone(edited[key]);
+      if(fields.position!==undefined&&JSON.stringify(weld.segments)!==JSON.stringify(edited.segments))
+        overrides.segments=edited.segments.filter(segment=>!segment.generatedEndpointWrap).map(segment=>({position:segment.position,
+          tracking:segment.tracking,arcTracking:segment.arcTracking,laserTracking:segment.laserTracking,
+          startWrapMode:segment.startWrapMode,endWrapMode:segment.endWrapMode,startWrapEdit:segment.startWrapEdit,endWrapEdit:segment.endWrapEdit}));
+      if(overrides.leg!==undefined)overrides.leg=roundWeldLeg(overrides.leg);
+      const geometry=materializeEndpointWraps({...edited,leg:roundWeldLeg(edited.leg),attributeOverrides:overrides},settingsDefaults(context).wrapParameters);
+      const overlap=overlappingEndpointWrap(geometry,current.welds);
+      if(overlap)return {ok:false,message:'包角轨迹与 '+overlap.id+' 重叠，未修改'};
+      const decision=analyzeWeldMatch(geometry,current.templates,activeProcesses,context);
+      const next=planWeldFromMatch({...geometry,collisionState:undefined,collisionPasses:undefined},decision,context);
+      const workspace={...current,welds:current.welds.map(item=>item.id===weldId?next:item)};
+      if(!valid(workspace))return {ok:false,message:'修改后的焊缝未通过校验'};
+      if(!await persistGeometry(await recheckEditedWelds(workspace,new Set([weldId]))))return {ok:false,message:'修改未保存，请重试'};
+      log(weldId+' 已由 AI 助手修改');
+      notify(weldId+' 的属性已应用');
+      return {ok:true,message:`已修改 ${weldId}（${edited.name}）`};
+    }
+    async function runAssistantAction(proposal){
+      const action=validateAssistantAction(proposal?.name,proposal?.arguments);
+      if(!action)return {ok:false,message:'操作参数无效'};
+      if(workspaceSave.current)return {ok:false,message:'正在保存本机工作区，请稍后重试'};
+      if(geometryProgress)return {ok:false,message:'正在执行规划，请稍后重试'};
+      const current=dataRef.current,args=action.arguments;
+      try{
+        if(action.name==='select_weld'){
+          const weld=current.welds.find(item=>item.id===args.weldId);
+          if(!weld)return {ok:false,message:'未找到焊缝 '+args.weldId};
+          selectTreeWeld(weld.id);
+          return {ok:true,message:`已选中 ${weld.id}（${weld.name}）`};
+        }
+        if(action.name==='set_welds_enabled'){
+          const missing=args.weldIds.filter(id=>!current.welds.find(weld=>weld.id===id));
+          if(missing.length)return {ok:false,message:'未找到焊缝：'+missing.join('、')};
+          if(!change(workspace=>({...workspace,welds:workspace.welds.map(weld=>args.weldIds.includes(weld.id)
+            ?{...weld,enabled:args.enabled,disabledByMinWeldLength:undefined}:weld)})))
+            return {ok:false,message:'当前无法修改'};
+          log('AI 助手已'+(args.enabled?'启用':'屏蔽')+' '+args.weldIds.join('、'));
+          return {ok:true,message:`已${args.enabled?'启用':'屏蔽'} ${args.weldIds.join('、')}`};
+        }
+        if(action.name==='update_weld')return await applyAssistantWeldEdit(args.weldId,args.fields);
+        if(action.name==='delete_welds'){
+          const next=removePlanningWelds(current,args.weldIds);
+          const removed=current.welds.length-next.welds.length;
+          if(!removed)return {ok:false,message:'所选焊缝不可删除'};
+          setMergeIds([]);setPlanningSelection(null);
+          if(!await persistGeometry(next))return {ok:false,message:'删除未保存，请重试'};
+          log('AI 助手已删除 '+args.weldIds.join('、'));
+          notify('已删除 '+removed+' 条焊缝');
+          return {ok:true,message:'已删除 '+removed+' 条焊缝'};
+        }
+        if(action.name==='merge_welds'){
+          if(args.weldIds.length<2)return {ok:false,message:'至少需要两条焊缝才能合并'};
+          const next=mergeSelectedWelds(current,args.weldIds,context);
+          if(!valid(next))return {ok:false,message:'合并后的路径未通过校验'};
+          const replanned=await replanEditedGeometry(next);
+          if(!await persistGeometry(replanned))return {ok:false,message:'合并未保存，请重试'};
+          log('AI 助手已将 '+args.weldIds.join('、')+' 合并为 '+replanned.selected);
+          return {ok:true,message:`已合并为 ${replanned.selected}，原焊缝保留并屏蔽`};
+        }
+        if(action.name==='apply_template'){
+          const weld=current.welds.find(item=>item.id===args.weldId);
+          if(!weld)return {ok:false,message:'未找到焊缝 '+args.weldId};
+          const template=current.templates.find(item=>item.id===args.templateName)??current.templates.find(item=>item.name===args.templateName);
+          if(!template)return {ok:false,message:'未找到模板「'+args.templateName+'」，请使用本机模板列表中的完整名称'};
+          const updated=applySelectedTemplate(weld,template,current.processLibrary,context);
+          if(!change(workspace=>({...workspace,welds:workspace.welds.map(item=>item.id===weld.id?updated:item)})))
+            return {ok:false,message:'当前无法修改'};
+          log(weld.id+' 已由 AI 助手应用模板 '+template.name);
+          notify('模板已应用，请保存规划草稿');
+          return {ok:true,message:`已对 ${weld.id} 应用模板「${template.name}」`};
+        }
+        if(action.name==='apply_process'){
+          const weld=current.welds.find(item=>item.id===args.weldId);
+          if(!weld)return {ok:false,message:'未找到焊缝 '+args.weldId};
+          const process=current.processLibrary.find(item=>item.id===args.processName)??current.processLibrary.find(item=>item.name===args.processName);
+          if(!process)return {ok:false,message:'未找到工艺「'+args.processName+'」，请使用本机工艺库中的完整名称'};
+          const updated=applyProcessEntry(plannedTracking(weld,context),process);
+          if(!change(workspace=>({...workspace,welds:workspace.welds.map(item=>item.id===weld.id?updated:item)})))
+            return {ok:false,message:'当前无法修改'};
+          log(weld.id+' 已由 AI 助手应用工艺参数 '+process.name);
+          notify('工艺参数已应用，请保存规划草稿');
+          return {ok:true,message:`已对 ${weld.id} 应用工艺「${process.name}」`};
+        }
+        if(action.name==='create_template'){
+          const weld=current.welds.find(item=>item.id===args.weldId);
+          if(!weld)return {ok:false,message:'未找到焊缝 '+args.weldId};
+          if(templateCreateDisabled)return {ok:false,message:'当前无法新建模板：'+(templateCreateHint||'请等待模型加载')};
+          if(weld.id!==current.selected)selectTreeWeld(weld.id);
+          setAssistantTemplateSource(weld.id);
+          return {ok:true,message:`已选中 ${weld.id}，正在打开模板创建`};
+        }
+        if(action.name==='run_planning'){
+          if(geometryWorker.current||creatingWelds)return {ok:false,message:'正在规划或创建焊缝，请稍后重试'};
+          if(weldEditBaseline.current.size)return {ok:false,message:'请先应用或取消焊缝属性修改'};
+          if(!current.model)return {ok:false,message:'请先导入模型'};
+          void plan();
+          return {ok:true,message:'已开始一键规划，进度显示在顶部按钮和日志中'};
+        }
+        if(action.name==='export_task'){
+          checkModelSwitch();
+          await publishProductionTask(current,context,'已从工艺规划更新任务');
+          log('已导出任务到生产执行');
+          notify('生产执行任务已更新','success',{label:'查看生产执行',onClick:()=>go('生产执行')});
+          return {ok:true,message:'已导出到生产执行'};
+        }
+        return {ok:false,message:'不支持的操作'};
+      }catch(error){return {ok:false,message:error?.message||'操作失败'};}
+    }
+    async function updateTemplates(input) {
       if(workspaceSave.current)return '正在保存本机工作区，请稍后重试';
       const data=dataRef.current;
       const compatible=profile=>matchesWorkstationWelder(profile,sceneWelders);
@@ -1526,7 +1602,7 @@ function Workspace({initialData,initialProductionTask}) {
           weldEditBaseline.current=pending;
 
           applyWorkspace({...next,selected:dataRef.current.selected});
-        },projectChange);
+        });
         return '';
       }catch(error){return error.message;}
     }
@@ -1559,7 +1635,13 @@ function Workspace({initialData,initialProductionTask}) {
       <header className="app-shell">
        <div className="app-brand"><img src="/assets/favicon.ico" alt=""/><span>Weldone</span></div>
        <nav className="app-nav" aria-label="主导航">{modules.map(name=><button type="button" key={name} aria-current={page===name?'page':undefined} onClick={()=>navigate(name)}>{name}</button>)}</nav>
-       <details className="app-help"><summary aria-label="帮助菜单" title="帮助"><CircleHelp size={20}/></summary><div>{[['帮助','help'],['快捷键','shortcuts'],['关于 Weldone','about']].map(([label,target])=><button key={label} type="button" onClick={event=>{event.currentTarget.closest('details').open=false;setDialog(target);}}>{label}</button>)}</div></details>
+       <div className="app-shell-actions">
+        <WeldoneAssistant page={page} dialogOpen={!!dialog} planning={page==='工艺规划'?{
+          weld:selected,match:selectedDecision,trackingIssue,weldCount:data.welds.length,enabledCount:enabled.length,
+          logs,progress:geometryProgress,
+        }:null} inventory={assistantInventory} weldLabels={assistantLabels} onAction={runAssistantAction}/>
+        <details className="app-help"><summary aria-label="帮助菜单" title="帮助"><CircleHelp size={20}/></summary><div>{[['帮助','help'],['快捷键','shortcuts'],['关于 Weldone','about']].map(([label,target])=><button key={label} type="button" onClick={event=>{event.currentTarget.closest('details').open=false;setDialog(target);}}>{label}</button>)}</div></details>
+       </div>
       </header>
       <main id="main-content" tabIndex={-1}>
        {!libraryEditing&&page==='工艺规划'&&<PageHeader title={page} actions={<>
@@ -1579,8 +1661,6 @@ function Workspace({initialData,initialProductionTask}) {
          <Btn icon={Settings} aria-label="工艺规划设置" onClick={()=>setDialog('settings')}/>
         </div>
         <Btn onClick={()=>taskFile.current?.click()}>导入 PF 文件</Btn>
-        <Btn disabled={!canSaveWorkpieceTemplate(data)||!!geometryProgress} onClick={()=>openWorkpieceDialog('save')}>保存为工件模板</Btn>
-        {editingWorkpiece&&<Btn primary disabled={!!geometryProgress} onClick={()=>openWorkpieceDialog('update',editingWorkpiece)}>保存工件模板修改</Btn>}
         <div className="planning-action-group planning-task-export" role="group" aria-label="导出任务">
          <Btn disabled={!data.model||writingProductionTask||!!geometryProgress||creatingWelds}
           title="导出到生产执行" onClick={exportTaskToProduction}>导出任务</Btn>
@@ -1653,41 +1733,16 @@ function Workspace({initialData,initialProductionTask}) {
   {logsOpen&&<div className="log-lines">{logs.filter(l=>l.message.includes(logSearch)).map(l=><div key={l.id}><time>{l.time}</time><span>{l.message}</span></div>)}</div>}
  </section></section><aside className="inspector" aria-label="焊缝属性侧栏">
  <button type="button" className="icon inspector-toggle" aria-label={inspectorOpen?'收起焊缝属性':'展开焊缝属性'} title={inspectorOpen?'收起焊缝属性':'展开焊缝属性'} aria-expanded={inspectorOpen} onClick={()=>setInspectorOpen(open=>!open)}>{inspectorOpen?<PanelRightClose size={18}/>:<PanelRightOpen size={18}/>}</button>
- <div className="inspector-content" inert={!inspectorOpen}>{!selected ? <Empty text={data.model?null:"请先导入 STEP 模型"}/> : <WeldAttributes onCreateTemplate={page==='工艺规划'?createWholeTemplate:undefined} createTemplateUnavailable={templateCreateDisabled?templateCreateHint:''} onCreateProcess={page==='工艺规划'&&availableProcessProfiles.length?()=>{setProcessRequest({fromWeld:true});go('工艺参数库');}:undefined} onChooseTemplate={()=>setDialog('templatePicker')} onChooseProcess={()=>setDialog('processPicker')} planningSelection={activeSelection} planningPoint={activePoint} planningPointPose={previewPoint?.pose} planningPassPreview={stationPose?{pose:stationPose,from:firstStation,to:lastStation,sampleStations:selectedPass.sampleStations,sampleStation,
+ <div className="inspector-content" inert={!inspectorOpen}>{!selected ? <Empty text={data.model?null:"请先导入 STEP 模型"}/> : <WeldAttributes onCreateTemplate={page==='工艺规划'?createWholeTemplate:undefined} createTemplateUnavailable={templateCreateDisabled?templateCreateHint:''} onCreateProcess={page==='工艺规划'&&availableProcessProfiles.length?()=>{setProcessRequest({fromWeld:true});go('工艺参数库');}:undefined} onChooseTemplate={()=>setDialog('templatePicker')} onChooseProcess={()=>setDialog('processPicker')} planningSelection={activeSelection} planningPoint={activePoint} planningPointPose={previewPoint?.pose} planningPassPreview={stationPose?{pose:stationPose,from:firstStation,to:lastStation,sampleStations,sampleIndex,
    speedAt:selectedPass.speedAt, collision:passCollision,
    onStation:updatePreviewStation}:undefined} defaultPosePreview={pointStrategy?.settingsOnly&&!pointStrategy.templateAngles} planningPointBasePosition={pointBasePosition} planningPointGroup={pointGroup} onSavePoint={point=>saveWeldPoint(point,true)} onSaveLayerOrPass={saveLayerOrPass} onOffsetPreview={setPointOffsetPreview} onOffsetPreviewEnd={clearPointOffsetPreview} onPlanningViewChange={setPlanningPointsVisible} onScanningViewChange={setMeasurementView} measurementPreview={measurementPreview} robotAssignment={allocationLabel(selected)} onUndoMerge={undoMerge} onSeparateSegments={page==='工艺规划'&&!geometryProgress&&canSeparateWeldSegments(selected)?()=>setSegmentSeparation({id:selected.id,indices:[],error:''}):undefined} decision={selectedDecision} trackingSegments={selected?.segments} trackingWeld={selected} trackingIssue={trackingIssue} weld={selected} templates={data.templates} processLibrary={data.processLibrary} onPatch={patch} onWrapChange={patchWeldWrap} onWrapFocus={focusWrapEndpoint} onClearWrapFocus={()=>setWrapFocus(null)} wrapFocus={wrapPreview?.overlap?{...wrapFocus,message:'包角轨迹与 '+wrapPreview.overlap+' 重叠'}:wrapFocus} busy={!!geometryProgress} deviceCapabilities={scanningCapabilities} onCancel={weldEditBaseline.current.has(selected.id)?cancelWeldEdit:undefined} onSave={applyWeldAttributes}/>}</div></aside></div> : page==='焊接模板库' ? <TemplateLibrary templateImpact={templateImpact} measureNeighborhood={measureLibraryTemplate} captureRange={data.templateCaptureRange} templates={data.templates} project={data.project} projectNames={data.templateProjects} processLibrary={data.processLibrary} onUpdate={updateTemplates} onEditingChange={setLibraryEditing} onGoPlanning={()=>go('工艺规划')} notify={notify}/> : page==='工艺参数库' ? <ProcessParameterLibrary sceneWelders={sceneWelders} welds={data.welds} deletedDeviceProfiles={data.deletedProcessDevices} onRestoreDevice={async id=>{try{return await updateTemplates(restoreDeviceLibrary(dataRef.current,id));}catch(error){return error.message;}}} onEditingChange={setLibraryEditing} entries={data.processLibrary} deviceProfiles={data.processDeviceProfiles} selected={selected?plannedTracking(selected,context):null} editorRequest={processRequest} onEditorRequestHandled={()=>setProcessRequest(null)} onUpdate={updateTemplates} onApply={p=>{if(applyProcess(p)){go('工艺规划');}}} notify={notify}/> : page === '设备控制' ? workstation?<WorkstationDeviceControl key={sceneKey??'builtin'} workstation={workstationSource} value={workstationSettings} sceneStatus={workstationStatus} loading={workstationLoading} onImport={()=>sceneFileInput.current?.click()} coverOpen={precisionCoverOpen} onCoverChange={setPrecisionCoverOpen} fieldOfView={cameraFieldOfView} onFieldOfViewChange={setCameraFieldOfView} onSave={saveSceneDeviceSettings}/>:<DeviceControl sceneStatus={workstationStatus} loading={workstationLoading} onImport={()=>sceneFileInput.current?.click()} value={deviceControl} coverOpen={precisionCoverOpen} onCoverChange={setPrecisionCoverOpen} fieldOfView={cameraFieldOfView} onFieldOfViewChange={setCameraFieldOfView} onSave={async deviceControl=>{
   const error=await updateTemplates({deviceControl});if(!error)notify('设备配置已保存');return error;
- }}/> : page==='工件库'?<WorkpieceLibrary projects={workpieceProjects} project={data.project} records={workpieces}
-  loading={workpiecesLoading} error={workpiecesError} canSave={canSaveWorkpieceTemplate(data)}
-  onSave={project=>openWorkpieceDialog('save',project)} onApply={record=>openWorkpieceDialog('reuse',record)}
-  onEdit={editWorkpiece}
-  onRemove={record=>openWorkpieceDialog('remove',record)} onNewProject={()=>openWorkpieceDialog('project')}/>
-  : page==='生产执行'?<ProductionExecutionWorkspace key={(sceneKey??'builtin')+':'+(productionTask?.updatedAt??'empty')} task={productionTask} Dialog={Dialog}
+ }}/> : page==='生产执行'?<ProductionExecutionWorkspace key={(sceneKey??'builtin')+':'+(productionTask?.updatedAt??'empty')} task={productionTask} Dialog={Dialog}
   workstation={workstation} workstationStatus={workstationStatus} livePlanning={context}
   importing={writingProductionTask} onImportTask={()=>productionTaskFile.current?.click()}
   invertModelZ={invertModelZ}/>:
   <ProductionStatisticsWorkspace/>}
     </main><footer className="statusbar"><span>项目：{(page==='生产执行'?productionTask?.workspace.project:data.project)||'本地项目'}</span><span className="status-dot"/><span>设备未连接</span>{page==='工艺规划'&&data.welds.length>0&&<span className="status-welds">已启用 {enabled.length.toLocaleString('zh-CN')} / {data.welds.length.toLocaleString('zh-CN')} 条 · {formatLength(total)} mm</span>}{(savingWorkspace||saved)&&<><span className="status-spacer"/><span role="status" className={'save-indicator'+(!savingWorkspace&&saved==='已保存至本机'?' saved':'')}>{savingWorkspace?'正在保存至本机':saved}{!savingWorkspace&&saved==='已保存至本机'&&savedAt&&' · '+savedAt}</span></>}</footer><input hidden type="file" accept=".pf" aria-label="PF 文件" ref={taskFile} onChange={event=>importTask(event)}/><input hidden type="file" accept=".pf" aria-label="生产执行 PF 文件" ref={productionTaskFile} onChange={event=>importTask(event,true)}/><input hidden type="file" accept=".step,.stp" aria-label="STEP 文件" ref={stepFile} onChange={event=>importModel(event)}/><input hidden type="file" accept={POINT_CLOUD_EXTENSIONS} aria-label="点云文件" ref={pointCloudFile} onChange={event=>importModel(event,'pointCloud')}/><input hidden type="file" accept=".glb,model/gltf-binary" aria-label="场景文件" ref={sceneFileInput} onChange={selectWorkstationScene}/>{toast && <Feedback {...toast} onDismiss={()=>setToast(null)}/>}
-    {workpieceDialog&&<Dialog title={{save:'保存为工件模板',update:'保存工件模板修改',reuse:'复用工件模板',remove:'删除工件模板',project:'新建项目'}[workpieceDialog.type]}
-     onClose={closeWorkpieceDialog}>
-     <form onSubmit={confirmWorkpieceDialog}>
-      <div className="dialog-body workpiece-form">
-       {['save','update','project'].includes(workpieceDialog.type)&&
-        <label>{workpieceDialog.type==='project'?'项目名称':'工件模板名称'}
-         <TextInput value={workpieceDialog.name} maxLength={80} required
-          onChange={event=>setWorkpieceDialog({...workpieceDialog,name:event.target.value})}/></label>}
-       {['save','update'].includes(workpieceDialog.type)&&<label>项目<select value={workpieceDialog.project}
-        onChange={event=>setWorkpieceDialog({...workpieceDialog,project:event.target.value})}>
-        {workpieceProjects.map(project=><option key={project}>{project}</option>)}</select></label>}
-       {workpieceDialog.type==='reuse'&&<p>将「{workpieceDialog.record.name}」的模型和 {workpieceDialog.record.weldCount} 条焊缝载入工艺规划。</p>}
-       {workpieceDialog.type==='remove'&&<p>确定从工件库删除「{workpieceDialog.record.name}」？</p>}
-       {workpieceDialogError&&<p role="alert" className="workpiece-error">{workpieceDialogError}</p>}
-      </div>
-      <footer><Btn type="button" onClick={closeWorkpieceDialog} disabled={workpieceBusy}>取消</Btn>
-       <Btn type="submit" primary danger={workpieceDialog.type==='remove'} disabled={workpieceBusy}>
-        {workpieceBusy?'处理中…':{save:'保存',update:'保存',reuse:'载入工艺规划',remove:'确认删除',project:'新建'}[workpieceDialog.type]}</Btn></footer>
-     </form>
-    </Dialog>}
     {merging&&<WeldMergeDialog settings={context} welds={data.welds} ids={mergeIds} onClose={()=>setMerging(false)} onMerge={mergeSelection} error={mergeError}/>}
     {segmentSeparation&&selected?.id===segmentSeparation.id&&<Dialog title="拆分焊缝段" onClose={()=>setSegmentSeparation(null)}>
       <div className="dialog-body">
@@ -1755,7 +1810,7 @@ function Workspace({initialData,initialProductionTask}) {
         </>}
       </footer>
     </Dialog>}
-    {dialog==='weldPoint'&&selected?.id===newPointTarget?.weldId&&<Dialog title={'添加点位 · '+selected.id} onClose={()=>setDialog(null)}><WeldControlPointForm key={selected.id} groups={editablePointGroups} initialGroup={newPointTarget.passId} existing={planningPoints} onSave={saveWeldPoint} onCancel={()=>setDialog(null)}/></Dialog>}
+    {dialog==='weldPoint'&&selected?.id===newPointTarget?.weldId&&<Dialog title={'添加点位 · '+selected.id} onClose={()=>setDialog(null)}><WeldControlPointForm key={selected.id} groups={editablePointGroups} initialGroup={newPointTarget.passId} previewPoint={newPointTarget.previewPoint} existing={planningPoints} onSave={saveWeldPoint} onCancel={()=>setDialog(null)}/></Dialog>}
     {selected&&dialog==='templatePicker'&&<Dialog title="选择焊接模板" onClose={()=>setDialog(null)}><PlanningLibraryPicker key={selected.id} kind="template" weld={selected} templates={data.templates} project={data.project} projectNames={data.templateProjects} onCancel={()=>setDialog(null)} onConfirm={template=>{if(applyTemplate(template))setDialog(null);}}/></Dialog>}
     {selected&&dialog==='processPicker'&&<Dialog title="工艺参数库" onClose={()=>setDialog(null)}><PlanningLibraryPicker key={selected.id} kind="process" weld={selected} processLibrary={activeProcesses} onCancel={()=>setDialog(null)} onConfirm={value=>{if(applyProcess(value,{throwOnError:true}))setDialog(null);}}/></Dialog>}
     {dialog === 'settings' && <Dialog title="工艺规划设置" onClose={() => setDialog(null)}><PlanningSettings key={data.project} capabilities={context.deviceCapabilities} robots={context.planningRobots} welds={data.welds} settings={data.planningSettings} hasWelds={data.welds.length>0} saving={savingWorkspace} onCancel={()=>setDialog(null)} onSave={savePlanningSettings}/></Dialog>}

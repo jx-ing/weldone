@@ -34,64 +34,17 @@ export async function loadWorkspaceDraft(){
  return saved===undefined?legacyDraft():saved;
 }
 
-export function saveWorkspaceDraft(draft,projectChange){
- let projectInUse=false;
+export function saveWorkspaceDraft(draft){
  return accessDraft('readwrite',store=>{
-  function writeDraft(){
-   if(draft.model)return store.put(draft,'current');
-   const saved=store.get('current');
-   saved.onsuccess=()=>store.put(retainSavedStepWorkspace(draft,saved.result??legacyDraft()),'current');
-   return saved;
-  }
-  if(!projectChange)return writeDraft();
-  const request=store.get(workpieceCatalogKey);
-  request.onsuccess=()=>{
-   const entries=request.result??[];
-   if(!projectChange.to&&entries.some(item=>item.project===projectChange.from)){projectInUse=true;return;}
-   if(projectChange.to)store.put(entries.map(item=>item.project===projectChange.from?{...item,project:projectChange.to}:item),
-    workpieceCatalogKey);
-   writeDraft();
-  };
-  return request;
- }).then(result=>{
-  if(projectInUse)throw Object.assign(Error('该项目仍有工件模板，请先在工件库中处理这些模板'),{name:'WorkpieceProjectInUseError'});
-  return result;
+  if(draft.model)return store.put(draft,'current');
+  const saved=store.get('current');
+  saved.onsuccess=()=>store.put(retainSavedStepWorkspace(draft,saved.result??legacyDraft()),'current');
+  return saved;
  });
 }
 
 export const loadWorkstationSceneFile=()=>accessDraft('readonly',store=>store.get('workstation-scene'));
 export const saveWorkstationSceneFile=file=>accessDraft('readwrite',store=>store.put(file,'workstation-scene'));
-
-const workpieceCatalogKey='workpiece-templates';
-const workpieceKey=id=>'workpiece-template:'+id;
-
-export const listWorkpieceTemplates=()=>accessDraft('readonly',store=>store.get(workpieceCatalogKey)).then(value=>value??[]);
-export const loadWorkpieceTemplate=id=>accessDraft('readonly',store=>store.get(workpieceKey(id)));
-
-export function saveWorkpieceTemplate({summary,snapshot}){
- let duplicate=false;
- return accessDraft('readwrite',store=>{
-  const request=store.get(workpieceCatalogKey);
-  request.onsuccess=()=>{
-   const templates=request.result??[];
-   if(templates.some(item=>item.id!==summary.id&&item.project===summary.project&&item.name===summary.name)){duplicate=true;return;}
-   store.put([summary,...templates.filter(item=>item.id!==summary.id)],workpieceCatalogKey);
-   store.put(snapshot,workpieceKey(summary.id));
-  };
-  return request;
- }).then(()=>{if(duplicate)throw Error('当前项目已有同名工件模板');});
-}
-
-export function removeWorkpieceTemplate(id){
- return accessDraft('readwrite',store=>{
-  const request=store.get(workpieceCatalogKey);
-  request.onsuccess=()=>{
-   store.put((request.result??[]).filter(item=>item.id!==id),workpieceCatalogKey);
-   store.delete(workpieceKey(id));
-  };
-  return request;
- });
-}
 
 const virtualCaptureIndex=taskKey=>'virtual-captures:'+taskKey;
 const virtualCaptureKey=id=>'virtual-capture:'+id;

@@ -264,16 +264,21 @@ function offsetTcp(pose,offset){
  return {...pose.tcp,position:position.toArray()};
 }
 
-function addLinear(targets,next,speed){
+function addLinear(targets,next,speed,poseAtStation){
  const previous=targets.at(-1);
  const travel=previous.position.distanceTo(next.position);
  const turn=previous.quaternion.angleTo(next.quaternion);
  const steps=Math.max(1,Math.ceil(travel/.015),Math.ceil(turn/(5/degrees)));
  for(let i=1;i<=steps;i++){
   const fraction=i/steps;
-  targets.push({...next,position:previous.position.clone().lerp(next.position,fraction),
-   quaternion:previous.quaternion.clone().slerp(next.quaternion,fraction),
-   station:MathUtils.lerp(previous.station,next.station,fraction),travelTime:travel/steps/speed});
+  const station=MathUtils.lerp(previous.station,next.station,fraction);
+  const sampled=i<steps&&next.station>previous.station?poseAtStation?.(station):undefined;
+  const pose=i===steps?next:sampled??{
+   position:previous.position.clone().lerp(next.position,fraction),
+   quaternion:previous.quaternion.clone().slerp(next.quaternion,fraction)
+  };
+  targets.push({...next,position:pose.position,quaternion:pose.quaternion,station,
+   travelTime:targets.at(-1).position.distanceTo(pose.position)/speed});
  }
 }
 
@@ -303,13 +308,17 @@ function cycleTargets(robot,pass,measurement,origin,placement,invertZ,options,sc
  targets.push({...targetFor(offsetTcp(start,action.safeTransitionOffset)),station:pass.startStation,phase:'approaching',point:'起点安全过渡点'});
  addLinear(targets,{...targetFor(offsetTcp(start,action.safeApproachOffset)),station:pass.startStation,phase:'approaching',point:'起点安全接近段'},rapidSpeed);
  addLinear(targets,{...targetFor(start.tcp),station:pass.startStation,phase:'approaching',point:'进枪至焊接起点'},rapidSpeed);
+ const weldPoseAt=station=>{
+  const pose=pass.posesAt(station).at(-1);
+  return pose?targetFor(pose.tcp):undefined;
+ };
  for(const station of weldStations(pass)){
   const poses=pass.posesAt(station);
   if(!poses.length)return null;
   for(const {tcp} of poses){
    const speed=pass.speedAt?.(station);
    const destination={...targetFor(tcp),station,phase:'welding'};
-   addLinear(targets,destination,speed>0?speed/60000:Math.max(.005,(pass.endStation-pass.startStation)*.001/12.5));
+   addLinear(targets,destination,speed>0?speed/60000:Math.max(.005,(pass.endStation-pass.startStation)*.001/12.5),weldPoseAt);
   }
  }
  for(const key of ['endSafeApproachOffset','endSafeTransitionOffset']){

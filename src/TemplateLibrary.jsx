@@ -137,7 +137,7 @@ export default function TemplateLibrary({templates,onUpdate,notify,onEditingChan
  const projectTemplates=templates.filter(t=>t.type==='whole'&&templateProjectName(t,project)===activeProject),visible=projectTemplates.filter(t=>t.name.toLowerCase().includes(appliedQuery.trim().toLowerCase()));
  const pageCount=Math.max(1,Math.ceil(visible.length/10)),currentPage=Math.min(page,pageCount),pageRows=visible.slice((currentPage-1)*10,currentPage*10),firstPage=Math.max(1,Math.min(currentPage-2,pageCount-4));
  function reset(){setQuery('');setAppliedQuery('');setPage(1);}
- async function persist(next,message,projectChange){const error=await onUpdate(next,projectChange);if(!error&&message)notify(message);return error;}
+ async function persist(next,message){const error=await onUpdate(next);if(!error&&message)notify(message);return error;}
  function openProject(type,name=''){setProjectDialog({type,name});setProjectValue(type==='rename'?name:'');setProjectError('');}
  async function selectProject(name){if(name!==project){try{const error=await persist(selectTemplateProject(templates,project,projectNames,name),'已切换项目');if(error){notify(error);return;}}catch(error){notify(error.message);return;}}setSelectedProject(name);reset();}
  async function saveProject(event){
@@ -146,7 +146,7 @@ export default function TemplateLibrary({templates,onUpdate,notify,onEditingChan
    const creating=projectDialog.type==='create',name=projectValue.trim();
    const values=creating?createTemplateProject(templates,project,projectNames,name):
     renameTemplateProject(templates,project,projectNames,projectDialog.name,name);
-   const error=await persist(values,creating?'项目已新建':'项目已重命名',creating?undefined:{from:projectDialog.name,to:name});
+   const error=await persist(values,creating?'项目已新建':'项目已重命名');
    if(error){setProjectError(error);return;}
    setSelectedProject(name);reset();setProjectDialog(null);
   }catch(error){setProjectError(error.message);}
@@ -159,7 +159,7 @@ export default function TemplateLibrary({templates,onUpdate,notify,onEditingChan
  async function removeProject(){
   try{
    const values=deleteTemplateProject(templates,project,projectNames,projectDialog.name,true);
-   const error=await persist(values,deleteMessage('项目已删除',projectImpact),{from:projectDialog.name});
+   const error=await persist(values,deleteMessage('项目已删除',projectImpact));
    if(error){setProjectError(error);return;}
    if(activeProject===projectDialog.name)setSelectedProject(values.templateProjects[0]||'');
    reset();

@@ -2,6 +2,7 @@ import {TextInput} from './FormInput.jsx';
 import {formatDecimal} from './numericPrecision.mjs';
 import NumericInput from './NumericInput.jsx';
 import React,{useEffect,useRef,useState} from 'react';
+import {ChevronDown,ChevronUp} from 'lucide-react';
 import {OVERRIDES,TRACKING} from './templateModel.mjs';
 import {PASS_OFFSET_FIELDS,passOffsetValues,validPassOffsets} from './templatePassOffsets.mjs';
 import {weldControlPointError} from './weldPlanningPoints.mjs';
@@ -58,11 +59,46 @@ function PassPlayback({preview,seekVersion}){
  </div>;
 }
 
+function PassPreview({passPreview}){
+ const [seekVersion,setSeekVersion]=useState(0);
+ const seek=station=>{setSeekVersion(value=>value+1);passPreview.onStation(station);};
+ return <div className="wa-pass-preview">
+   <label><span>机头预览里程</span><output>{display(passPreview.pose.distance,'mm')}</output>
+    <input type="range" aria-label="机头预览里程" min={passPreview.from} max={passPreview.to} step="any"
+     value={passPreview.pose.distance} onChange={event=>seek(event.target.valueAsNumber)}/></label>
+   {passPreview.sampleStations.length>0&&<>
+    <div className="wa-sample-ticks" aria-hidden="true">
+     {passPreview.sampleStations.map((station,index)=><span key={station}
+      className={index===passPreview.sampleIndex?'active':undefined}
+      style={{left:100*(station-passPreview.from)/(passPreview.to-passPreview.from)+'%'}}/>)}
+    </div>
+    <div className="wa-sample-select">
+     <span>采样点（{passPreview.sampleStations.length}）</span>
+     <select aria-label="采样点" value={passPreview.sampleStations[passPreview.sampleIndex]}
+      onChange={event=>seek(Number(event.target.value))}>
+      {passPreview.sampleStations.map((station,index)=><option key={station} value={station}>
+       {index+1} · {display(station,'mm')}
+      </option>)}
+     </select>
+     <div className="wa-sample-steps">
+      <button type="button" className="btn" aria-label="上一个采样点" title="上一个采样点"
+       disabled={passPreview.sampleIndex===0} onClick={()=>seek(passPreview.sampleStations[passPreview.sampleIndex-1])}>
+       <ChevronUp size={14}/>
+      </button>
+      <button type="button" className="btn" aria-label="下一个采样点" title="下一个采样点"
+       disabled={passPreview.sampleIndex===passPreview.sampleStations.length-1} onClick={()=>seek(passPreview.sampleStations[passPreview.sampleIndex+1])}>
+       <ChevronDown size={14}/>
+      </button>
+     </div>
+    </div>
+   </>}
+   <PassPlayback preview={passPreview} seekVersion={seekVersion}/>
+  </div>;
+}
+
 function LayerOrPassEditor({group,layerOnly,editable,onSave,formId,passPreview}){
  const [draft,setDraft]=useState(()=>layerOnly?{name:group.layerName,height:group.layerHeight,offsetY:group.layerOffsetY}:{name:group.passName,offset:passOffsetValues(group.passOffset)});
  const [status,setStatus]=useState('');
- const [seekVersion,setSeekVersion]=useState(0);
- const seek=station=>{setSeekVersion(value=>value+1);passPreview.onStation(station);};
  const change=values=>{setDraft(previous=>({...previous,...values}));setStatus('');};
  const number=(label,unit,value,onChange)=><label key={label}><span>{label} ({unit})</span>
   <NumericInput aria-label={label} step="any" required max={unit==='°'?360:undefined} min={unit==='°'?-360:undefined}
@@ -76,29 +112,7 @@ function LayerOrPassEditor({group,layerOnly,editable,onSave,formId,passPreview})
   setStatus(await onSave(group,{...draft,name},layerOnly)||'已保存');
  }
  return <form id={formId} className="wa-point-details" aria-label="层道偏移" onSubmit={save}>
-  {passPreview&&<div className="wa-pass-preview">
-   <label><span>机头预览里程</span><output>{display(passPreview.pose.distance,'mm')}</output>
-    <input type="range" aria-label="机头预览里程" min={passPreview.from} max={passPreview.to} step="any"
-     value={passPreview.pose.distance} onChange={event=>seek(event.target.valueAsNumber)}/></label>
-   {passPreview.sampleStations.length>0&&<>
-    <div className="wa-sample-ticks" aria-hidden="true">
-     {passPreview.sampleStations.map(station=><span key={station}
-      className={station===passPreview.sampleStation?'active':undefined}
-      style={{left:100*(station-passPreview.from)/(passPreview.to-passPreview.from)+'%'}}/>)}
-    </div>
-    <label className="wa-sample-select">
-     <span>采样点（{passPreview.sampleStations.length}）</span>
-     <select aria-label="采样点" value={passPreview.sampleStation??''}
-      onChange={event=>seek(Number(event.target.value))}>
-      <option value="" disabled>选择采样点</option>
-      {passPreview.sampleStations.map((station,index)=><option key={station} value={station}>
-       {index+1} · {display(station,'mm')}
-      </option>)}
-     </select>
-    </label>
-   </>}
-   <PassPlayback preview={passPreview} seekVersion={seekVersion}/>
-  </div>}
+  {passPreview&&<PassPreview passPreview={passPreview}/>}
   <h3>层道偏移</h3>
   <p className="wa-point-context">{[group.layerName,!layerOnly&&group.passName].filter(Boolean).join(' / ')}</p>
   {group.derived&&<p className="wa-point-context">{!layerOnly&&group.processOffsetBase?'工艺偏移基准为原焊缝，另叠加层偏移':'相对第一层第一道'}</p>}
@@ -127,7 +141,7 @@ function OffsetRow({label,offsetLabel,base,unit,value,onChange,disabled,optional
  </label>;
 }
 
-function PointEditor({point,actualPose,basePosition,group,editable,onSave,onOffsetPreview,onOffsetPreviewEnd,formId}){
+function PointEditor({point,actualPose,basePosition,group,editable,onSave,onOffsetPreview,onOffsetPreviewEnd,formId,passPreview}){
  const derived=group.derived&&['start','end'].includes(point.kind);
  const [draft,setDraft]=useState(()=>({
   ...point.raw,
@@ -138,16 +152,18 @@ function PointEditor({point,actualPose,basePosition,group,editable,onSave,onOffs
  const [status,setStatus]=useState('');
  const change=(section,key,value)=>{setDraft(previous=>({...previous,[section]:{...previous[section],[key]:value}}));setStatus('');};
  useEffect(()=>()=>onOffsetPreviewEnd(point.id),[point.id,onOffsetPreviewEnd]);
- function changePlacement(section,key,value){
-  const next={...draft,[section]:{...draft[section],[key]:value}};
-  change(section,key,value);
-  const patch={};
+ function previewPlacement(next){
+  const patch={referenceId:next.referenceId};
   if(Object.values(next.offset).every(Number.isFinite))patch.offset=next.offset;
   if(Object.values(next.poseOffset).every(angle=>Number.isFinite(angle)&&Math.abs(angle)<=360)){
    if(derived){patch.angles=next.poseOffset;patch.poseOffset=undefined;}
    else patch.poseOffset=next.poseOffset;
   }
   onOffsetPreview({pointId:point.id,patch});
+ }
+ function changePlacement(section,key,value){
+  change(section,key,value);
+  previewPlacement({...draft,[section]:{...draft[section],[key]:value}});
  }
  async function save(event){
   event.preventDefault();
@@ -168,7 +184,10 @@ function PointEditor({point,actualPose,basePosition,group,editable,onSave,onOffs
     onChange={event=>{setDraft(previous=>({...previous,name:event.target.value}));setStatus('');}}/>
   </label>
   {point.kind==='control'&&<label className="wa-offset-row wa-point-tracking"><span>基准点</span>
-   <select aria-label="基准点" value={draft.referenceId} disabled={!editable} onChange={event=>{setDraft(previous=>({...previous,referenceId:event.target.value}));setStatus('');}}>
+   <select aria-label="基准点" value={draft.referenceId} disabled={!editable} onChange={event=>{
+    const next={...draft,referenceId:event.target.value};
+    setDraft(next);setStatus('');previewPlacement(next);
+   }}>
     {group.points.filter(p=>p.source==='weld').map(p=><option key={p.id} value={p.raw.id}>{p.name}</option>)}
    </select>
   </label>}
@@ -184,6 +203,7 @@ function PointEditor({point,actualPose,basePosition,group,editable,onSave,onOffs
   {poseFields.map(([key,label])=><OffsetRow key={key} label={label} offsetLabel={label+'偏移'} showActual
    base={actualPose?.[key]} unit="°" value={draft.poseOffset[key]} min={-360} max={360}
    disabled={!editable} onChange={value=>changePlacement('poseOffset',key,value)}/>)}
+  {passPreview&&<PassPreview passPreview={passPreview}/>}
   <h4>工艺参数</h4>
   <label className="wa-offset-row wa-point-tracking"><span>跟踪方式</span>
    <select aria-label="跟踪方式" value={draft.tracking} disabled={!editable} onChange={event=>{setDraft(previous=>({...previous,tracking:event.target.value}));setStatus('');}}>
@@ -202,5 +222,5 @@ export default function WeldPlanningPointDetails({point,actualPose,passPreview,b
  if(group&&!point)return <LayerOrPassEditor key={layerOnly?group.layerId:group.id} formId={formId} group={group} layerOnly={layerOnly} editable={editable} onSave={onSaveLayerOrPass} passPreview={passPreview}/>;
  if(!point||!group)return <p className="wa-point-details wa-muted">在结构树中选择点位或层道。</p>;
  return <PointEditor key={point.id} formId={formId} point={point} actualPose={actualPose??point.pose} basePosition={basePosition} group={group} editable={editable} onSave={onSavePoint}
-  onOffsetPreview={onOffsetPreview} onOffsetPreviewEnd={onOffsetPreviewEnd}/>;
+  onOffsetPreview={onOffsetPreview} onOffsetPreviewEnd={onOffsetPreviewEnd} passPreview={passPreview}/>;
 }

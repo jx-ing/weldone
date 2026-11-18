@@ -5,7 +5,8 @@ import {NANYANG_TOOL_CALIBRATION,resolveWeldToolPose} from '../src/weldToolPose.
 import {prepareWeldSeamFrames} from '../src/weldSeamFrames.mjs';
 import {pathLength} from '../src/manualWeldModel.mjs';
 import {generateStrategyPlan} from '../src/strategyPlanning.mjs';
-import {newWeldLayer,updateWeldLayoutPoint,weldLayerLayout,weldLayerPassPaths,weldLayerTreeGroups} from '../src/weldLayerLayout.mjs';
+import {point} from '../src/templateModel.mjs';
+import {newWeldLayer,updateWeldLayoutPoint,weldControlPointAtPreview,weldLayerLayout,weldLayerPassPaths,weldLayerTreeGroups,weldPointPlacement} from '../src/weldLayerLayout.mjs';
 
 const position='PB · 横角焊';
 const flatAngles={advance:12,work:40,rotation:15};
@@ -136,6 +137,100 @@ test('机头预览列出当前道的实际轨迹采样里程，不把模型顶�
  assert.deepEqual(weldLayerPassPaths(target,layout,step5)[0].sampleStations,[0,5,10,15,20,25,30]);
 });
 
+test('手动基准点和控制点之间使用新姿态，预览、采样和碰撞查询一致',()=>{
+ const target=weld([segment([[0,0,0],[80,0,0]]),segment([[80,0,0],[100,0,0]])]);
+ const layout=layoutFor(target),pass=layout[0].passes[0],start=pass.points[0];
+ const plan=generateStrategyPlan(target,process,settings);
+ for(const sample of plan.passes[0].points){
+  if(sample.distance===20||sample.distance===90)sample.pose={...sample.pose,work:65};
+ }
+ const control={...point('control',1,0),referenceId:start.id,offset:{x:43.25,y:0,z:0},angles:{...flatAngles,work:50}};
+ const edited=updateWeldLayoutPoint(updateWeldLayoutPoint(layout,pass.id,{
+  id:start.id,poseOffset:{advance:0,work:10,rotation:0}
+ }),pass.id,control,true);
+ const [preview]=weldLayerPassPaths(target,edited,plan);
+ const restored=JSON.parse(JSON.stringify(edited));
+ const [execution]=weldLayerPassPaths(target,restored,plan);
+ const [collision]=weldLayerPassPaths(target,restored,plan,undefined,undefined,{collisionOnly:true});
+ for(const station of [0,12.35,20,43.25]){
+  const [pose]=preview.posesAt(station);
+  assert.equal(pose.angles.work,50);
+  assert.deepEqual(execution.posesAt(station),[pose]);
+  assert.deepEqual(collision.posesAt(station),[pose]);
+ }
+ assert.equal(preview.posesAt(90)[0].angles.work,65);
+ assert.ok(preview.sampleStations.includes(43.25));
+ assert.ok(collision.stations.includes(43.25));
+});
+
+test('圆弧上的人工旋转角跨越 180° 时沿焊缝标架取最短转向',()=>{
+ const points=Array.from({length:17},(_,i)=>[60*Math.cos(i*Math.PI/32),60*Math.sin(i*Math.PI/32),0]);
+ const target=weld([segment(points,{geometry:'圆弧'})]);
+ const layout=layoutFor(target),pass=layout[0].passes[0],start=pass.points[0];
+ const config={...settings,actionParameters:{...settings.actionParameters,flatPose:{advance:0,work:45,rotation:180}}};
+ const plan=generateStrategyPlan(target,process,config);
+ pass.points.push(...[179,-179].map((rotation,i)=>({
+  ...point('control',1,0),referenceId:start.id,offset:{x:target.length*(i+1)/3,y:0,z:0},
+  angles:{advance:0,work:45,rotation}
+ })));
+ const [path]=weldLayerPassPaths(target,layout,plan);
+ const middle=path.posesAt(target.length/2)[0];
+ assert.ok(Math.abs(middle.angles.rotation-180)<1e-8);
+ assert.equal(middle.angles.work,45);
+ close(middle.frame.tangent,[-Math.SQRT1_2,Math.SQRT1_2,0]);
+ const expected=resolveWeldToolPose({...middle.frame,position:middle.position,pose:{advance:0,work:45,rotation:180}});
+ close(middle.wireAxis,expected.wireAxis);
+});
+
+test('添加当前里程选中最近基准点并还原有偏移的预览点位',()=>{
+ const target=weld([segment([[0,0,0],[60,0,0]]),segment([[60,0,0],[100,0,0]])]);
+ const layout=layoutFor(target),base=layout[0].passes[0];
+ base.offset={...base.offset,y:2,z:3,wire:4,work:8};
+ base.points.at(-1).offset={x:2,y:6,z:3};
+ const plan=generateStrategyPlan(target,process,settings);
+ const [group]=weldLayerTreeGroups(target,layout,process,plan);
+ const [pass]=weldLayerPassPaths(target,layout,plan);
+ const station=76.25;
+ const preview=pass.posesAt(station).at(-1);
+ const captured=weldControlPointAtPreview(target,layout,group,preview,plan);
+ assert.equal(captured.referenceId,group.points.find(p=>p.kind==='junction').raw.id);
+ const control={...point(),...captured};
+ const next=updateWeldLayoutPoint(layout,group.id,control,true);
+ const placed=weldPointPlacement(target,next,group.id,control.id,false,plan);
+ assert.equal(placed.distance,station);
+ close(placed.position,preview.position);
+ assert.deepEqual(placed.angles,preview.angles);
+});
+
+test('转角姿态只在本道的前后距离内过渡，普通轨迹和整道模板都生效',()=>{
+ const target=weld([segment([[0,0,0],[100,0,0]]),segment([[100,0,0],[100,100,0]])]);
+ const config={...settings,actionParameters:{lineStepEnabled:false,flatPose:{work:45}},
+  cornerPathParameters:{before:30,after:13}};
+ const recipe={...process,cornerDistances:{inner:{before:16},outer:{before:16}}};
+ for(const templateAngles of [false,true]){
+  const layout=layoutFor(target);
+  layout[0].passes[0].points.find(point=>point.kind==='junction').angles.work=65;
+  const plan={...generateStrategyPlan(target,recipe,config),templateAngles};
+  const [pass]=weldLayerPassPaths(target,layout,plan);
+  assert.deepEqual([25,50,84,92,100,106.5,113,150,175].map(at=>pass.posesAt(at)[0].angles.work),
+   [45,45,45,55,65,55,45,45,45]);
+  const [collision]=weldLayerPassPaths(target,layout,plan,undefined,undefined,{collisionOnly:true});
+  assert.deepEqual(collision.posesAt(92),pass.posesAt(92));
+ }
+});
+
+test('零转角前后距离不会把角点姿态或位置偏移扩散到相邻直段',()=>{
+ const target=weld([segment([[0,0,0],[100,0,0]]),segment([[100,0,0],[100,100,0]])]);
+ const config={...settings,actionParameters:{lineStepEnabled:false,flatPose:{work:45}},
+  cornerPathParameters:{before:0,after:0,offset:4}};
+ const layout=layoutFor(target);
+ layout[0].passes[0].points.find(point=>point.kind==='junction').angles.work=65;
+ const [pass]=weldLayerPassPaths(target,layout,generateStrategyPlan(target,process,config));
+ assert.deepEqual([25,99,100,101,175].map(at=>pass.posesAt(at)[0].angles.work),[45,45,65,45,45]);
+ close(pass.posesAt(99)[0].position,[99,0,0]);
+ close(pass.posesAt(101)[0].position,[100,1,0]);
+});
+
 test('L 形包角首尾镜像前进角与旋转角偏移，正反向都保留工作角偏移和主段标准姿态',()=>{
  const standard={advance:0,work:45,rotation:180};
  const config={...settings,actionParameters:{...settings.actionParameters,flatPose:standard}};
@@ -177,6 +272,25 @@ test('关闭直线采样时两个 L 形包角之间仍使用主段标准姿态',
  const actual=new Quaternion().fromArray(pose.tcp.quaternion);
  const expected=new Quaternion().fromArray(resolveWeldToolPose({...pose.frame,position:pose.position,pose:standard}).tcp.quaternion);
  assert.ok(1-Math.abs(actual.dot(expected))<1e-9);
+});
+
+test('调整 L 形焊缝主段上的控制点时保持短包角自己的姿态',()=>{
+ const standard={advance:0,work:45,rotation:180};
+ const config={...settings,actionParameters:{...settings.actionParameters,flatPose:standard},
+  wrapParameters:{flatLPoseOffset:{rotation:80}}};
+ const target=weld([
+  segment([[0,0,0],[100,0,0]]),
+  segment([[100,0,0],[100,8,0]],{strategyRole:'wrap',strategyWrapKind:'L',startWrapKind:'L'})
+ ]);
+ const plan=generateStrategyPlan(target,process,config);
+ const layout=layoutFor(target),pass=layout[0].passes[0];
+ const [original]=weldLayerPassPaths(target,layout,plan);
+ pass.points.push({...point('control',1,0),referenceId:pass.points[0].id,offset:{x:60,y:0,z:0},
+  angles:{...standard,rotation:220}});
+ const [edited]=weldLayerPassPaths(target,layout,plan);
+ assert.equal(edited.posesAt(80)[0].angles.rotation,200);
+ assert.ok(Math.abs(edited.posesAt(99.99)[0].angles.rotation-180)<.02);
+ assert.deepEqual(edited.posesAt(103),original.posesAt(103));
 });
 
 test('U 包角出口沿共享 TCP 姿态连续接入背侧正常焊接段',()=>{

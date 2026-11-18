@@ -10,3 +10,5 @@ dist/
 !.env.example
 __pycache__/
 *.pyc
+
+.assistant-config.json

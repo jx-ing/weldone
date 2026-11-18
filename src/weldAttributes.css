@@ -114,10 +114,13 @@
 .wa-sample-ticks{position:relative;height:6px;margin:-5px 8px 8px}
 .wa-sample-ticks span{position:absolute;top:0;width:1px;height:4px;background:#a4a4a4}
 .wa-sample-ticks span.active{width:2px;height:6px;background:#d46b08}
-.wa-pass-preview .wa-sample-select{grid-template-columns:auto minmax(0,1fr);align-items:center;margin-bottom:8px}
+.wa-sample-select{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px;align-items:center;margin-bottom:8px;font-size:12px;color:#555}
 .wa-sample-select select{min-width:0;font-size:12px;font-variant-numeric:tabular-nums}
+.wa-sample-steps{display:flex;gap:4px}
+.wa-sample-steps .btn{display:grid;place-items:center;width:28px;min-height:28px;padding:0}
 .wa-point-edit{margin-top:16px}.wa-point-edit>summary{cursor:pointer;font-size:12px}
 .weld-control-point-form .dialog-body{max-height:calc(100dvh - 165px);overflow:auto}.weld-control-point-form h3{margin:16px 0 8px;font-size:14px}
+.weld-control-point-form .wa-use-preview-point{margin-bottom:10px}
 
 .weld-point-row{display:flex;align-items:center;gap:4px}
 .weld-point-row>.weld-point-node{flex:1;min-width:0}

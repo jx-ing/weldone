@@ -4,15 +4,21 @@ Show and author decimal values with at most two decimal places. Preserve tighter
 
 Use 请输入 as the placeholder for empty text, numeric, search, and multiline inputs. Keep field-specific default hints available as titles.
 
-The application exposes seven module screens in this order: 工艺规划, 生产执行, 工件库, 焊接模板库, 工艺参数库, 设备控制, 生产统计. Keep the shared navigation identical across these modules and reject navigation to removed module names. Retain all existing saved planning, template and process data and the dialogs needed by these workflows. Production execution has a task and batch sidebar, a model and localization viewport with logs beneath it, and an execution detail sidebar. Start with an empty task list and a 3D coordinate grid. 导出任务 replaces the separately persisted execution task with a copy of the current planning task. Keep PF downloads in the export menu and route PF files imported from 生产执行 to the execution task only. Model-driven execution is local playback of the published weld passes.
+The application exposes six module screens in this order: 工艺规划, 生产执行, 焊接模板库, 工艺参数库, 设备控制, 生产统计. Keep the shared navigation identical across these modules and reject navigation to removed module names. Retain all existing saved planning, template and process data and the dialogs needed by these workflows. Production execution has a task and batch sidebar, a model and localization viewport with logs beneath it, and an execution detail sidebar. Start with an empty task list and a 3D coordinate grid. 导出任务 replaces the separately persisted execution task with a copy of the current planning task. Keep PF downloads in the export menu and route PF files imported from 生产执行 to the execution task only. Model-driven execution is local playback of the published weld passes.
 
-工件库 shares the project catalog with 焊接模板库. Store a local snapshot with the full STEP source, model, weld attributes, welding and measurement plans. Apply a workpiece template only when the user selects it. Scene settings and published production tasks have their own persistence.
-
-Expose 保存为工件模板 on the planning toolbar. Use a model snapshot as the template cover. Editing a saved template opens the model and its saved plans in 工艺规划 and enables saving back to that entry.
+Scene settings and published production tasks have their own persistence.
 
 Virtual coarse localization samples points at 3 mm. Fine localization samples at 0.5 mm. Use dual visible receivers for coarse line-laser capture. Keep the left and right triangular view pyramids and their outlines in the standalone and bundled workstation GLBs. Show them in the model view and generate missing pyramids or outlines for older imports. Keep the captured cloud in the existing coarse localization view. Recommend scan endpoints from the placed workpiece bounds projected along the fan normal, using one millimetre value per endpoint relative to the scene camera. Capture additional lateral strips where needed to cover the workpiece width. Persist the captured points and spacing for inspection and PLY download.
 
 Run the local server yourself and open the preview in the browser available to this environment. Do not give the user server-start instructions when you can run it.
+
+While scrubbing or playing the head preview, show and highlight the sample nearest the current station. Previous and next sample controls pause playback and jump to the adjacent sample, with the respective control disabled at each boundary.
+
+In 添加点位, offer 使用当前预览位置 for the layer containing the selected pass. Capture the slider's exact station and choose the closest existing weld anchor by along-pass distance. Prefill the control point for review before saving. Display all pass points in welding-station order in the tree, with the end anchor last among points at its station.
+
+Keep ordinary corner-junction pose changes within the incoming and outgoing corner distances of the pass. Use the same bounded interpolation for preview, collision checks and simulation, including template-supplied junction angles and zero-distance transitions.
+
+Within a weld pass, use the effective poses of neighboring control points and pose-edited anchors to interpolate their interval by welding station in the local seam frame. Take the short turn across the angle wraparound. Respect section and corner-window boundaries, including separate main-leg and short-leg poses at a wrap junction. Let operators scrub the updated pass while editing a point and use the same station poses for collision checks and production simulation.
 
 For a weld with a U-wrap connector, choose a welding start on a normal weld segment or a non-U wrap. Exclude the U short leg and its two junctions. Keep the whole U connector in a closed weld pass. Use the same welding start for planning, preview and execution.
 

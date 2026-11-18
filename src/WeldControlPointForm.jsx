@@ -7,7 +7,7 @@ import {weldControlPointError} from './weldPlanningPoints.mjs';
 const xyzFields=[['x','X 偏移'],['y','Y 偏移'],['z','Z 偏移']];
 const angleFields=[['advance','前进角'],['work','工作角'],['rotation','旋转角']];
 
-export default function WeldControlPointForm({groups,initialGroup,existing,onSave,onCancel}){
+export default function WeldControlPointForm({groups,initialGroup,previewPoint,existing,onSave,onCancel}){
  const [draft,setDraft]=useState(()=>{
   let index=1;
   while(existing.some(item=>item.name==='控制点'+index))index++;
@@ -29,6 +29,8 @@ export default function WeldControlPointForm({groups,initialGroup,existing,onSav
  }
  return <form className="weld-control-point-form" onSubmit={submit}>
   <div className="dialog-body">
+   {previewPoint&&<button type="button" className="btn wa-use-preview-point" disabled={draft.groupId!==initialGroup}
+    onClick={()=>{setDraft(previous=>({...previous,...previewPoint}));setError('');}}>使用当前预览位置</button>}
    <div className="tpl-form-grid">
     <label className="tpl-field"><span>点位名称</span><TextInput aria-label="点位名称" required maxLength={40} value={draft.name} onChange={event=>change('name',event.target.value)}/></label>
     <label className="tpl-field"><span>所属层道</span><select aria-label="所属层道" value={draft.groupId} onChange={event=>{const group=groups.find(item=>item.id===event.target.value);setDraft(previous=>({...previous,groupId:group.id,referenceId:group.points[0]?.raw.id??''}));setError('');}}>

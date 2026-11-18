@@ -4,7 +4,8 @@ import {weldLayerLayout,weldLayerPassPaths} from './weldLayerLayout.mjs';
 import {pathLength,wrapPathStation} from './manualWeldModel.mjs';
 import {weldTravelReversed} from './weldDirectionGeometry.mjs';
 import {excludeVerifiedCollision,assignWeldingOrder} from './strategyGeometry.mjs';
-import {planWeld} from './weldMatching.mjs';
+import {planWeld,weldPreviewStrategy} from './weldMatching.mjs';
+import {WELD_POSE_REVISION} from './strategyPlanning.mjs';
 import {settingsDefaults} from './planningSettingsModel.mjs';
 import {MAX_PLANNING_WELDS} from './planningRequirements.mjs';
 
@@ -38,7 +39,10 @@ export function collisionReport(weld,result){
 
 function collisionPaths(weld,workspace,options){
  const layout=weldLayerLayout(weld,undefined,workspace.templates,workspace.processLibrary,options);
- return weldLayerPassPaths(weld,layout,weld.strategyPlan,options.measureTemplateNeighborhood?.referenceNormalAt,undefined,{collisionOnly:true});
+ const savedPlan=weld.strategyPlan;
+ const plan=savedPlan?.poseRevision<WELD_POSE_REVISION?
+  weldPreviewStrategy(weld,weld.templateSnapshot,weld.processParameters,options)??savedPlan:savedPlan;
+ return weldLayerPassPaths(weld,layout,plan,options.measureTemplateNeighborhood?.referenceNormalAt,undefined,{collisionOnly:true});
 }
 
 export function inspectPlanningWeld(weld,workspace,scene,options){

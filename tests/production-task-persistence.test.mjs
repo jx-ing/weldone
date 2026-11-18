@@ -1,9 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {planningTaskDocument,productionTaskSnapshot,readPlanningTask} from '../src/planningTask.mjs';
-import {listWorkpieceTemplates,loadProductionTask,loadVirtualCapture,loadWorkpieceTemplate,loadWorkspaceDraft,removeWorkpieceTemplate,
- saveProductionTask,saveVirtualCapture,saveWorkspaceDraft,saveWorkpieceTemplate} from '../src/workspaceDraftStore.mjs';
-import {workpieceWorkspace} from '../src/workpieceTemplateModel.mjs';
+import {loadProductionTask,loadVirtualCapture,loadWorkspaceDraft,saveProductionTask,saveVirtualCapture,saveWorkspaceDraft} from '../src/workspaceDraftStore.mjs';
 import {STARTUP_STEP_REFERENCE,workpiecePoseFor} from '../src/stepModelStore.mjs';
 import {readExecutionRecords,saveSimulationRecord,sumExecutionMetrics} from '../src/productionStatisticsModel.mjs';
 
@@ -13,7 +11,6 @@ function memoryDrafts(){
   const request={result:{close(){},transaction(){
    const transaction={objectStore:()=>({
     put(value,key){entries.set(key,structuredClone(value));return {result:key};},
-    delete(key){entries.delete(key);return {};},
     get(key){
      const pending={result:structuredClone(entries.get(key))};
      queueMicrotask(()=>pending.onsuccess?.());
@@ -28,35 +25,17 @@ function memoryDrafts(){
  }}};
 }
 
-test('工件模板保存模型、所有规划和封面，按项目重命名及原位编辑而不改发布任务',async()=>{
+test('虚拟点云独立保存，不创建生产任务',async()=>{
  const previous=globalThis.indexedDB;
  globalThis.indexedDB=memoryDrafts().indexedDB;
  try{
-  const fingerprint=STARTUP_STEP_REFERENCE.sourceSha256;
-  const summary={id:'item',name:'工件',project:'A',model:'a1a.step',fingerprint,cover:'data:image/jpeg;base64,cover'};
-  const planning={model:summary.model,stepModel:STARTUP_STEP_REFERENCE,planningSettings:{precisionParameters:{distance:20}},
-   welds:[{id:'W10007',enabled:false,strategyPlan:{passes:[{id:'pass'}]},scanSettings:{precisionMethod:'fixedPhoto'}}]};
-  const snapshot={planning,templates:[],processes:[],mesh:{sourceSha256:fingerprint,sourceFile:new Blob(['STEP'])}};
-  await saveWorkpieceTemplate({summary,snapshot});
-  await assert.rejects(saveWorkpieceTemplate({summary:{...summary,id:'duplicate'},snapshot}),/同名/);
-  await assert.rejects(saveWorkspaceDraft({model:'other.step'},{from:'A'}),/仍有工件模板/);
-  await saveWorkspaceDraft({model:'other.step'},{from:'A',to:'B'});
-  const [entry]=await listWorkpieceTemplates();
-  assert.equal(entry.project,'B');
-  assert.equal(entry.cover,summary.cover);
-  const saved=await loadWorkpieceTemplate(entry.id);
-  assert.equal(await saved.mesh.sourceFile.text(),'STEP');
-  const next=workpieceWorkspace({model:'other.step',project:'B',welds:[],workstationSettings:{}},entry,saved);
-  assert.deepEqual(next.welds,planning.welds);
-  assert.deepEqual(next.planningSettings,planning.planningSettings);
-  await saveWorkpieceTemplate({summary:{...entry,name:'工件修订'},snapshot});
-  assert.deepEqual((await listWorkpieceTemplates()).map(item=>item.name),['工件修订']);
   await saveVirtualCapture('task',{id:'capture'},new Float32Array([1,2,3]));
   assert.deepEqual(await loadVirtualCapture('capture'),new Float32Array([1,2,3]));
   assert.equal(await loadProductionTask(),undefined);
-  await removeWorkpieceTemplate(entry.id);
-  assert.deepEqual(await listWorkpieceTemplates(),[]);
- }finally{globalThis.indexedDB=previous;}
+ }finally{
+  if(previous===undefined)delete globalThis.indexedDB;
+  else globalThis.indexedDB=previous;
+ }
 });
 
 test('任务发布单独持久化，重新读取及重新发布不改草稿，旧 PF 保留数据',async()=>{

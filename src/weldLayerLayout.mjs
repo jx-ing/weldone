@@ -15,6 +15,11 @@ const axes=['x','y','z'];
 const angles=['advance','work','rotation'];
 const isEndpoint=p=>p.kind==='start'||p.kind==='end';
 const addValues=(a,b,keys,sign=1)=>Object.fromEntries(keys.map(key=>[key,(a?.[key]??0)+sign*(b?.[key]??0)]));
+const hasAngleOffset=values=>angles.some(key=>Math.abs(values?.[key]??0)>1e-8);
+function interpolateAngle(from,to,t){
+ const delta=(to-from)%360;
+ return from+(Math.abs(delta)<=180?delta:delta-Math.sign(delta)*360)*t;
+}
 const offsetKeys=PASS_OFFSET_FIELDS.map(([key])=>key);
 const labels={start:'起点',end:'终点'};
 const anchorKey=p=>p.kind==='junction'?'junction:'+p.segment:p.kind;
@@ -183,14 +188,19 @@ function pointProcessValues(point,defaults){
 }
 
 function pointPose(point){
- return point.poseOffset?{...point,angles:addValues(point.angles,point.poseOffset,angles)}:point;
+ return {...point,manualPose:point.kind==='control'||hasAngleOffset(point.poseOffset),
+  angles:point.poseOffset?addValues(point.angles,point.poseOffset,angles):point.angles};
 }
 
 function passParameters(layout,layer,pass){
  const baseLayer=layout[0],base=baseLayer.passes[0],derived=pass!==base;
  const baseY=baseLayer.offsetY??0,layerY=layer.offsetY??0;
  if(!derived)return {points:pass.points.map(pointPose),offset:{...pass.offset,y:(pass.offset.y??0)+layerY},height:layer.height,layerY};
- const points=pass.points.map(pointPose).map(p=>isEndpoint(p)?inheritEndpoint(p,pointPose(base.points.find(a=>a.kind===p.kind))):p);
+ const points=pass.points.map(pointPose).map(p=>{
+  if(!isEndpoint(p))return p;
+  const anchor=pointPose(base.points.find(a=>a.kind===p.kind));
+  return {...inheritEndpoint(p,anchor),manualPose:p.manualPose||anchor.manualPose||hasAngleOffset(p.angles)};
+ });
  const offset=addValues(pass.offset,base.offset,offsetKeys);
  return {points,offset:{...offset,y:offset.y+layerY+baseY},height:layer.height+baseLayer.height,layerY:layerY+baseY};
 }
@@ -205,14 +215,19 @@ function strategyPoseAt(layout,pass,path,plan){
  if(!motion?.length)return undefined;
  const closed=path.closed,total=path.totalLength;
  const near=1e-5;
-  const byStation=new Map(),mainAt=new Map();
+ const stationKey=distance=>closed&&total>0&&distance>=total-near?0:distance;
+ const byStation=new Map(),mainAt=new Map(),cornerEntries=new Map(),cornerExits=new Map();
+ const cornerWindows=strategyPass.cornerWindows;
  const phasePriority={weld:0,start:1,end:1,corner:2,wrap:2};
+ const priority=point=>point.cornerCenter?3:phasePriority[point.kind];
  for(const point of motion){
-  const at=closed&&total>0&&point.distance>=total-near?0:point.distance;
+  const at=stationKey(point.distance);
   const previous=byStation.get(at);
    if(!point.flatLWrap&&point.kind==='weld')mainAt.set(at,point);
+   if(point.cornerBoundary==='entry')cornerEntries.set(at,point);
+   if(point.cornerBoundary==='exit')cornerExits.set(at,point);
    const wrap=point.flatLWrap||point.verticalWrap||point.uWrap,previousWrap=previous?.flatLWrap||previous?.verticalWrap||previous?.uWrap;
-   if(!previous||wrap&&!previousWrap||!!wrap===!!previousWrap&&phasePriority[point.kind]>phasePriority[previous.kind])
+   if(!previous||wrap&&!previousWrap||!!wrap===!!previousWrap&&priority(point)>priority(previous))
     byStation.set(at,point);
  }
  const samples=[...byStation].sort(([a],[b])=>a-b);
@@ -220,9 +235,11 @@ function strategyPoseAt(layout,pass,path,plan){
   const at=closed?wrapPathStation(station,total):station;
   let lo=0,hi=samples.length;
   while(lo<hi){const mid=(lo+hi)>>1;if(samples[mid][0]<at-near)lo=mid+1;else hi=mid;}
-   const [rightAt,rightSample]=samples[lo]??(closed?[samples[0][0]+total,samples[0][1]]:[]);
-   const [leftAt,leftSample]=samples[lo-1]??(closed?[samples.at(-1)[0]-total,samples.at(-1)[1]]:[]);
-   if(rightSample&&Math.abs(rightAt-at)<=near)return rightSample;
+   const [rightAt,rightPoint]=samples[lo]??(closed?[samples[0][0]+total,samples[0][1]]:[]);
+   const [leftAt,leftPoint]=samples[lo-1]??(closed?[samples.at(-1)[0]-total,samples.at(-1)[1]]:[]);
+   if(rightPoint&&Math.abs(rightAt-at)<=near)return rightPoint;
+   const leftSample=cornerExits.get(stationKey(leftPoint?.distance))??leftPoint;
+   const rightSample=cornerEntries.get(stationKey(rightPoint?.distance))??rightPoint;
    if(!leftSample||!rightSample)return leftSample??rightSample;
    // At a flat L junction, interpolate on the main segment using its own
    // boundary point. The other pose at that station belongs to the short leg.
@@ -235,7 +252,9 @@ function strategyPoseAt(layout,pass,path,plan){
   let pose=Object.fromEntries(angles.map(key=>[key,(left.pose?.[key]??0)*(1-t)+(right.pose?.[key]??0)*t]));
   const pathOffset=axes.map((_,i)=>(left.pathOffset?.[i]??0)*(1-t)+(right.pathOffset?.[i]??0)*t);
   const blend=key=>axes.map((_,i)=>left[key][i]*(1-t)+right[key][i]*t);
-   const transition=left.up&&right.up&&(left.kind==='corner'||right.kind==='corner'||interpolateWrap||flatWrap);
+   const inCorner=(left.kind==='corner'||right.kind==='corner')&&(!cornerWindows||cornerWindows.some(({from,to})=>
+    at>=from&&at<=to||closed&&at+total>=from&&at+total<=to));
+   const transition=left.up&&right.up&&(inCorner||interpolateWrap||flatWrap);
   const frame=transition&&Math.hypot(...blend('tangent'))>1e-8?
    {...weldTorchFrame(blend('tangent'),blend('normal'),blend('up')),sectionRoll:(t<.5?left:right).sectionRoll}:{};
    if(flatWrap||interpolateWrap){
@@ -259,6 +278,8 @@ function strategyPoseAt(layout,pass,path,plan){
    ...(up?{tangent,normal,up,sectionRoll}:{}),pathOffset,wireOffset};
  };
  resolve.sample=sample;
+ resolve.mainAt=station=>mainAt.get(closed?wrapPathStation(station,total):station);
+ resolve.cornerWindows=cornerWindows;
   resolve.loopStartStation=strategyPass.loopStartStation;
  resolve.stations=samples.map(([station])=>station);
  resolve.fixedPose=samples.every(([,point])=>{
@@ -350,8 +371,85 @@ export function weldPointPlacement(weld,layout,groupId,id,baseOnly=false,plan=we
  return stationedPassPoint(target,route.points.find(p=>p.id===id),route,offset,height,path,poseAt,frameAt);
 }
 
+export function weldControlPointAtPreview(weld,layout,group,preview,plan=weld?.strategyPlan,referenceAt){
+ const anchors=group.points.filter(p=>p.source==='weld'&&Number.isFinite(p.distance));
+ if(!anchors.length)return undefined;
+ const reference=anchors.reduce((closest,p)=>Math.abs(p.distance-preview.distance)<Math.abs(closest.distance-preview.distance)?p:closest);
+ const layer=layout.find(item=>item.id===group.layerId);
+ const pass=layer.passes.find(item=>item.id===group.id);
+ const {points,offset,height}=passParameters(layout,layer,pass);
+ const target=targetFromWeld(weld),path=previewPath(target.segments,'xy',[],target.closure);
+ const frameAt=passFrameSampler(target,referenceAt);
+ const poseAt=strategyPoseAt(layout,pass,path,plan);
+ const route=passRoute(target,path,points,offset,poseAt);
+ const control={...point('control',reference.raw.segment,reference.raw.percent),referenceId:reference.raw.id,
+  offset:{x:preview.distance-reference.distance,y:0,z:0},angles:addValues(preview.angles,offset,angles,-1)};
+ for(const key of angles)if(Math.abs(control.angles[key])>360)control.angles[key]%=360;
+ const placement=stationedPassPoint(target,control,{...route,points:[...route.points,control]},offset,height,path,poseAt,frameAt);
+ const [nx,ny]=frameAt(placement.distance).offsetNormal;
+ const [dx,dy,dz]=preview.position.map((value,index)=>value-placement.position[index]);
+ return {referenceId:control.referenceId,angles:control.angles,offset:{...control.offset,y:dx*nx+dy*ny,z:dz}};
+}
+
 export function weldPointPosition(weld,layout,groupId,id,baseOnly=false,plan=weld?.strategyPlan,referenceAt){
  return weldPointPlacement(weld,layout,groupId,id,baseOnly,plan,referenceAt)?.position;
+}
+
+function controlsAround(ordered,station){
+ let lo=0,hi=ordered.length-1;
+ while(hi-lo>1){const mid=(hi+lo)>>1;if(ordered[mid][0]<station)lo=mid;else hi=mid;}
+ const [from,left]=ordered[lo],[to,right]=ordered[hi];
+ return [left.at(-1),right[0],Math.max(0,Math.min(1,(station-from)/(to-from)))];
+}
+
+function boundedCornerPoseControls(ordered,windows,routeStation){
+ if(!windows?.length)return ordered;
+ const cornerStations=new Map(windows.map(({segment,from,at,to})=>{
+  const shift=routeStation(at)-at;
+  return [segment,{from:from+shift,to:to+shift}];
+ }));
+ const local=new Map();
+ for(const [station,controls] of ordered){
+  if(controls.some(isEndpoint))continue;
+  const junction=controls.find(control=>control.kind==='junction');
+  const window=cornerStations.get(junction?.segment);
+  if(window&&station>=window.from-1e-6&&station<=window.to+1e-6)
+   local.set(station,{from:Math.min(station,window.from),to:Math.max(station,window.to)});
+ }
+ if(!local.size)return ordered;
+ const baseline=ordered.filter(([station])=>!local.has(station));
+ const bounded=new Map(ordered.map(([station,controls])=>[station,[...controls]]));
+ // Restore the surrounding pose at the window edges while keeping the actual
+ // junction pose. A zero distance uses different poses on either side of it.
+ for(const [station,{from,to}] of local){
+  for(const [edge,before] of [[from,true],[to,false]]){
+   if(edge<ordered[0][0]||edge>ordered.at(-1)[0]||edge!==station&&bounded.has(edge))continue;
+   const [left,right,t]=controlsAround(baseline,edge);
+   const control={station:edge,angleOffset:Object.fromEntries(angles.map(key=>[key,interpolateAngle(left.angleOffset[key],right.angleOffset[key],t)]))};
+   if(edge!==station)bounded.set(edge,[control]);
+   else if(before)bounded.get(station).unshift(control);
+   else bounded.get(station).push(control);
+  }
+ }
+ return [...bounded].sort(([a],[b])=>a-b);
+}
+
+function sectionPoseControls(ordered,boundaries,offset){
+ const exact=new Set(ordered.map(([station])=>station));
+ const sections=boundaries.filter(station=>station>ordered[0][0]&&station<ordered.at(-1)[0]&&!exact.has(station))
+  .flatMap(station=>{
+   const [left,right]=controlsAround(ordered,station);
+   return left.manualPose||right.manualPose?[[station,[{station,angleOffset:offset}]]]:[];
+  });
+ return sections.length?[...ordered,...sections].sort(([a],[b])=>a-b):ordered;
+}
+
+function sectionControlAngles(control,segmentIndex,poseAt){
+ const strategy=poseAt?.sample(control.station);
+ const wrapIndex=strategy?.flatLWrap||strategy?.uWrap;
+ const main=Number.isInteger(wrapIndex)&&segmentIndex!==wrapIndex-1?poseAt.mainAt(control.station):null;
+ if(main)return addValues(main.pose,control.angleOffset,angles);
+ return control.pose??addValues(strategy?.pose,control.angleOffset,angles);
 }
 
 export function updateWeldLayoutPoint(layout,passId,record,add=false){
@@ -396,12 +494,16 @@ export function weldLayerPassPaths(weld,layout,plan=weld?.strategyPlan,reference
   const speed=baseProcessValues(weld,process,layerIndex,passIndex,'weld').speed;
   const poseAt=strategyPoseAt(layout,pass,path,plan);
    const route=passRoute(target,path,points,offset,poseAt);
+   if(route.invalidStart)return null;
    const controls=route.points.map(point=>{
     const resolved=stationedPassPoint(target,point,route,offset,height,path,poseAt,frameAt);
    const strategy=poseAt?.sample(resolved.distance);
    const reference=referenceAt(resolved.distance,resolved.angles,offset,height,strategy);
-   return {id:point.id,kind:point.kind,station:resolved.distance,pose:resolved.angles,position:resolved.position,
-    toolPose:resolved.toolPose,angleOffset:addValues(resolved.angles,strategy?.pose,angles,-1),
+   const angleOffset=addValues(resolved.angles,strategy?.pose,angles,-1);
+   const templateJunction=plan?.templateAngles&&point.kind==='junction'&&hasAngleOffset(addValues(angleOffset,offset,angles,-1));
+   const anchorAngles=!plan?.templateAngles&&hasAngleOffset(addValues(point.angles,nominalAnchorPose,angles,-1));
+   return {id:point.id,kind:point.kind,segment:point.segment,station:resolved.distance,pose:resolved.angles,position:resolved.position,
+    toolPose:resolved.toolPose,angleOffset,manualPose:point.manualPose||anchorAngles||templateJunction,
     delta:resolved.position.map((value,i)=>value-reference[i])};
   }).sort((a,b)=>a.station-b.station);
   const start=controls.find(point=>point.kind==='start'),end=controls.find(point=>point.kind==='end');
@@ -416,24 +518,30 @@ export function weldLayerPassPaths(weld,layout,plan=weld?.strategyPlan,reference
   }
   byStation.get(end.station).push(end);
   const ordered=[...byStation].sort(([a],[b])=>a-b);
+  const loopCorner=Number.isFinite(route.start)?[0]:[];
+  const bounded=boundedCornerPoseControls(ordered,poseAt?.cornerWindows,route.station);
+  const poseControls=poseAt?sectionPoseControls(bounded,[...new Set([...corners,...loopCorner].map(route.station))],offset):bounded;
+  const editedStations=controls.some(point=>point.manualPose)?poseControls.map(([station])=>station):[];
   const wireSamples=offset.wire?Array.from({length:63},(_,i)=>start.station+(end.station-start.station)*(i+1)/64):[];
    const loopCorners=Number.isFinite(route.start)?[.0001,path.totalLength-.0001]:[];
    const samplesOnRoute=[...vertices,...cornerStations,...loopCorners,...(poseAt?.stations??[])].map(route.station);
-   const stations=[...new Set([...samplesOnRoute,...wireSamples,...byStation.keys()])]
+   const stations=[...new Set([...samplesOnRoute,...wireSamples,...byStation.keys(),...poseControls.map(([station])=>station)])]
    .filter(station=>station>=firstStation&&station<=lastStation).sort((a,b)=>a-b);
-   const sampleStations=poseAt?.stations.map(route.station).filter(station=>station>=start.station&&station<=end.station).sort((a,b)=>a-b)??[];
+   const sampleStations=[...new Set([...(poseAt?.stations??[]).map(route.station),...editedStations])]
+    .filter(station=>station>=start.station&&station<=end.station).sort((a,b)=>a-b);
   function posesAt(station){
    if(!Number.isFinite(station)||station<firstStation||station>lastStation)return [];
    if(byStation.has(station))return byStation.get(station).map(point=>({...point.toolPose,pointId:point.id}));
-   let lo=0,hi=ordered.length-1;
-   while(hi-lo>1){const mid=(hi+lo)>>1;if(ordered[mid][0]<station)lo=mid;else hi=mid;}
-   const [leftStation,leftPoints]=ordered[lo],[rightStation,rightPoints]=ordered[hi];
-   const left=leftPoints.at(-1),right=rightPoints[0],t=(station-leftStation)/(rightStation-leftStation);
+   const [left,right,t]=controlsAround(ordered,station);
+   const [poseLeft,poseRight,poseT]=poseControls===ordered?[left,right,t]:controlsAround(poseControls,station);
    const strategy=poseAt?.sample(station);
-   const pose=Object.fromEntries(angles.map(key=>[key,strategy?
-    (strategy.pose?.[key]??0)+left.angleOffset[key]+(right.angleOffset[key]-left.angleOffset[key])*t:
-    left.pose[key]+(right.pose[key]-left.pose[key])*t]));
    const frame=frameFor(station,strategy);
+   const interpolatePose=poseLeft.manualPose||poseRight.manualPose||!strategy;
+   const leftAngles=interpolatePose?sectionControlAngles(poseLeft,frame.segmentIndex,poseAt):null;
+   const rightAngles=interpolatePose?sectionControlAngles(poseRight,frame.segmentIndex,poseAt):null;
+   const pose=Object.fromEntries(angles.map(key=>[key,interpolatePose?
+    interpolateAngle(leftAngles[key],rightAngles[key],poseT):
+    (strategy.pose?.[key]??0)+poseLeft.angleOffset[key]+(poseRight.angleOffset[key]-poseLeft.angleOffset[key])*poseT]));
    const position=referenceAt(station,pose,offset,height,strategy,frame)
     .map((value,i)=>value+left.delta[i]+(right.delta[i]-left.delta[i])*t);
    return [resolveWeldToolPose({...frame,position,pose,distance:station})];
@@ -451,7 +559,8 @@ export function weldLayerPassPaths(weld,layout,plan=weld?.strategyPlan,reference
    }
    return {id:pass.id,startStation:start.station,endStation:end.station,stations:collisionStations,posesAt};
   }
-  const samples=stations.flatMap(station=>posesAt(station)).filter((entry,i,all)=>!i||distance(entry.position,all[i-1].position)>1e-8);
+  const toolPoses=stations.flatMap(station=>posesAt(station));
+  const samples=toolPoses.filter((entry,i,all)=>!i||distance(entry.position,all[i-1].position)>1e-8);
   if(samples.length<2)return null;
   const positions=samples.map(sample=>sample.position);
   const leg=Number.isFinite(weld.leg)&&weld.leg>0?weld.leg:null;
@@ -469,7 +578,7 @@ export function weldLayerPassPaths(weld,layout,plan=weld?.strategyPlan,reference
    return Number.isFinite(baseline)?baseline+(control?.processOffset?.speed??0):null;
   };
   return {id:pass.id,layerId:layer.id,layerIndex,passIndex,positions,sections,segmentIndices,leg,
-    startStation:start.station,endStation:end.station,sampleStations,toolPoses:samples,posesAt,speedAt,
+    startStation:start.station,endStation:end.station,sampleStations,toolPoses,posesAt,speedAt,
     posesAtGeometryStation:station=>posesAt(Math.min(end.station,Math.max(start.station,route.station(station)))),
    trackingAt:poseAt?.trackingAt,travelAt:station=>frameAt(station).tangent};
  }).filter(Boolean));
@@ -510,7 +619,7 @@ export function copyWeldLayersToTemplate(template,layout,weld,process,plan=weld?
    const p=points[index];
    const effective=poseAt?resolvePassPoint(target,p,points,offset,height,path,poseAt,frameAt).angles:adjusted.angles;
    const angles=Object.fromEntries(Object.entries(effective).map(([key,value])=>[key,normalize(value)]));
-   const {processOffset,poseOffset,...point}=p;
+   const {processOffset,poseOffset,manualPose,...point}=p;
    const {overrides}=pointProcessValues(p,baseProcessValues(weld,process,i,j,p.kind));
    return {...point,angles,overrides,...(isEndpoint(p)?{name:labels[p.kind]}:{})};
   });

@@ -13,7 +13,7 @@ import {configuredWrapDistance,cornerPathDefaults,hasVerticalWrapLength,planning
 import {continuousOpeningWrapAt,uWrapStartStation} from './weldWrapJunctions.mjs';
 
 const EPS = 1e-6;
-export const WELD_POSE_REVISION = 6;
+export const WELD_POSE_REVISION = 7;
 const positive = value => Number.isFinite(value) && value > 0;
 const vertical = position => weldPositionCode(position)==='PF';
 const add = (position, axis, distance) => position.map((value, i) => value + axis[i] * distance);
@@ -250,6 +250,7 @@ export function generateStrategyPlan(weld, process, rawSettings) {
     const lastIndex=segments.length-1;
     const endPose = wrapOrientations.has(lastIndex)?wrapPose(lastIndex,sample(total,lastIndex)):segments.at(-1).strategyWrapKind==='L' ? lWrapPose(segments.at(-1),endStandard) : !verticalWeld && isInterference(ends[1]) ? {...endStandard,advance:endSettings.endAngle??endStandard.advance} : endStandard;
     const points = [];
+     const cornerWindows = [];
     const beforeCorner=side=>pass.cornerDistances?.[side]?.before??cornerDefaults[side].before;
     const afterCorner=side=>pass.cornerDistances?.[side]?.after??cornerDefaults[side].after;
     const cornerOffset=side=>pass.cornerOffsets?.[side]??cornerDefaults[side].offset;
@@ -305,6 +306,7 @@ export function generateStrategyPlan(weld, process, rawSettings) {
     const inCornerWindow=at=>windows.some(([from,to])=>at>=from&&at<=to||closed&&at+total>=from&&at+total<=to);
     const emitCorner=corner=>{
       const {index,next,at,side}=corner,[approach,depart]=cornerWindow(corner);
+      cornerWindows.push({segment:index+1,from:approach,at,to:depart});
       const incoming=sample(at,index),outgoing=sample(next===0?0:at,next);
       const bisect=new Vector3(...incoming.tangent).add(new Vector3(...outgoing.tangent));
       const tangent=bisect.lengthSq()>EPS?bisect.normalize():new Vector3(...outgoing.tangent);
@@ -313,9 +315,9 @@ export function generateStrategyPlan(weld, process, rawSettings) {
       if(lateral.dot(new Vector3(...outgoing.normal))<0)lateral.negate();
       const frame={...outgoing,tangent:tangent.toArray(),normal:lateral.toArray()};
       const params=cornerValues(pass,side);
-      point(approach,'corner',standard(segments[index]),params,sample(approach,index));
-      point(next===0?0:at,'corner',standard(segments[next]),params,cornerFrame(frame,incoming.tangent,outgoing.tangent,cornerOffset(side)));
-      point(next===0?depart-total:depart,'corner',standard(segments[next]),params);
+      point(approach,'corner',standard(segments[index]),params,sample(approach,index),approach===at?{cornerBoundary:'entry'}:undefined);
+      point(next===0?0:at,'corner',standard(segments[next]),params,cornerFrame(frame,incoming.tangent,outgoing.tangent,cornerOffset(side)),{cornerCenter:true});
+      point(next===0?depart-total:depart,'corner',standard(segments[next]),params,undefined,depart===at?{cornerBoundary:'exit'}:undefined);
     };
     const transition=(from,to,initial,target,includeEnd)=>{
       const count=Math.min(128,Math.max(1,Math.ceil((to-from)/lineStep)));
@@ -474,7 +476,7 @@ export function generateStrategyPlan(weld, process, rawSettings) {
       return add(add(add(position,frame.tangent,offset.x),frame.normal,offset.y),binormal,offset.z);
     };
     const startFrame=sample(points[0]?.distance??0),endFrame=sample(points.at(-1)?.distance??total);
-    passes.push({layerIndex,passIndex,points,...(hasClosedU?{loopStartStation:startShift}:{}),approach:safePoint(start,startFrame,action.safeApproachOffset),
+    passes.push({layerIndex,passIndex,points,...(cornerWindows.length?{cornerWindows}:{}),...(hasClosedU?{loopStartStation:startShift}:{}),approach:safePoint(start,startFrame,action.safeApproachOffset),
       transitionIn:safePoint(start,startFrame,action.safeTransitionOffset),
       retractNear:safePoint(end,endFrame,action.endSafeApproachOffset),
       retract:safePoint(end,endFrame,action.endSafeTransitionOffset)});

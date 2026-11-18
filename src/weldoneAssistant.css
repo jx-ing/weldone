@@ -1,0 +1,72 @@
+.app-shell-actions {margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.assistant-trigger {display:flex;align-items:center;gap:7px;min-height:34px;padding:0 10px;border:1px solid #ffffff29;border-radius:var(--radius-sm);background:#ffffff0d;color:#f4f4f4;white-space:nowrap;font-size:var(--fs-sm)}
+.assistant-trigger:not(:disabled):hover,.assistant-trigger[aria-expanded=true] {background:#ffffff1a;color:#ffd39d;border-color:#ffd39d66}
+.assistant-trigger:disabled {color:#bfbfbf;cursor:not-allowed}
+.weldone-assistant {position:fixed;inset:64px 12px 38px auto;width:min(420px,calc(100vw - 24px));z-index:11;display:flex;flex-direction:column;min-height:0;background:#fff;color:var(--text);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:var(--shadow-md);overflow:hidden;font-size:var(--fs-sm)}
+.app-shell .weldone-assistant :focus-visible {outline-color:#264f85;outline-offset:2px}
+.assistant-header {display:flex;align-items:center;gap:10px;min-height:64px;flex-shrink:0;padding:10px 14px;border-bottom:1px solid var(--line)}
+.assistant-title-icon {display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:6px;background:#fff1df;color:var(--brand-active)}
+.assistant-heading {flex:1;min-width:0}
+.assistant-heading h2 {margin:0;font-size:var(--fs-lg);line-height:1.35}
+.assistant-heading p,.assistant-send-note {margin:3px 0 0;color:var(--secondary);font-size:var(--fs-xs)}
+.assistant-clear {border:0;background:transparent;color:var(--secondary);min-height:32px;padding:0 6px;white-space:nowrap}
+.assistant-clear:disabled {opacity:.5}
+.assistant-close {flex:none}
+.assistant-scroll {min-height:0;flex:1;overflow:auto;overscroll-behavior:contain;padding:16px}
+.assistant-start {padding:9px 2px}
+.assistant-start h3 {margin:0;font-size:var(--fs-lg)}
+.assistant-start p {margin:7px 0 16px;color:var(--secondary);line-height:1.65}
+.assistant-prompts {display:flex;flex-wrap:wrap;gap:7px}
+.assistant-prompts button {min-height:34px;padding:5px 9px;border:1px solid var(--line);border-radius:4px;background:#fff}
+.assistant-prompts button:hover {background:#fff7e6;border-color:#ffc784}
+.assistant-turn {display:flex;flex-direction:column;gap:10px;margin:0 0 16px}
+.assistant-message {margin:0;padding:9px 11px;border-radius:6px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;max-width:100%}
+.assistant-message-label {display:block;margin-bottom:3px;color:var(--secondary);font-size:var(--fs-xs);font-weight:600}
+.assistant-user {align-self:flex-end;background:#fff1df;max-width:88%}
+.assistant-response {align-self:flex-start;background:var(--surface)}
+.assistant-feedback {margin:8px 2px;color:var(--secondary)}
+.assistant-error {color:var(--error)}
+.assistant-composer {flex-shrink:0;display:grid;gap:8px;padding:12px 14px;border-top:1px solid var(--line)}
+.assistant-context {display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;font-size:var(--fs-xs);color:var(--secondary)}
+.assistant-context label {display:flex;align-items:center;gap:6px;white-space:nowrap}
+.assistant-context input {margin:0;accent-color:var(--brand-active)}
+.assistant-context details[open] {flex-basis:100%}
+.assistant-context summary {cursor:pointer}
+.assistant-context details p {white-space:pre-wrap;line-height:1.65;overflow:auto;overflow-wrap:anywhere;max-height:90px;margin:5px 0 0;padding:6px;background:var(--surface)}
+.assistant-input-row {display:flex;align-items:flex-end;gap:8px}
+.assistant-input-row textarea {flex:1;min-width:0;padding:7px 9px;line-height:1.6;resize:none;border:1px solid #cfcfcf;border-radius:var(--radius-sm);color:var(--text);font:inherit}
+.assistant-input-row .btn {display:grid;place-items:center;width:36px;height:36px;padding:0;flex:none}
+.assistant-send-note {margin:0}
+.assistant-action {display:grid;gap:8px;padding:10px 11px;border:1px solid #ffd7a8;border-radius:6px;background:#fff8ee}
+.assistant-action.danger {border-color:#ffc9c9;background:#fff5f5}
+.assistant-action-head {display:flex;align-items:center;gap:6px;margin:0;color:#a15c00}
+.assistant-action.danger .assistant-action-head {color:#b42318}
+.assistant-action-head strong {font-size:var(--fs-sm)}
+.assistant-action-danger {margin-left:auto;padding:1px 6px;border-radius:3px;background:#ffe0e0;color:#b42318;font-size:var(--fs-xs)}
+.assistant-action-text {margin:0;line-height:1.6;font-weight:600}
+.assistant-action-note {margin:0;color:var(--secondary);font-size:var(--fs-xs);line-height:1.5}
+.assistant-action-buttons {display:flex;justify-content:flex-end;gap:8px}
+.assistant-action-buttons button {display:inline-flex;align-items:center;gap:5px;min-height:32px;padding:0 12px;border:1px solid var(--line);border-radius:4px;background:#fff;font:inherit}
+.assistant-action-buttons button:focus-visible {outline:2px solid #264f85;outline-offset:2px}
+.assistant-action-run {border-color:var(--brand-active)!important;background:var(--brand-active)!important;color:#fff}
+.assistant-action-run:disabled,.assistant-action-cancel:disabled {opacity:.6;cursor:default}
+.assistant-action-log {align-self:flex-start;background:#f3f6fa;max-width:100%}
+.assistant-action-ok {align-self:flex-start;background:#edf8ef;max-width:100%}
+.assistant-action-failed {align-self:flex-start;background:#fff0f0;color:#b42318;max-width:100%}
+.assistant-settings {padding:2px}
+.assistant-settings h3 {margin:0 0 4px;font-size:var(--fs-lg)}
+.assistant-settings-note {margin:0 0 10px;color:var(--secondary);font-size:var(--fs-xs);line-height:1.6}
+.assistant-settings form {display:grid;gap:10px}
+.assistant-settings label {display:grid;gap:4px;color:var(--secondary);font-size:var(--fs-xs)}
+.assistant-settings input,.assistant-settings select {min-height:34px;padding:5px 8px;border:1px solid #cfcfcf;border-radius:var(--radius-sm);background:#fff;color:var(--text);font:inherit;font-size:var(--fs-sm)}
+.assistant-settings-buttons {display:flex;justify-content:flex-end;gap:8px}
+.assistant-settings-buttons button {min-height:32px;padding:0 12px;border:1px solid var(--line);border-radius:4px;background:#fff;font:inherit}
+.assistant-settings-buttons button:focus-visible {outline:2px solid #264f85;outline-offset:2px}
+.assistant-settings-save {border-color:var(--brand-active)!important;background:var(--brand-active)!important;color:#fff}
+.assistant-settings-save:disabled {opacity:.6;cursor:default}
+.assistant-settings-toggle[aria-pressed=true] {color:var(--brand-active);background:#ffffff1a}
+@media (max-width:720px) {
+  .app-shell-actions {gap:4px}
+  .assistant-trigger {padding-inline:8px}
+  .assistant-trigger:not(:disabled) span {display:none}
+}
