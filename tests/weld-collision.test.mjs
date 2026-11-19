@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {BoxGeometry} from 'three';
 import {createWeldCollisionScene,detectWeldCollision} from '../src/weldCollision.mjs';
-import {applyWeldWrapEdits,endpointWrapAt,materializeEndpointWraps,splitWeldWrap,weldWrapJunctions} from '../src/weldWrapJunctions.mjs';
+import {applyWeldWrapEdits,endpointWrapAt,materializeEndpointWraps,splitWeldWrap,uWrapSplitCandidates,weldWrapJunctions} from '../src/weldWrapJunctions.mjs';
 import {installWrapSplit,undoLastSplit} from '../src/manualSplitModel.mjs';
 import {resolvePlanningCollisions} from '../src/planningCollision.mjs';
 import {weldLayerLayout} from '../src/weldLayerLayout.mjs';
@@ -51,6 +51,11 @@ const wrapped={id:'W10001',name:'包角',enabled:true,closure:'open',length:25,p
   segment([10,0,0],[10,5,0],5,{startWrapKind:'U',endWrapKind:'U',strategyWrapKind:'U',strategyRole:'wrap'}),
   segment([10,5,0],[0,5,0],10,{startWrapKind:'U'})
  ]};
+test('助手按短边区分 U 包角，单个包角两端只产生一个候选',()=>{
+ assert.deepEqual(uWrapSplitCandidates(wrapped),[{segment:2,side:'start',junctionId:0}]);
+ const two={...wrapped,segments:[...wrapped.segments,...wrapped.segments]};
+ assert.deepEqual(uWrapSplitCandidates(two).map(choice=>choice.segment),[2,5]);
+});
 test('U 包角拆为两条 L，两条合计保留原焊缝长度并支持撤销',()=>{
  for(const id of [0,1]){
   const pieces=splitWeldWrap(wrapped,id,'L');

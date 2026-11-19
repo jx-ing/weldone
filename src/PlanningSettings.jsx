@@ -1,3 +1,4 @@
+import {assetUrl} from './assetUrl.mjs';
 import NumericInput from './NumericInput.jsx';
 import React,{useId,useLayoutEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
@@ -133,7 +134,7 @@ function FlatWrapPath({kind,settings,onRatioChange,graphicRef,posePoint}) {
  const measureEnd=interpolatePoint(measureStart,measureEdge,ratio);
  return <svg ref={graphicRef} className="planning-flat-wrap-graphic" viewBox={`12 10 ${width-24} ${height-20}`} aria-label={kind+'形包角焊接路径'}>
   <desc>{isL?'平角焊经过一个转折点后沿板厚方向包角。':'平角焊依次经过两个转折点，连到板件背侧焊缝。背侧焊缝以虚线显示。'}</desc>
-  <image href={'/assets/parameter-help/flat-wrap-'+kind.toLowerCase()+'.png'} width={width} height={height} aria-hidden="true"/>
+  <image href={assetUrl('parameter-help/flat-wrap-'+kind.toLowerCase()+'.png')} width={width} height={height} aria-hidden="true"/>
   <defs><marker id={arrow} markerWidth="14" markerHeight="12" refX="13" refY="6" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0 0 L14 6 L0 12 Z" fill="context-stroke"/></marker></defs>
   <g fill="none" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none">
    <path d={`M${entry} L${entryArrow} L${corner}`} stroke={colors.main} strokeWidth="6" markerMid={marker}/>
@@ -218,7 +219,7 @@ function VerticalWrapPath({settings,onRatioChange,className,wide=false}){
  const ratioEnd=interpolatePoint(start,edge,ratio),weldEnd=interpolatePoint(start,edge,total);
  const measureEnd=interpolatePoint(measureStart,measureEdge,total);
  return <svg className={className} viewBox={wide?'0 0 1080 574':'0 0 528 546'} aria-label="立焊上包角路线及板厚调整">
-  <image href={'/assets/parameter-help/vertical-upper-wrap'+(wide?'-diagram':'')+'.png'} width={wide?1080:528} height={wide?574:546} aria-hidden="true"/>
+  <image href={assetUrl('parameter-help/vertical-upper-wrap'+(wide?'-diagram':'')+'.png')} width={wide?1080:528} height={wide?574:546} aria-hidden="true"/>
   <defs><marker id={arrow} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4 L0 8 Z" fill="#ab5b16"/></marker></defs>
   <g fill="none" strokeLinecap="round" pointerEvents="none">
    <path d={`M${start} L${edge}`} stroke="#8198a8" strokeWidth="2" strokeDasharray="5 5"/>
@@ -505,9 +506,9 @@ export default function PlanningSettings({settings={},capabilities={},robots=[],
  </section>}
  {tab==='topology'&&<section aria-label="焊缝合并与打断">
   <h3>焊缝合并与打断</h3>
-  {field('weldPreprocessing','maxHolePlateThickness','过焊孔允许连续焊接最大板厚',{step:'any',placeholder:'留空不限制',helpGif:'/assets/parameter-help/max-hole-plate-thickness.gif'})}
-  {field('weldPreprocessing','minCornerHoleSize','转角合并最小过焊孔尺寸',{step:'any',helpGif:'/assets/parameter-help/min-corner-hole-size.gif'})}
-  {field('weldPreprocessing','outerClearance','外角最小空间',{step:'any',helpGif:'/assets/parameter-help/outer-clearance.gif'})}
+  {field('weldPreprocessing','maxHolePlateThickness','过焊孔允许连续焊接最大板厚',{step:'any',placeholder:'留空不限制',helpGif:assetUrl('parameter-help/max-hole-plate-thickness.gif')})}
+  {field('weldPreprocessing','minCornerHoleSize','转角合并最小过焊孔尺寸',{step:'any',helpGif:assetUrl('parameter-help/min-corner-hole-size.gif')})}
+  {field('weldPreprocessing','outerClearance','外角最小空间',{step:'any',helpGif:assetUrl('parameter-help/outer-clearance.gif')})}
   <p className="planning-setting-note">仅用于间隙判断。边缘打断仍按该焊缝的焊脚尺寸判断。</p>
   <fieldset className="planning-setting-fields planning-subgroup"><legend>合并角度范围</legend>
    <div className="planning-angle-range">
@@ -601,7 +602,7 @@ export default function PlanningSettings({settings={},capabilities={},robots=[],
   {tab==='path-endpoints'&&<>
    {[['start','平角焊起点'],['end','平角焊终点']].map(([side,heading])=>{
     const hasError=flatEndpointFields.some(([key])=>fieldErrors.has('interferenceEndParameters.'+side+key));
-    const asset='/assets/parameter-help/flat-endpoint-'+side;
+    const asset=assetUrl('parameter-help/flat-endpoint-'+side);
     return <React.Fragment key={side}>
      <h4>{heading}</h4>
      <figure className={'planning-endpoint-diagram'+(hasError?' has-errors':'')} aria-label={heading+'姿态示意图'}>
@@ -627,7 +628,7 @@ export default function PlanningSettings({settings={},capabilities={},robots=[],
     </React.Fragment>;
    })}
    <figure className="planning-endpoint-diagram planning-vertical-transition-diagram" aria-label="立焊起点姿态示意图">
-    <img src="/assets/parameter-help/vertical-start-static.png" width="584" height="556"
+    <img src={assetUrl('parameter-help/vertical-start-static.png')} width="584" height="556"
      alt="同一条立焊焊缝上的起点姿态和到达过渡距离后的立焊姿态。距离从立焊起点沿焊缝向上量取。"/>
     <div className="planning-vertical-transition-controls">
      <div className="planning-vertical-transition-entry">
@@ -654,7 +655,7 @@ export default function PlanningSettings({settings={},capabilities={},robots=[],
     ['终点','end','endSafeTransitionOffset','endSafeApproachOffset','焊缝终点 → 接近点 → 过渡点'],
    ].map(([label,side,transition,approach,path])=>{
     const hasError=[transition,approach].some(key=>OFFSET_AXES.some(axis=>fieldErrors.has('actionParameters.'+key+'.'+axis)));
-    const asset='/assets/parameter-help/safety-'+side;
+    const asset=assetUrl('parameter-help/safety-'+side);
     return <React.Fragment key={side}>
     <h4>{label}</h4>
     <figure className={'planning-safety-diagram'+(hasError?' has-errors':'')} aria-label={label+'安全点示意图'}>

@@ -1,4 +1,5 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
+import {flushSync} from 'react-dom';
 import {
  ArrowDownWideNarrow,Box,Cable,CalendarDays,ChevronDown,Filter,FolderOpen,Grid2X2,
  Maximize2,PanelLeftClose,PanelLeftOpen,RotateCcw,Settings,Square,Trash2
@@ -9,6 +10,7 @@ import NumericInput from './NumericInput.jsx';
 import ViewCube from './ViewCube';
 import {DEFAULT_PLANNING_VIEW} from './PlanningViewDisplay';
 import {belongsToDevice} from './planningRequirements.mjs';
+import {useAssistantCommands} from './assistantCommandBus.mjs';
 import {isDemoModel,isPointCloudWorkspace,loadStepNeighborhood,stepModelKey,workpiecePoseFor} from './stepModelStore.mjs';
 import {createTemplateNeighborhoodMeasurer,loadDemoTemplateNeighborhood} from './templateNeighborhood.mjs';
 import {weldLayerLayout,weldLayerPassPaths,weldPathTrackingIssue} from './weldLayerLayout.mjs';
@@ -140,16 +142,17 @@ export default function ProductionExecutionWorkspace({task,workstation,workstati
   laserTrackingByRobot:workstation?.laserTrackingByRobot??task?.planningOptions?.laserTrackingByRobot,
   robotMounting:invertModelZ?'inverted':'upright'}),[task,measure,workstation,invertModelZ,livePlanning]);
  const placement=useMemo(()=>workpiecePoseFor(workspace),[workspace]);
- const paths=useMemo(()=>{
-  if(!hasModel||!selected||!task)return [];
+ function pathsForWeld(weld){
+  if(!hasModel||!weld||!task)return [];
   const processes=processLibrary.filter(process=>belongsToDevice(process,options.activeDevice));
-  if(!canPreviewWeld(selected,templates,processes,options))return [];
-  const decision=analyzeWeldMatch(selected,templates,processes,options);
+  if(!canPreviewWeld(weld,templates,processes,options))return [];
+  const decision=analyzeWeldMatch(weld,templates,processes,options);
   const process=decision.process??decision.whole?.baseProcessSnapshot??null;
-  const layout=weldLayerLayout(selected,decision,templates,processes,options);
-  const plan=weldPreviewStrategy(selected,decision.whole,process,options);
-  return weldLayerPassPaths(selected,layout,plan,measure?.referenceNormalAt,process);
- },[hasModel,selected,task,options,measure,processLibrary,templates]);
+  const layout=weldLayerLayout(weld,decision,templates,processes,options);
+  const plan=weldPreviewStrategy(weld,decision.whole,process,options);
+  return weldLayerPassPaths(weld,layout,plan,measure?.referenceNormalAt,process);
+ }
+ const paths=useMemo(()=>pathsForWeld(selected),[hasModel,selected,task,options,measure,processLibrary,templates]);
  const pass=paths.find(item=>item.id===passId)??paths[0];
  const trackingIssue=useMemo(()=>{
   if(!selected)return undefined;
@@ -173,6 +176,7 @@ export default function ProductionExecutionWorkspace({task,workstation,workstati
  const canStart=!!modelInfo&&!!robot&&!!pass&&pass.endStation>pass.startStation&&!trackingIssue;
  const running=playback.state==='running';
  const preparing=playback.state==='preparing';
+ const canStop=preparing||running||playback.state==='paused';
  const frame=useMemo(()=>workstationPassFrame(cycle,playback.progress),[cycle,playback.progress]);
  const displayedMotion=useMemo(()=>{
   if(!frame)return heldMotion;
@@ -304,13 +308,14 @@ export default function ProductionExecutionWorkspace({task,workstation,workstati
   if(running){
    setPlayback(previous=>({...previous,state:'paused'}));
    addLog('已暂停机械臂仿真');
-   return;
+   return {ok:true,message:'已暂停机械臂仿真'};
   }
-  if(!canStart||preparing)return;
+  if(preparing||request.current)return {ok:false,message:'仿真正在准备中，请稍后重试'};
+  if(!canStart)return {ok:false,message:trackingIssue||'当前模型、机械臂或所选道次尚不具备仿真条件'};
   setViewTab('model');
   if(playback.state==='paused'&&cycle&&playback.progress<100){
-   setPlayback(previous=>({...previous,state:'running'}));
-   return;
+   flushSync(()=>setPlayback(previous=>({...previous,state:'running'})));
+   return {ok:true,message:'已继续机械臂仿真'};
   }
   const current=displayedMotion?.values??{};
   holdPosition();
@@ -337,13 +342,13 @@ export default function ProductionExecutionWorkspace({task,workstation,workstati
    });
    const result=await planWorkstationCycle({robot,pass,measurement,origin:modelInfo.origin??[0,0,0],placement,
     invertZ:invertModelZ,options,scan:selected.scanSettings,current,signal:abort.signal});
-   if(abort.signal.aborted)return;
+   if(abort.signal.aborted)return {ok:false,message:'仿真准备已取消'};
    if(!result.frames){
     const details=result.reason??`${result.point??phaseLabels[result.phase]} · ${formatLength(result.station)} mm 附近无法求解，TCP 位置偏差 ${formatLength(result.positionError*1000)} mm，角度偏差 ${formatDegrees(result.angleError)}`;
     setSimulationIssue(details);
     setPlayback({progress:0,state:'failed'});
     addLog(selectedId+' · '+details);
-    return;
+    return {ok:false,message:details};
    }
    setCycle({...result,robotId:robot.id,laserId:robot.laser?.id});
    const modelOrigin=modelInfo.origin??[0,0,0];
@@ -353,24 +358,50 @@ export default function ProductionExecutionWorkspace({task,workstation,workstati
    void generateCapture(capture,'coarse',coarseFrames);
    runRecord.current={id:crypto.randomUUID(),modelName:model,modelId:stepModelKey(workspace),startedAt:new Date().toISOString(),
     weldId:selected.id,weldLabel:selected.name,position:selected.position,passId:pass.id,passIndex:pass.passIndex,duration:result.duration};
-   setPlayback({progress:0,state:'running'});
+   flushSync(()=>setPlayback({progress:0,state:'running'}));
    addLog('开始仿真 '+selectedId+' · '+robot.label);
+   return {ok:true,message:`已开始执行仿真：${selectedId} ${pass.id}`};
   }catch(error){
    if(!abort.signal.aborted){
     setSimulationIssue(error.message);
     setPlayback({progress:0,state:'failed'});
     addLog('机械臂轨迹计算失败 · '+error.message);
    }
+   return {ok:false,message:abort.signal.aborted?'仿真准备已取消':error.message};
   }finally{
    photoScene?.dispose();
    if(request.current===abort){request.current=null;preparingCamera.current=null;}
   }
  }
  function stop(){
+  if(!canStop)return {ok:false,message:'当前没有可终止的仿真'};
   holdPosition();
-  setPlayback({progress:0,state:'stopped'});
+  flushSync(()=>setPlayback({progress:0,state:'stopped'}));
   addLog('已终止仿真，保留当前机械臂位置');
+  return {ok:true,message:'已终止仿真并保留当前机械臂位置'};
  }
+ useAssistantCommands('production-execution',{
+  execution_select:({weldId,passId:targetPass=''}={})=>{
+   const target=readyWelds.find(weld=>weld.id===weldId);
+   if(!target)return {ok:false,message:'生产任务中没有焊缝 '+weldId};
+   if(targetPass){
+    const choices=target===selected?paths:pathsForWeld(target);
+    if(!choices.some(item=>item.id===targetPass))return {ok:false,message:weldId+' 没有道次 '+targetPass};
+   }
+   flushSync(()=>{
+    if(target===selected){if(targetPass)selectPass(targetPass);}
+    else{selectWeld(weldId);if(targetPass)setPassId(targetPass);}
+   });
+   return {ok:true,message:`已选择 ${weldId}${targetPass?' 道次 '+targetPass:''}`};
+  },
+  execution_run:()=>{
+   if(!task)return {ok:false,message:'尚未导入生产任务'};
+   if(running)return {ok:false,message:'仿真已在运行'};
+   if(!pass)return {ok:false,message:'请先选择道次'};
+   return togglePlayback();
+  },
+  execution_stop:stop,
+ });
  function toggleView(key){
   setView(previous=>({...previous,[key]:!previous[key]}));
  }
@@ -388,7 +419,7 @@ export default function ProductionExecutionWorkspace({task,workstation,workstati
     <button type="button" className="btn" aria-label="粗定位设置" title="粗定位设置" aria-haspopup="dialog"
      onClick={()=>setCoarseDraft({start:coarseStart,end:coarseEnd})}><Settings size={14}/></button>
    </div>
-   <button type="button" className="btn" disabled={!['preparing','running','paused'].includes(playback.state)} onClick={stop}><Square size={13}/>终止</button>
+   <button type="button" className="btn" disabled={!canStop} onClick={stop}><Square size={13}/>终止</button>
    <div className="execution-split" role="group" aria-label="机械臂仿真控制">
     <button type="button" className="btn primary" title={trackingIssue??'仿真当前道次的寻位、焊接和收枪'} disabled={!canStart||preparing} onClick={togglePlayback}>
      {running?'暂停仿真':preparing?'正在计算…':'一键执行'}

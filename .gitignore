@@ -12,3 +12,7 @@ __pycache__/
 *.pyc
 
 .assistant-config.json
+
+data/assistant-sources.json
+
+data/assistant-usage.json

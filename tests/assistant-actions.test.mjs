@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  ASSISTANT_ACTION_DEFINITIONS, assistantToolDefinitions, validateAssistantAction,
+  ASSISTANT_ACTION_DEFINITIONS, ASSISTANT_TASK_LIMIT, assistantToolDefinitions, validateAssistantAction,
   describeAssistantAction, assistantActionDefinition,
 } from '../src/assistantActions.mjs';
 
@@ -68,4 +68,67 @@ test('操作描述与风险标记', () => {
   assert.match(describeAssistantAction({name: 'update_weld', arguments: {weldId: 'W10004', fields: {leg: 6, name: '立板'}}}), /焊脚改为 6 mm/);
   assert.equal(assistantActionDefinition('delete_welds').danger, true);
   assert.equal(assistantActionDefinition('select_weld').danger, false);
+});
+
+test('按里程打断与撤销参数', () => {
+  assert.deepEqual(
+    validateAssistantAction('split_weld_at', {weldId: 'W10005', distance: 1234.567}),
+    {name: 'split_weld_at', arguments: {weldId: 'W10005', distance: 1234.57}},
+  );
+  assert.equal(validateAssistantAction('split_weld_at', {weldId: 'W10005', distance: 0}), null);
+  assert.equal(validateAssistantAction('split_weld_at', {weldId: 'W10005'}), null);
+  assert.deepEqual(validateAssistantAction('undo_last', {}), {name: 'undo_last', arguments: {kind: 'auto'}});
+  assert.deepEqual(validateAssistantAction('undo_last', {kind: 'merge'}), {name: 'undo_last', arguments: {kind: 'merge'}});
+  assert.equal(validateAssistantAction('undo_last', {kind: 'everything'}), null);
+  assert.equal(assistantActionDefinition('split_weld_at').danger, true);
+});
+
+test('复检与发布参数', () => {
+  assert.deepEqual(validateAssistantAction('recheck_welds', {}), {name: 'recheck_welds', arguments: {weldIds: null}});
+  assert.deepEqual(
+    validateAssistantAction('recheck_welds', {weldIds: ['W10005']}),
+    {name: 'recheck_welds', arguments: {weldIds: ['W10005']}},
+  );
+  assert.equal(validateAssistantAction('recheck_welds', {weldIds: ['bad']}), null);
+  assert.deepEqual(validateAssistantAction('recheck_welds', {weldIds: null}), {name: 'recheck_welds', arguments: {weldIds: null}});
+  assert.deepEqual(validateAssistantAction('publish_task', {}), {name: 'publish_task', arguments: {}});
+  assert.ok(ASSISTANT_TASK_LIMIT >= 2 && ASSISTANT_TASK_LIMIT <= 10);
+});
+
+test('U 形包角拆分参数', () => {
+  assert.deepEqual(
+    validateAssistantAction('split_u_wrap_to_l', {weldId: 'W10006'}),
+    {name: 'split_u_wrap_to_l', arguments: {weldId: 'W10006'}},
+  );
+  assert.deepEqual(
+    validateAssistantAction('split_u_wrap_to_l', {weldId: 'W10006', segmentIndex: 2, side: 'start'}),
+    {name: 'split_u_wrap_to_l', arguments: {weldId: 'W10006', segmentIndex: 2, side: 'start'}},
+  );
+  assert.equal(validateAssistantAction('split_u_wrap_to_l', {weldId: 'W10006', segmentIndex: 0}), null);
+  assert.equal(validateAssistantAction('split_u_wrap_to_l', {weldId: 'W10006', segmentIndex: 2, side: 'middle'}), null);
+  assert.equal(assistantActionDefinition('split_u_wrap_to_l').danger, true);
+  assert.match(describeAssistantAction({name: 'split_u_wrap_to_l', arguments: {weldId: 'W10006', segmentIndex: 2, side: 'start'}}), /段2起点/);
+});
+
+test('模块导航与库管理参数', () => {
+  assert.deepEqual(
+    validateAssistantAction('open_module', {module: '工艺参数库'}),
+    {name: 'open_module', arguments: {module: '工艺参数库'}},
+  );
+  assert.deepEqual(
+    validateAssistantAction('open_module', {module: '工艺库'}),
+    {name: 'open_module', arguments: {module: '工艺参数库'}},
+  );
+  assert.equal(validateAssistantAction('open_module', {module: '不存在'}), null);
+  assert.deepEqual(
+    validateAssistantAction('rename_template', {templateName: '旧模板', newName: '新模板'}),
+    {name: 'rename_template', arguments: {templateName: '旧模板', newName: '新模板'}},
+  );
+  assert.equal(validateAssistantAction('rename_template', {templateName: '同名', newName: '同名'}), null);
+  assert.deepEqual(
+    validateAssistantAction('delete_process', {processName: '临时工艺'}),
+    {name: 'delete_process', arguments: {processName: '临时工艺'}},
+  );
+  assert.equal(validateAssistantAction('delete_process', {processName: ''}), null);
+  assert.equal(assistantActionDefinition('delete_template').danger, true);
 });

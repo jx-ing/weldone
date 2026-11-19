@@ -1,6 +1,8 @@
 // 助手可执行的本机操作清单。前端用于人工确认与描述，服务端用于工具定义与参数校验。
 const WELD_ID = /^W[0-9]{3,6}$/;
 const GROOVE_TYPES = ['V 形', '喇叭形', '无坡口'];
+export const ASSISTANT_MODULES = ['工艺规划', '生产执行', '焊接模板库', '工艺参数库', '设备控制', '生产统计'];
+const MODULE_ALIASES = {'工艺库': '工艺参数库', '工艺参数': '工艺参数库', '模板库': '焊接模板库', '统计': '生产统计'};
 
 const text = (value, max) => {
   const trimmed = typeof value === 'string' ? value.trim() : '';
@@ -209,7 +211,228 @@ export const ASSISTANT_ACTION_DEFINITIONS = [
     parameters: {type: 'object', properties: {}},
     validate: () => ({}),
   },
+  {
+    name: 'split_weld_at',
+    title: '按里程打断',
+    danger: true,
+    description: '沿焊缝实际路径，在距起点指定毫米处把焊缝打断为两条；原焊缝保留并屏蔽。',
+    parameters: {
+      type: 'object',
+      properties: {
+        weldId: {type: 'string', description: '要打断的焊缝编号'},
+        distance: {type: 'number', description: '距焊缝起点的毫米值，必须小于焊缝长度'},
+      },
+      required: ['weldId', 'distance'],
+    },
+    validate: args => {
+      const id = weldId(args.weldId);
+      const distance = finite(args.distance, 0.1, 1_000_000);
+      return id && distance !== null ? {weldId: id, distance: Math.round(distance * 100) / 100} : null;
+    },
+  },
+  {
+    name: 'undo_last',
+    title: '撤销上一步',
+    danger: false,
+    description: '撤销最近一次几何编辑：打断、合并或几何处理；没有可撤销记录时返回原因。',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: {type: 'string', enum: ['auto', 'split', 'merge', 'geometry'], description: '默认 auto，自动选择最近一次记录'},
+      },
+    },
+    validate: args => {
+      const kind = args.kind ?? 'auto';
+      return ['auto', 'split', 'merge', 'geometry'].includes(kind) ? {kind} : null;
+    },
+  },
+  {
+    name: 'recheck_welds',
+    title: '复检焊缝',
+    danger: false,
+    description: '对指定焊缝或全部已规划焊缝重新执行匹配与碰撞复检，并保存结果。',
+    parameters: {
+      type: 'object',
+      properties: {weldIds: {type: 'array', items: {type: 'string'}, description: '不填表示全部已规划焊缝'}},
+    },
+    validate: args => {
+      if (args.weldIds === undefined || args.weldIds === null) return {weldIds: null};
+      const ids = weldIds(args.weldIds);
+      return ids ? {weldIds: ids} : null;
+    },
+  },
+  {
+    name: 'publish_task',
+    title: '发布生产任务',
+    danger: false,
+    description: '把当前规划发布或更新到生产执行；建议在复检通过后使用。',
+    parameters: {type: 'object', properties: {}},
+    validate: () => ({}),
+  },
+  {
+    name: 'split_u_wrap_to_l',
+    title: 'U 形包角改 L 形',
+    danger: true,
+    description: '把焊缝上的一处 U 形包角拆成两个 L 形包角并重新规划；原焊缝保留并屏蔽。多处 U 形包角时可省略段号，由界面列出候选供操作员选择。',
+    parameters: {
+      type: 'object',
+      properties: {
+        weldId: {type: 'string', description: '焊缝编号'},
+        segmentIndex: {type: 'integer', description: 'U 形包角短边所在段号，从 1 开始；只有一处时可省略'},
+        side: {type: 'string', enum: ['start', 'end'], description: '包角位于该段的起点或终点，默认起点'},
+      },
+      required: ['weldId'],
+    },
+    validate: args => {
+      const id = weldId(args.weldId);
+      if (!id) return null;
+      const result = {weldId: id};
+      if (args.segmentIndex !== undefined) {
+        if (!Number.isInteger(args.segmentIndex) || args.segmentIndex < 1 || args.segmentIndex > 1000) return null;
+        result.segmentIndex = args.segmentIndex;
+      }
+      if (args.side !== undefined) {
+        if (!['start', 'end'].includes(args.side)) return null;
+        result.side = args.side;
+      }
+      return result;
+    },
+  },
+  {
+    name: 'open_module',
+    title: '打开模块',
+    danger: false,
+    description: '切换到指定的功能模块页面，用于把用户带到需要操作的界面。',
+    parameters: {
+      type: 'object',
+      properties: {module: {type: 'string', enum: ASSISTANT_MODULES, description: '目标模块名称'}},
+      required: ['module'],
+    },
+    validate: args => {
+      const name = MODULE_ALIASES[args.module] ?? args.module;
+      return ASSISTANT_MODULES.includes(name) ? {module: name} : null;
+    },
+  },
+  {
+    name: 'rename_template',
+    title: '重命名焊接模板',
+    danger: false,
+    description: '修改焊接模板库中一个模板的名称；不会改变已应用到焊缝的快照。',
+    parameters: {
+      type: 'object',
+      properties: {
+        templateName: {type: 'string', description: '现有模板名称，必须完全一致'},
+        newName: {type: 'string', description: '新的模板名称'},
+      },
+      required: ['templateName', 'newName'],
+    },
+    validate: args => {
+      const name = text(args.templateName, 80), newName = text(args.newName, 60);
+      return name && newName && name !== newName ? {templateName: name, newName} : null;
+    },
+  },
+  {
+    name: 'delete_template',
+    title: '删除焊接模板',
+    danger: true,
+    description: '从焊接模板库删除一个模板；已应用到焊缝的历史快照保持不变。',
+    parameters: {
+      type: 'object',
+      properties: {templateName: {type: 'string', description: '要删除的模板名称，必须完全一致'}},
+      required: ['templateName'],
+    },
+    validate: args => text(args.templateName, 80) ? {templateName: args.templateName.trim()} : null,
+  },
+  {
+    name: 'rename_process',
+    title: '重命名工艺参数',
+    danger: false,
+    description: '修改工艺库中一条工艺参数的名称；不会改变已应用的快照。',
+    parameters: {
+      type: 'object',
+      properties: {
+        processName: {type: 'string', description: '现有工艺名称，必须完全一致'},
+        newName: {type: 'string', description: '新的工艺名称'},
+      },
+      required: ['processName', 'newName'],
+    },
+    validate: args => {
+      const name = text(args.processName, 80), newName = text(args.newName, 60);
+      return name && newName && name !== newName ? {processName: name, newName} : null;
+    },
+  },
+  {
+    name: 'delete_process',
+    title: '删除工艺参数',
+    danger: true,
+    description: '从工艺库删除一条工艺参数；已应用到焊缝的历史快照保持不变。',
+    parameters: {
+      type: 'object',
+      properties: {processName: {type: 'string', description: '要删除的工艺名称，必须完全一致'}},
+      required: ['processName'],
+    },
+    validate: args => text(args.processName, 80) ? {processName: args.processName.trim()} : null,
+  },
+  {
+    name: 'execution_select',
+    title: '选择执行任务',
+    danger: false,
+    description: '在生产执行中选择已发布任务里的焊缝和道次，用于后续仿真。需先打开生产执行模块。',
+    parameters: {
+      type: 'object',
+      properties: {
+        weldId: {type: 'string', description: '已发布任务中的焊缝编号'},
+        passId: {type: 'string', description: '可选的道次编号'},
+      },
+      required: ['weldId'],
+    },
+    validate: args => {
+      const id = weldId(args.weldId);
+      if (!id) return null;
+      const result = {weldId: id};
+      if (args.passId !== undefined) {
+        const pass = text(args.passId, 60);
+        if (!pass) return null;
+        result.passId = pass;
+      }
+      return result;
+    },
+  },
+  {
+    name: 'execution_run',
+    title: '执行仿真',
+    danger: false,
+    description: '在生产执行中对当前选中的焊缝道次启动一键执行仿真。需先打开生产执行模块并选好道次。',
+    parameters: {type: 'object', properties: {}},
+    validate: () => ({}),
+  },
+  {
+    name: 'execution_stop',
+    title: '终止仿真',
+    danger: false,
+    description: '终止正在运行的生产执行仿真，并保留当前机械臂位置。',
+    parameters: {type: 'object', properties: {}},
+    validate: () => ({}),
+  },
+  {
+    name: 'stats_export_csv',
+    title: '导出统计 CSV',
+    danger: false,
+    description: '导出生产统计当前筛选条件下的 CSV。需先打开生产统计模块。',
+    parameters: {type: 'object', properties: {}},
+    validate: () => ({}),
+  },
+  {
+    name: 'device_apply_changes',
+    title: '应用设备修改',
+    danger: false,
+    description: '把设备控制中尚未应用的设备配置修改写入当前场景。需先打开设备控制模块。',
+    parameters: {type: 'object', properties: {}},
+    validate: () => ({}),
+  },
 ];
+
+export const ASSISTANT_TASK_LIMIT = 5;
 
 const BY_NAME = new Map(ASSISTANT_ACTION_DEFINITIONS.map(definition => [definition.name, definition]));
 
@@ -261,6 +484,24 @@ export function describeAssistantAction(action, labels = {}) {
     case 'create_template': return `以 ${label(args.weldId)} 为来源新建焊接模板`;
     case 'run_planning': return '执行一键规划';
     case 'export_task': return '导出到生产执行';
+    case 'split_weld_at': return `把 ${label(args.weldId)} 在 ${args.distance} mm 处打断`;
+    case 'undo_last': return `撤销最近一次${args.kind === 'split' ? '打断' : args.kind === 'merge' ? '合并' : args.kind === 'geometry' ? '几何处理' : '编辑'}`;
+    case 'recheck_welds': return `复检 ${args.weldIds ? args.weldIds.map(label).join('、') : '全部已规划焊缝'}`;
+    case 'publish_task': return '发布生产任务';
+    case 'split_u_wrap_to_l': {
+      const where = args.segmentIndex ? `段${args.segmentIndex}${args.side === 'end' ? '终点' : '起点'}` : 'U 形包角';
+      return `把 ${label(args.weldId)} 的 ${where} 拆成两个 L 形包角`;
+    }
+    case 'open_module': return `切换到「${args.module}」`;
+    case 'rename_template': return `把模板「${args.templateName}」重命名为「${args.newName}」`;
+    case 'delete_template': return `删除模板「${args.templateName}」`;
+    case 'rename_process': return `把工艺「${args.processName}」重命名为「${args.newName}」`;
+    case 'delete_process': return `删除工艺「${args.processName}」`;
+    case 'execution_select': return `选择执行焊缝 ${label(args.weldId)}${args.passId ? ` 道次 ${args.passId}` : ''}`;
+    case 'execution_run': return '执行生产仿真';
+    case 'execution_stop': return '终止生产仿真';
+    case 'stats_export_csv': return '导出统计 CSV';
+    case 'device_apply_changes': return '应用设备修改';
     default: return '本机操作';
   }
 }

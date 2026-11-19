@@ -1,6 +1,7 @@
+import {assetUrl} from './assetUrl.mjs';
 import React,{useEffect,useRef} from 'react';
 
-export function ProcessAsset({name,className=''}) { return <span className={'process-asset '+className}><img src={'/assets/process-library/'+name+'.svg'} alt=""/></span>; }
+export function ProcessAsset({name,className=''}) { return <span className={'process-asset '+className}><img src={assetUrl('process-library/'+name+'.svg')} alt=""/></span>; }
 
 export default function ProcessFigmaChrome({detail=false,onNavigate,onHelp,onMenu}) {
   const header=useRef();useEffect(()=>{const root=header.current.closest('.app');const size=()=>{const scale=Math.max(.64,Math.min(1,window.innerWidth/1920));root.style.setProperty('--ps',scale+'px');root.style.setProperty('--process-zoom',scale);};size();window.addEventListener('resize',size);return()=>{window.removeEventListener('resize',size);root.style.removeProperty('--ps');root.style.removeProperty('--process-zoom');};},[]);

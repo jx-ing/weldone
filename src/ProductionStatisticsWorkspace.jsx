@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { CalendarDays, Download } from 'lucide-react'
 import { executionCsv, executionDay, readExecutionRecords, sumExecutionMetrics } from './productionStatisticsModel.mjs'
 import {EmptyState, PageHeader} from './WorkspaceUI'
+import {useAssistantCommands} from './assistantCommandBus.mjs'
 import './productionStatistics.css'
 
 const EXECUTION_STATUS_NAMES={running:'执行中',paused:'已暂停',completed:'已完成',stopped:'已停止',error:'失败'}
@@ -38,6 +39,13 @@ export default function ProductionStatisticsWorkspace() {
     const url=URL.createObjectURL(new Blob([executionCsv(filtered)],{type:'text/csv;charset=utf-8'})),a=document.createElement('a')
     a.href=url;a.download=`weldone-${consumables?'耗材':'产量'}统计-${today}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
   }
+  useAssistantCommands('production-statistics',{
+    stats_export_csv:()=>{
+      if(!filtered.length)return {ok:false,message:'当前筛选条件下没有记录可导出'}
+      exportCsv()
+      return {ok:true,message:'已导出当前筛选的统计 CSV'}
+    },
+  })
   return <section className="production-statistics" aria-label="生产统计">
     <PageHeader title="生产统计" actions={<button type="button" className="btn" disabled={!filtered.length} title={filtered.length?'导出当前筛选结果':'当前筛选条件下无记录可导出'} onClick={exportCsv}><Download size={15}/>导出 CSV</button>}/>
     <div className="statistics-body">

@@ -207,6 +207,15 @@ export function wrapGroups(weld){
  });
 }
 
+// The two joints of a U share one physical short leg and one conversion.
+export function uWrapSplitCandidates(weld){
+ if(!weld?.segments?.length)return [];
+ const reversed=weldTravelReversed(weld);
+ return wrapGroups(weld)
+  .filter(group=>group.joints.length===2&&weld.segments[group.segment].strategyWrapKind==='U')
+  .map(group=>({segment:group.segment+1,side:'start',junctionId:group.joints[reversed?1:0]}));
+}
+
 export function weldWrapJunctions(weld){
  const count=weld.segments.length,reversed=weldTravelReversed(weld);
  const joints=new Map();

@@ -1,3 +1,4 @@
+import {assetUrl} from './assetUrl.mjs';
 import {formatDecimal} from './numericPrecision.mjs';
 import NumericInput from './NumericInput.jsx';
 import React from 'react';
@@ -18,16 +19,16 @@ export default function ProcessPointParameterTable({rows,kind,position,editing,o
  const flat=position==='PB';
  const verticalOuter=position==='PF'&&kind==='outer';
  const offsetDiagram=flat
-  ? ['/assets/process-library/flat-'+kind+'-corner-offset.png','平角焊'+corner+'转角点偏移示意图']
+  ? [assetUrl('process-library/flat-'+kind+'-corner-offset.png'),'平角焊'+corner+'转角点偏移示意图']
   : verticalOuter
-   ? ['/assets/process-library/vertical-outer-corner-offset.png','立焊外角转角点偏移示意图']
-   : ['/assets/corner-point-offset.png','转角点偏移示意图'];
+   ? [assetUrl('process-library/vertical-outer-corner-offset.png'),'立焊外角转角点偏移示意图']
+   : [assetUrl('corner-point-offset.png'),'转角点偏移示意图'];
  const headings=[
   ['焊道'],['层数'],
   ...distanceFields.map(([key,caption])=>[
    caption+' (mm)',
-   verticalOuter?'/assets/process-library/vertical-corner-distance-'+key+'.png':
-    flat?'/assets/process-library/corner-distance-'+key+'.png':undefined,
+   verticalOuter?assetUrl('process-library/vertical-corner-distance-'+key+'.png'):
+    flat?assetUrl('process-library/corner-distance-'+key+'.png'):undefined,
    (verticalOuter?'立焊':'')+caption+'示意图'
   ]),
   ['转角速度 (cm/min)'],['转角点偏移 (mm)',...offsetDiagram],

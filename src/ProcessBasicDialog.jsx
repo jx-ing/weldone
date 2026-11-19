@@ -1,3 +1,4 @@
+import {assetUrl} from './assetUrl.mjs';
 import {TextInput,TextArea} from './FormInput.jsx';
 import NumericInput from './NumericInput.jsx';
 import React,{useRef,useState} from 'react';
@@ -10,7 +11,7 @@ import {PROCESS_CATEGORIES,processCategory,processPositionLabel} from './process
 import {validGroove,grooveType,GROOVE_TYPES,grooveFieldsFor,grooveValue} from './grooveModel.mjs';
 import {ensureProcessLayers,processPasses,addProcessLayer,addProcessPass,removeProcessLayer,removeProcessPass,updateProcessPass,MACHINE_MODES,WELDING_MODES} from './processParameterModel.mjs';
 
-export function ProcessFormRow({label,required=false,info=false,children}){return <label className="process-form-row"><span className="process-form-label">{required&&<b>*</b>}{label}{info&&<img src="/assets/process-library/info.svg" alt=""/>}:</span><span className="process-form-control">{children}</span></label>;}
+export function ProcessFormRow({label,required=false,info=false,children}){return <label className="process-form-row"><span className="process-form-label">{required&&<b>*</b>}{label}{info&&<img src={assetUrl('process-library/info.svg')} alt=""/>}:</span><span className="process-form-control">{children}</span></label>;}
 
 export default function ProcessBasicDialog({initial,isNew=false,onConfirm,onClose}) {
  const [draft,setDraft]=useState(()=>ensureProcessLayers(migrateProcessWeldForms(initial))),[error,setError]=useState(''),[discard,setDiscard]=useState(false),[kind,setKind]=useState(initial.processLayers?.length>1||processPasses(initial).length>1?'multi':isNew?'':'single');

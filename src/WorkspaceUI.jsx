@@ -1,3 +1,4 @@
+import {assetUrl} from './assetUrl.mjs';
 import React,{useEffect,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {CircleCheck, CircleAlert, Info, TriangleAlert} from 'lucide-react';
@@ -12,7 +13,7 @@ export function PageHeader({title,breadcrumb,actions,children}) {
 
 export function EmptyState({model=false,text,description,actions,className=''}) {
  return <div className={'empty workspace-empty '+className}>
-  <img src={model?'/assets/empty-model.svg':'/assets/empty-data.svg'} alt=""/>
+  <img src={assetUrl(model?'empty-model.svg':'empty-data.svg')} alt=""/>
   {text&&<p>{text}</p>}
   {description&&<small>{description}</small>}
   {actions&&<div className="empty-actions">{actions}</div>}

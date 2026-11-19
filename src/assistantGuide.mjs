@@ -51,7 +51,7 @@ export function planningAssistantContext({weld, match, trackingIssue, weldCount,
 export function localAssistantAnswer(question, context) {
   const guide = ASSISTANT_GUIDES.find(item => item.question === question) ??
     ASSISTANT_GUIDES.find(item => item.matches.test(question));
-  if (!guide) return '本地指引可以回答一键规划、焊缝排查、规划日志和任务导出。连接模型服务后可自由提问。';
+  if (!guide) return '请输入一项具体操作，例如「打开生产统计」「把 W10001 的焊脚改为 6 mm」或「W10001 拆成两个 L 形包角」。也可以询问一键规划、焊缝排查、日志或任务导出。';
   if (guide.id === 'weld' && context?.weldLines.length) return `${context.weldLines.join('\n')}\n\n${guide.answer}`;
   if (guide.id === 'logs' && context?.recentLogs.length) {
     return `最近的规划日志\n${context.recentLogs.join('\n')}\n\n${guide.answer}`;

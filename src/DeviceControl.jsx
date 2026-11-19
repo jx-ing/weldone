@@ -6,6 +6,7 @@ import {EmptyState, PageHeader} from './WorkspaceUI';
 import {BASE_DEVICE_TYPES,MAX_ADDITIONAL_DEVICES,DEVICE_TRACKING_MODES,PRECISION_CAMERA_BRANDS,ROBOT_MOUNTING_OPTIONS,activateDeviceProfile,addDeviceProfile,deviceControlError,enabledPlanningRobots,enabledPrecisionBrands,robotProfiles} from './deviceControlModel.mjs';
 import {DEFAULT_LASER_MOUNT_SIDE,LASER_HORIZONTAL_OFFSET,LASER_MOUNT_SIDES} from './laserCameraMount.mjs';
 import ToolHeadPreview from './ToolHeadPreview';
+import {useAssistantCommands} from './assistantCommandBus.mjs';
 import {addWorkstationDevice,enabledWorkstationRobots,removeWorkstationDevice,workstationDeviceProfiles,workstationSettingsError} from './workstationDevices.mjs';
 import './deviceControl.css';
 
@@ -223,6 +224,14 @@ export default function DeviceControl({value,onSave,coverOpen,onCoverChange,fiel
   event.preventDefault();
   setError(deviceControlError(draft)||await onSave(draft)||'');
  }
+ useAssistantCommands('device-control',{
+  device_apply_changes:async()=>{
+   if(JSON.stringify(draft)===JSON.stringify(value))return {ok:false,message:'当前没有待应用的设备修改'};
+   const failure=deviceControlError(draft)||await onSave(draft)||'';
+   if(failure){setError(failure);return {ok:false,message:failure};}
+   return {ok:true,message:'已应用设备修改'};
+  },
+ });
  return <form className="device-control" aria-label="设备控制" onSubmit={save}>
   <PageHeader title="设备控制" breadcrumb={<span className="dc-status-badge">● {laser?'未初始化':'未连接'}</span>} actions={<SceneActions dirty={dirty} loading={loading} onImport={onImport}/>}/>
   {sceneStatus&&<p role="status" className="dc-workstation-status">{sceneStatus}</p>}
@@ -319,6 +328,14 @@ export function WorkstationDeviceControl({workstation,value=emptySettings,onSave
    setAdding(false);setError('');
   }catch(error){setError(error.message);}
  }
+ useAssistantCommands('device-control-workstation',{
+  device_apply_changes:async()=>{
+   if(!dirty)return {ok:false,message:'当前没有待应用的设备修改'};
+   const failure=workstationSettingsError(workstation.devices,draft)||await onSave(draft)||'';
+   if(failure){setError(failure);return {ok:false,message:failure};}
+   return {ok:true,message:'已应用设备修改'};
+  },
+ });
  const primaryBinding=bindings?.find(binding=>['base','body'].includes(binding.role));
  return <form className="device-control" aria-label="设备控制" onSubmit={async event=>{
   event.preventDefault();
